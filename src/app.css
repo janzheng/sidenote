@@ -1,0 +1,68 @@
+/* @font-face {
+  font-family: 'Drafting';
+  src: url('/fonts/drafting/Drafting[wght].ttf') format('truetype-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Drafting';
+  src: url('/fonts/drafting/Drafting-Italic[wght].ttf') format('truetype-variations');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+} */
+
+/* Tabular Variable Font - Normal */
+@font-face {
+  font-family: 'Tabular';
+  src: url('/fonts/tabular/Tabular-Variable.woff2') format('woff2-variations'),
+       url('/fonts/tabular/Tabular-Variable.woff') format('woff-variations'),
+       url('/fonts/tabular/Tabular-Variable.ttf') format('truetype-variations');
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Tabular Variable Font - Italic */
+@font-face {
+  font-family: 'Tabular';
+  src: url('/fonts/tabular/Tabular-VariableItalic.woff2') format('woff2-variations'),
+       url('/fonts/tabular/Tabular-VariableItalic.woff') format('woff-variations'),
+       url('/fonts/tabular/Tabular-VariableItalic.ttf') format('truetype-variations');
+  font-weight: 300 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base styles for consistent rendering between dev and extension environments */
+html {
+  font-size: 12px; /* Ensure base font size is consistent */
+  font-weight: 500;
+  -webkit-text-size-adjust: 100%; /* Prevent mobile zoom adjustments */
+  -moz-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  width: 100%;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  font-size: 1rem; /* Explicit rem-based font size */
+  line-height: 1.5; /* Comfortable line height */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: 'Tabular', sans-serif;
+}
+
+/* Ensure Chrome extension side panel behaves consistently */
+#app {
+  min-height: 100vh;
+  font-size: 1rem; /* Explicit font size for root app container */
+}

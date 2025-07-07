@@ -1,0 +1,56 @@
+{
+  "manifest_version": 3,
+  "name": "SideNote",
+  "version": "1.0.0",
+  "description": "A side panel Chrome extension",
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "unlimitedStorage",
+    "activeTab",
+    "scripting",
+    "contextMenus",
+    "tabs",
+    "downloads"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "file:///*"
+  ],
+  "action": {
+    "default_title": "Open SideNote",
+    "default_icon": {
+      "16": "icons/sidenote16.png",
+      "32": "icons/sidenote32.png",
+      "48": "icons/sidenote48.png",
+      "64": "icons/sidenote64.png",
+      "128": "icons/sidenote128.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "index.html"
+  },
+  "icons": {
+    "16": "icons/sidenote16.png",
+    "48": "icons/sidenote48.png",
+    "128": "icons/sidenote128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>", "file:///*"],
+      "js": ["content-script.js"],
+      "run_at": "document_end",
+      "all_frames": false
+    }
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["pdf.mjs", "pdf.worker.mjs"],
+      "matches": ["<all_urls>", "file:///*"]
+    }
+  ]
+}
