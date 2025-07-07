@@ -1,4 +1,4 @@
-<script lang="ts">
+<!-- <script lang="ts">
   import { onMount } from 'svelte';
   import { settings, saveSettings as saveSettingsToStore } from '../stores/settings';
   import { chromeStorage } from '../services/chromeStorage';
@@ -647,4 +647,4 @@
       
     </div>
   </div>
-</div> 
+</div>  -->

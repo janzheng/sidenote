@@ -1,3 +1,6 @@
+import type { PageMetadata } from './pageMetadata';
+
+
 export interface TabData {
   content: {
     url: string;

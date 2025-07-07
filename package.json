@@ -9,6 +9,7 @@
     "commit": "git add . && git commit && git push origin main",
     "pack": "git pull origin main && npm run build",
     "preview": "vite preview",
+    "type-check": "svelte-check --tsconfig ./tsconfig.json",
     "check": "svelte-check --tsconfig ./tsconfig.json"
   },
   "devDependencies": {

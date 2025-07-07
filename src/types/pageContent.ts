@@ -1,4 +1,6 @@
 
+import type { PageMetadata } from './pageMetadata';
+
 export interface PageContent {
   url: string;
   cleanUrl: string;
