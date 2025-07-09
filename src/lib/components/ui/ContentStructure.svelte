@@ -4,15 +4,19 @@
   import CopyButton from './CopyButton.svelte';
   import type { ContentNode } from '../../../types/contentNode';
   import { parseContent } from '../../services/parseContent';
+  import { contentStructureManager } from '../../ui/contentStructureManager.svelte';
 
   // Props from DebugPanel
   interface Props {
+    url: string | null;
     content: any | null;
+    contentStructure?: any | null;
     isLoading: boolean;
     error: string | null;
+    onRefresh?: () => void;
   }
   
-  let { content, isLoading, error }: Props = $props();
+  let { url, content, contentStructure, isLoading, error, onRefresh }: Props = $props();
 
   // Component state
   let isExpanded = $state(false);
@@ -23,61 +27,45 @@
   // Store parsed content structure in reactive state
   let parsedContentStructure = $state<any>(null);
   let lastContentHash = $state<string>('');
+  let lastUrl = $state<string>('');
 
-  // Effect to re-parse when content changes and drawer is open
+  // Derived states
+  const hasContentStructure = $derived(!!contentStructure);
+  const canExtract = $derived(url && content && content.html && content.html.length > 0);
+  const isExtracting = $derived(isLoading || contentStructureManager.isParsing);
+
+  // Effect to clear structure when URL changes (like AI Summary)
   $effect(() => {
-    // Create a hash of the current content to detect changes
-    const currentContentHash = content?.html ? content.html.slice(0, 100) + content.html.length : '';
-    
-    // Only re-parse if content actually changed and drawer is open
-    if (isExpanded && content?.html && !hasStructure && currentContentHash !== lastContentHash) {
-      console.log('ContentStructure: Content changed while drawer is open, re-parsing...');
-      lastContentHash = currentContentHash;
-      
-      // Reset parsed structure and re-parse
+    if (url && url !== lastUrl) {
+      console.log('ContentStructure: URL changed, clearing local structure', { oldUrl: lastUrl, newUrl: url });
+      lastUrl = url;
       parsedContentStructure = null;
-      try {
-        const parsed = parseContent({ html: content.html });
-        console.log('ContentStructure: Re-parse result:', parsed);
-        if (parsed.error) {
-          console.warn('ContentStructure: Re-parsing error:', parsed.error);
-        } else if (parsed.contentStructure) {
-          // Store the parsed result in reactive state
-          parsedContentStructure = parsed.contentStructure;
-          console.log('ContentStructure: Stored re-parsed structure:', parsedContentStructure);
-        }
-      } catch (error) {
-        console.error('ContentStructure: Error during content re-parsing:', error);
-      }
+      lastContentHash = '';
+      expandedNodes.clear();
+      expandedNodes = new Set(expandedNodes);
     }
   });
 
-  // Derive content structure from content
-  const contentStructure = $derived(content?.contentStructure || null);
-  const hasStructure = $derived(!!contentStructure);
+  // Handle content structure extraction
+  async function handleExtractStructure() {
+    if (!url || contentStructureManager.isParsing) {
+      return;
+    }
+
+    await contentStructureManager.handleParseContentStructure(url, () => {
+      if (onRefresh) {
+        onRefresh();
+      }
+    });
+  }
+
+  // No automatic parsing - only manual extraction like AI Summary
+
+  // Derive content structure from multiple sources  
   const isParsingStructure = $derived(isLoading);
   const structureParsingError = $derived(error);
 
-  // Handle drawer toggle - trigger parsing when opened
-  function handleDrawerToggle(isExpanded: boolean) {
-    if (isExpanded && content?.html && !hasStructure && !parsedContentStructure) {
-      console.log('ContentStructure: Drawer opened, triggering content parsing...');
-      // Force parsing by calling parseContent directly
-      try {
-        const parsed = parseContent({ html: content.html });
-        console.log('ContentStructure: Parse result:', parsed);
-        if (parsed.error) {
-          console.warn('ContentStructure: Parsing error:', parsed.error);
-        } else if (parsed.contentStructure) {
-          // Store the parsed result in reactive state
-          parsedContentStructure = parsed.contentStructure;
-          console.log('ContentStructure: Stored parsed structure:', parsedContentStructure);
-        }
-      } catch (error) {
-        console.error('ContentStructure: Error during manual parsing:', error);
-      }
-    }
-  }
+  // No automatic drawer toggle parsing - only manual extraction
 
   // Toggle node expansion
   function toggleNode(nodeId: string) {
@@ -206,292 +194,286 @@
     return (node.type === 'content' && !!node.content) || node.children.length > 0;
   }
 
-  // Parse content structure using the service
-  const basicStructure = $derived(() => {
-    if (!hasStructure && !parsedContentStructure && content?.html) {
-      console.log('ContentStructure: basicStructure derived - attempting to parse content');
-      try {
-        const parsed = parseContent({ html: content.html });
-        console.log('ContentStructure: basicStructure parse result:', parsed);
-        if (parsed.error) {
-          console.warn('ContentStructure: Parsing error:', parsed.error);
-          return null;
-        }
-        return parsed.contentStructure;
-      } catch (error) {
-        console.error('ContentStructure: Error parsing content structure:', error);
-        return null;
-      }
-    }
-    return null;
-  });
-
-  const displayStructure = $derived(contentStructure || parsedContentStructure || basicStructure);
+  // Priority: passed contentStructure (from background storage) > local parsed structure
+  // No automatic parsing - only manual extraction like AI Summary
+  const displayStructure = $derived(contentStructure || parsedContentStructure);
 </script>
 
 <ToggleDrawer 
   title="Content Structure" 
-  subtitle="Navigate doc hierarchy"
   bind:isExpanded
-  onToggle={handleDrawerToggle}
 >
-  <!-- Control Buttons -->
-  <div class="space-y-3 mb-4">
-    {#if displayStructure}
-      <!-- Level Controls -->
-      <div class="flex gap-1">
-        <button onclick={() => expandLevel(1)} class="flex-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded font-semibold">
+  {#snippet children()}
+    <!-- About Section -->
+    <div class="py-2">
+      Extract and navigate the hierarchical structure of the page content. Perfect for understanding document organization and quickly jumping to sections.
+    </div>
+
+    <!-- Control Buttons -->
+    <div class="flex gap-2 mb-4">
+      <button 
+        onclick={handleExtractStructure}
+        class="flex-1 px-3 py-2 bg-gray-100 text-gray-900 rounded hover:bg-gray-200 transition-colors font-semibold flex items-center gap-2 justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+        disabled={!canExtract || isExtracting}
+        title={contentStructureManager.parseError || 'Extract Content Structure'}
+      >
+        {#if isExtracting}
+          <Icon icon="mdi:loading" class="animate-spin w-8 h-8" />
+          Extracting...
+        {:else}
+          <Icon icon="mdi:file-tree" class="w-8 h-8 text-blue-600" />
+          <span class="font-semibold px-2 py-1 text-blue-600">{hasContentStructure ? 'Re-extract' : 'Extract'}</span>
+        {/if}
+      </button>
+      
+      {#if displayStructure && !isExtracting}
+        <button 
+          onclick={() => copyStructure('text')}
+          class="px-3 py-2 text-gray-600 hover:text-blue-600 border border-gray-300 rounded transition-colors text-sm flex items-center gap-1"
+          title="Copy structure as text"
+        >
+          <Icon icon="mdi:content-copy" class="w-6 h-6" />
+        </button>
+      {/if}
+    </div>
+
+    <!-- Level Controls (when structure exists) -->
+    {#if displayStructure && !isExtracting}
+      <div class="flex gap-1 mb-4">
+        <button onclick={() => expandLevel(1)} class="flex-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded font-semibold text-xs">
           H1s
         </button>
-        <button onclick={() => expandLevel(2)} class="flex-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded font-semibold">
+        <button onclick={() => expandLevel(2)} class="flex-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded font-semibold text-xs">
           H2s
         </button>
-        <button onclick={() => expandLevel(3)} class="flex-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded font-semibold">
+        <button onclick={() => expandLevel(3)} class="flex-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded font-semibold text-xs">
           H3s
         </button>
-        <button onclick={collapseAll} class="flex-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded font-semibold">
+        <button onclick={collapseAll} class="flex-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded font-semibold text-xs">
           Collapse
         </button>
       </div>
-      
-      <!-- Copy Controls -->
-      <div class="flex gap-1">
-        <button onclick={() => copyStructure('html')} class="flex-1 px-2 py-1 border border-gray-700 hover:border-gray-800 hover:bg-gray-50 text-gray-700 rounded font-semibold flex items-center justify-center gap-1">
-          <Icon icon="mdi:content-copy" class="w-4 h-4" />
-          HTML
-        </button>
-        <button onclick={() => copyStructure('text')} class="flex-1 px-2 py-1 border border-gray-700 hover:border-gray-800 hover:bg-gray-50 text-gray-700 rounded font-semibold flex items-center justify-center gap-1">
-          <Icon icon="mdi:content-copy" class="w-4 h-4" />
-          Text
-        </button>
-      </div>
     {/if}
-  </div>
 
-  <!-- Content Display -->
-  <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded border min-h-[120px] max-h-[400px] overflow-y-auto">
-    {#if structureParsingError}
-      <div class="text-red-600 dark:text-red-400 text-sm flex items-center gap-2">
-        <Icon icon="mdi:alert-circle" class="w-4 h-4" />
-        <div>
-          <div class="font-medium">Structure Parsing Error</div>
-          <div class="text-sm opacity-75">{structureParsingError}</div>
+    <!-- Content Display -->
+    {#if contentStructureManager.parseError}
+      <div class="bg-red-50 border border-red-200 p-3 rounded">
+        <div class="text-red-600 flex items-center gap-2">
+          <Icon icon="mdi:alert-circle" class="w-5 h-5" />
+          <div>
+            <div class="font-medium">Structure Extraction Error</div>
+            <div class="text-sm opacity-75">{contentStructureManager.parseError}</div>
+          </div>
         </div>
       </div>
     {:else if displayStructure}
-      <!-- Stats -->
-      <div class="flex gap-4 mb-3 text-sm text-gray-600 dark:text-gray-400">
-        <span>{displayStructure?.stats?.totalNodes || 0} nodes</span>
-        <span>{displayStructure?.stats?.headerCount || 0} headers</span>
-        <span>{displayStructure?.stats?.contentSections || 0} sections</span>
-        <span>depth {displayStructure?.stats?.maxDepth || 0}</span>
-      </div>
+      <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded border min-h-[120px] max-h-[400px] overflow-y-auto">
+        <!-- Stats -->
+        <div class="flex gap-4 mb-3 text-sm text-gray-600 dark:text-gray-400">
+          <span>{displayStructure?.stats?.totalNodes || 0} nodes</span>
+          <span>{displayStructure?.stats?.headerCount || 0} headers</span>
+          <span>{displayStructure?.stats?.contentSections || 0} sections</span>
+          <span>depth {displayStructure?.stats?.maxDepth || 0}</span>
+        </div>
 
-      <!-- Structure Tree -->
-      <div class="space-y-1" role="tree" aria-label="Content structure tree">
-        {#each displayStructure?.root?.children || [] as node (node.id)}
-          <div 
-            class="rounded transition-colors"
-            class:bg-blue-100={dragOverNode?.id === node.id}
-            role="treeitem"
-            tabindex="0"
-            aria-expanded={expandedNodes.has(node.id)}
-            aria-selected="false"
-            aria-label={`${node.title || 'Content'} - ${node.wordCount || 0} words`}
-          >
+        <!-- Structure Tree -->
+        <div class="space-y-1" role="tree" aria-label="Content structure tree">
+          {#each displayStructure?.root?.children || [] as node (node.id)}
             <div 
-              class="flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-sm"
-              role="button"
+              class="rounded transition-colors"
+              class:bg-blue-100={dragOverNode?.id === node.id}
+              role="treeitem"
               tabindex="0"
               aria-expanded={expandedNodes.has(node.id)}
-              onclick={() => toggleNode(node.id)}
-              onkeydown={(e) => handleKeydown(e, node.id)}
+              aria-selected="false"
+              aria-label={`${node.title || 'Content'} - ${node.wordCount || 0} words`}
             >
-              <span class="text-base">{getNodeIcon(node)}</span>
-              <span class="flex-1 font-medium" class:text-lg={node.level === 1} class:text-base={node.level === 2} class:text-sm={node.level === 3}>
-                {node.title || 'Content'}
-              </span>
-              {#if node.wordCount}
-                <span class="text-sm {getWordCountColor(node.wordCount)}">
-                  {node.wordCount}w
-                </span>
-              {/if}
-              <!-- Copy Button -->
-              <button 
-                type="button"
-                onclick={(e) => e.stopPropagation()}
-                class="inline-flex items-center justify-center"
-                aria-label="Copy {node.type === 'header' ? 'title' : 'content'}"
+              <div 
+                class="flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-sm"
+                role="button"
+                tabindex="0"
+                aria-expanded={expandedNodes.has(node.id)}
+                onclick={() => toggleNode(node.id)}
+                onkeydown={(e) => handleKeydown(e, node.id)}
               >
-                <CopyButton
-                  content={getNodeCopyContent(node)}
-                  buttonClass="p-1 rounded transition-colors hover:bg-gray-200 dark:hover:bg-gray-500 opacity-60 hover:opacity-100"
-                  iconClass="w-3 h-3"
-                  title="Copy {node.type === 'header' ? 'title' : 'content'}"
-                />
-              </button>
-              {#if hasExpandableContent(node)}
-                <span class="text-sm text-gray-500">
-                  {expandedNodes.has(node.id) ? '▼' : '▶'}
+                <span class="text-base">{getNodeIcon(node)}</span>
+                <span class="flex-1 font-medium" class:text-lg={node.level === 1} class:text-base={node.level === 2} class:text-sm={node.level === 3}>
+                  {node.title || 'Content'}
                 </span>
-              {/if}
-            </div>
-            
-            {#if expandedNodes.has(node.id)}
-              <!-- Content preview for expanded content nodes -->
-              {#if node.type === 'content' && node.content}
-                <div class="ml-6 mt-2 p-3 bg-gray-100 dark:bg-gray-600 rounded text-xs text-gray-600 dark:text-gray-300 leading-relaxed border-l-2 border-blue-400">
-                  <div class="whitespace-pre-wrap">{node.content}</div>
-                </div>
-              {/if}
+                {#if node.wordCount}
+                  <span class="text-sm {getWordCountColor(node.wordCount)}">
+                    {node.wordCount}w
+                  </span>
+                {/if}
+                <!-- Copy Button -->
+                <button 
+                  type="button"
+                  onclick={(e) => e.stopPropagation()}
+                  class="inline-flex items-center justify-center"
+                  aria-label="Copy {node.type === 'header' ? 'title' : 'content'}"
+                >
+                  <CopyButton
+                    content={getNodeCopyContent(node)}
+                    buttonClass="p-1 rounded transition-colors hover:bg-gray-200 dark:hover:bg-gray-500 opacity-60 hover:opacity-100"
+                    iconClass="w-3 h-3"
+                    title="Copy {node.type === 'header' ? 'title' : 'content'}"
+                  />
+                </button>
+                {#if hasExpandableContent(node)}
+                  <span class="text-sm text-gray-500">
+                    {expandedNodes.has(node.id) ? '▼' : '▶'}
+                  </span>
+                {/if}
+              </div>
               
-              <!-- Recursively render children -->
-              {#if node.children && node.children.length > 0}
-                <div class="ml-4 mt-2 space-y-1">
-                  {#each node.children as childNode (childNode.id)}
-                    <div 
-                      class="rounded transition-colors"
-                      role="treeitem"
-                      tabindex="0"
-                      aria-expanded={expandedNodes.has(childNode.id)}
-                      aria-selected="false"
-                      aria-label={`${childNode.title || 'Content'} - ${childNode.wordCount || 0} words`}
-                    >
+              {#if expandedNodes.has(node.id)}
+                <!-- Content preview for expanded content nodes -->
+                {#if node.type === 'content' && node.content}
+                  <div class="ml-6 mt-2 p-3 bg-gray-100 dark:bg-gray-600 rounded text-xs text-gray-600 dark:text-gray-300 leading-relaxed border-l-2 border-blue-400">
+                    <div class="whitespace-pre-wrap">{node.content}</div>
+                  </div>
+                {/if}
+                
+                <!-- Recursively render children -->
+                {#if node.children && node.children.length > 0}
+                  <div class="ml-4 mt-2 space-y-1">
+                    {#each node.children as childNode (childNode.id)}
                       <div 
-                        class="flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-sm"
-                        role="button"
+                        class="rounded transition-colors"
+                        role="treeitem"
                         tabindex="0"
                         aria-expanded={expandedNodes.has(childNode.id)}
-                        onclick={() => toggleNode(childNode.id)}
-                        onkeydown={(e) => handleKeydown(e, childNode.id)}
+                        aria-selected="false"
+                        aria-label={`${childNode.title || 'Content'} - ${childNode.wordCount || 0} words`}
                       >
-                        <span class="text-sm">{getNodeIcon(childNode)}</span>
-                        <span class="flex-1 font-medium text-sm" class:text-base={childNode.level === 2} class:text-sm={childNode.level === 3}>
-                          {childNode.title || 'Content'}
-                        </span>
-                        {#if childNode.wordCount}
-                          <span class="text-xs {getWordCountColor(childNode.wordCount)}">
-                            {childNode.wordCount}w
-                          </span>
-                        {/if}
-                        <!-- Copy Button -->
-                        <button 
-                          type="button"
-                          onclick={(e) => e.stopPropagation()}
-                          class="inline-flex items-center justify-center"
-                          aria-label="Copy {childNode.type === 'header' ? 'title' : 'content'}"
+                        <div 
+                          class="flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-sm"
+                          role="button"
+                          tabindex="0"
+                          aria-expanded={expandedNodes.has(childNode.id)}
+                          onclick={() => toggleNode(childNode.id)}
+                          onkeydown={(e) => handleKeydown(e, childNode.id)}
                         >
-                          <CopyButton
-                            content={getNodeCopyContent(childNode)}
-                            buttonClass="p-1 rounded transition-colors hover:bg-gray-200 dark:hover:bg-gray-500 opacity-60 hover:opacity-100"
-                            iconClass="w-3 h-3"
-                            title="Copy {childNode.type === 'header' ? 'title' : 'content'}"
-                          />
-                        </button>
-                        {#if hasExpandableContent(childNode)}
-                          <span class="text-xs text-gray-500">
-                            {expandedNodes.has(childNode.id) ? '▼' : '▶'}
+                          <span class="text-sm">{getNodeIcon(childNode)}</span>
+                          <span class="flex-1 font-medium text-sm" class:text-base={childNode.level === 2} class:text-sm={childNode.level === 3}>
+                            {childNode.title || 'Content'}
                           </span>
-                        {/if}
-                      </div>
-                      
-                      {#if expandedNodes.has(childNode.id)}
-                        <!-- Content preview for expanded content nodes -->
-                        {#if childNode.type === 'content' && childNode.content}
-                          <div class="ml-6 mt-2 p-3 bg-gray-100 dark:bg-gray-600 rounded text-xs text-gray-600 dark:text-gray-300 leading-relaxed border-l-2 border-green-400">
-                            <div class="whitespace-pre-wrap">{childNode.content}</div>
-                          </div>
-                        {/if}
+                          {#if childNode.wordCount}
+                            <span class="text-xs {getWordCountColor(childNode.wordCount)}">
+                              {childNode.wordCount}w
+                            </span>
+                          {/if}
+                          <!-- Copy Button -->
+                          <button 
+                            type="button"
+                            onclick={(e) => e.stopPropagation()}
+                            class="inline-flex items-center justify-center"
+                            aria-label="Copy {childNode.type === 'header' ? 'title' : 'content'}"
+                          >
+                            <CopyButton
+                              content={getNodeCopyContent(childNode)}
+                              buttonClass="p-1 rounded transition-colors hover:bg-gray-200 dark:hover:bg-gray-500 opacity-60 hover:opacity-100"
+                              iconClass="w-3 h-3"
+                              title="Copy {childNode.type === 'header' ? 'title' : 'content'}"
+                            />
+                          </button>
+                          {#if hasExpandableContent(childNode)}
+                            <span class="text-xs text-gray-500">
+                              {expandedNodes.has(childNode.id) ? '▼' : '▶'}
+                            </span>
+                          {/if}
+                        </div>
                         
-                        <!-- Recursively render grandchildren -->
-                        {#if childNode.children && childNode.children.length > 0}
-                          <div class="ml-4 mt-2 space-y-1">
-                            {#each childNode.children as grandChildNode (grandChildNode.id)}
-                              <div 
-                                class="rounded transition-colors"
-                                role="treeitem"
-                                tabindex="0"
-                                aria-expanded={expandedNodes.has(grandChildNode.id)}
-                                aria-selected="false"
-                                aria-label={`${grandChildNode.title || 'Content'} - ${grandChildNode.wordCount || 0} words`}
-                              >
+                        {#if expandedNodes.has(childNode.id)}
+                          <!-- Content preview for expanded content nodes -->
+                          {#if childNode.type === 'content' && childNode.content}
+                            <div class="ml-6 mt-2 p-3 bg-gray-100 dark:bg-gray-600 rounded text-xs text-gray-600 dark:text-gray-300 leading-relaxed border-l-2 border-green-400">
+                              <div class="whitespace-pre-wrap">{childNode.content}</div>
+                            </div>
+                          {/if}
+                          
+                          <!-- Recursively render grandchildren -->
+                          {#if childNode.children && childNode.children.length > 0}
+                            <div class="ml-4 mt-2 space-y-1">
+                              {#each childNode.children as grandChildNode (grandChildNode.id)}
                                 <div 
-                                  class="flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-xs"
-                                  role="button"
+                                  class="rounded transition-colors"
+                                  role="treeitem"
                                   tabindex="0"
                                   aria-expanded={expandedNodes.has(grandChildNode.id)}
-                                  onclick={() => toggleNode(grandChildNode.id)}
-                                  onkeydown={(e) => handleKeydown(e, grandChildNode.id)}
+                                  aria-selected="false"
+                                  aria-label={`${grandChildNode.title || 'Content'} - ${grandChildNode.wordCount || 0} words`}
                                 >
-                                  <span class="text-xs">{getNodeIcon(grandChildNode)}</span>
-                                  <span class="flex-1 font-medium text-xs">
-                                    {grandChildNode.title || 'Content'}
-                                  </span>
-                                  {#if grandChildNode.wordCount}
-                                    <span class="text-xs {getWordCountColor(grandChildNode.wordCount)}">
-                                      {grandChildNode.wordCount}w
-                                    </span>
-                                  {/if}
-                                  <!-- Copy Button -->
-                                  <button 
-                                    type="button"
-                                    onclick={(e) => e.stopPropagation()}
-                                    class="inline-flex items-center justify-center"
-                                    aria-label="Copy {grandChildNode.type === 'header' ? 'title' : 'content'}"
+                                  <div 
+                                    class="flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-xs"
+                                    role="button"
+                                    tabindex="0"
+                                    aria-expanded={expandedNodes.has(grandChildNode.id)}
+                                    onclick={() => toggleNode(grandChildNode.id)}
+                                    onkeydown={(e) => handleKeydown(e, grandChildNode.id)}
                                   >
-                                    <CopyButton
-                                      content={getNodeCopyContent(grandChildNode)}
-                                      buttonClass="p-1 rounded transition-colors hover:bg-gray-200 dark:hover:bg-gray-500 opacity-60 hover:opacity-100"
-                                      iconClass="w-2 h-2"
-                                      title="Copy {grandChildNode.type === 'header' ? 'title' : 'content'}"
-                                    />
-                                  </button>
-                                  {#if hasExpandableContent(grandChildNode)}
-                                    <span class="text-xs text-gray-500">
-                                      {expandedNodes.has(grandChildNode.id) ? '▼' : '▶'}
+                                    <span class="text-xs">{getNodeIcon(grandChildNode)}</span>
+                                    <span class="flex-1 font-medium text-xs">
+                                      {grandChildNode.title || 'Content'}
                                     </span>
+                                    {#if grandChildNode.wordCount}
+                                      <span class="text-xs {getWordCountColor(grandChildNode.wordCount)}">
+                                        {grandChildNode.wordCount}w
+                                      </span>
+                                    {/if}
+                                    <!-- Copy Button -->
+                                    <button 
+                                      type="button"
+                                      onclick={(e) => e.stopPropagation()}
+                                      class="inline-flex items-center justify-center"
+                                      aria-label="Copy {grandChildNode.type === 'header' ? 'title' : 'content'}"
+                                    >
+                                      <CopyButton
+                                        content={getNodeCopyContent(grandChildNode)}
+                                        buttonClass="p-1 rounded transition-colors hover:bg-gray-200 dark:hover:bg-gray-500 opacity-60 hover:opacity-100"
+                                        iconClass="w-2 h-2"
+                                        title="Copy {grandChildNode.type === 'header' ? 'title' : 'content'}"
+                                      />
+                                    </button>
+                                    {#if hasExpandableContent(grandChildNode)}
+                                      <span class="text-xs text-gray-500">
+                                        {expandedNodes.has(grandChildNode.id) ? '▼' : '▶'}
+                                      </span>
+                                    {/if}
+                                  </div>
+                                  
+                                  {#if expandedNodes.has(grandChildNode.id)}
+                                    <!-- Content preview for expanded content nodes -->
+                                    {#if grandChildNode.type === 'content' && grandChildNode.content}
+                                      <div class="ml-6 mt-2 p-3 bg-gray-100 dark:bg-gray-600 rounded text-xs text-gray-600 dark:text-gray-300 leading-relaxed border-l-2 border-yellow-400">
+                                        <div class="whitespace-pre-wrap">{grandChildNode.content}</div>
+                                      </div>
+                                    {/if}
                                   {/if}
                                 </div>
-                                
-                                {#if expandedNodes.has(grandChildNode.id)}
-                                  <!-- Content preview for expanded content nodes -->
-                                  {#if grandChildNode.type === 'content' && grandChildNode.content}
-                                    <div class="ml-6 mt-2 p-3 bg-gray-100 dark:bg-gray-600 rounded text-xs text-gray-600 dark:text-gray-300 leading-relaxed border-l-2 border-yellow-400">
-                                      <div class="whitespace-pre-wrap">{grandChildNode.content}</div>
-                                    </div>
-                                  {/if}
-                                {/if}
-                              </div>
-                            {/each}
-                          </div>
+                              {/each}
+                            </div>
+                          {/if}
                         {/if}
-                      {/if}
-                    </div>
-                  {/each}
-                </div>
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
               {/if}
-            {/if}
-          </div>
-        {/each}
-      </div>
-    {:else if !content?.html}
-      <div class="text-gray-500 italic text-sm text-center py-8 flex flex-col items-center gap-2">
-        <Icon icon="mdi:file-document-outline" class="w-8 h-8 opacity-50" />
-        <div>No content available</div>
-      </div>
-    {:else if isParsingStructure}
-      <div class="text-blue-600 dark:text-blue-400 text-sm flex items-center gap-2 justify-center py-8">
-        <Icon icon="mdi:loading" class="animate-spin w-4 h-4" />
-        <div>Parsing content structure...</div>
-      </div>
-    {:else}
-      <div class="text-gray-500 italic text-sm text-center py-8 flex flex-col items-center gap-2">
-        <Icon icon="mdi:file-tree" class="w-8 h-8 opacity-50" />
-        <div class="font-medium">Content Structure</div>
-        <div class="text-sm opacity-75 max-w-xs text-center">
-          Analyzing document hierarchy...
+            </div>
+          {/each}
         </div>
       </div>
+    {:else if !canExtract}
+      <div class="text-gray-500 italic text-center py-8 flex flex-col items-center gap-2">
+        <Icon icon="mdi:file-document-outline" class="w-8 h-8 opacity-50" />
+        <div>No page content available to extract structure</div>
+        {#if !url}
+          <div class="text-xs">Waiting for page URL...</div>
+        {:else if !content?.html}
+          <div class="text-xs">No HTML content found</div>
+        {/if}
+      </div>
     {/if}
-  </div>
+  {/snippet}
 </ToggleDrawer> 

@@ -15,38 +15,38 @@
   let { panelManager, collapsiblesOnly = false }: Props = $props();
 
   // Reactive state derived from panelManager
-  const content = $derived(panelManager.content);
+  const panelManagerContent = $derived(panelManager.content);
+  const content = $derived(panelManagerContent?.content);
+  const contentStructure = $derived(panelManagerContent?.analysis?.contentStructure);
   const isLoading = $derived(panelManager.isLoading);
   const error = $derived(panelManager.error);
   const tabId = $derived(panelManager.tabId);
   const url = $derived(panelManager.url);
   const title = $derived(panelManager.title);
 
-  console.log('panel manager data', panelManager);
-
   // Create simplified debug data based on current TabData structure
   const debugData = $derived({
     tabId: tabId,
     url: url || '',
     title: title || '',
-    contentExists: !!content,
-    textLength: content?.content?.text?.length || 0,
-    wordCount: content?.content?.wordCount || 0,
-    extractedAt: content?.content?.extractedAt || null,
+    contentExists: !!panelManagerContent,
+    textLength: panelManagerContent?.content?.text?.length || 0,
+    wordCount: panelManagerContent?.content?.wordCount || 0,
+    extractedAt: panelManagerContent?.content?.extractedAt || null,
     isLoading: isLoading,
     error: error,
-    contentId: content?.meta?.contentId || `${url || 'unknown'}-${tabId || 'unknown'}`,
-    lastUpdated: content?.meta?.lastUpdated || null,
-    bookmarkStatus: content?.statuses?.bookmarkStatus || 'not-bookmarked'
+    contentId: panelManagerContent?.meta?.contentId || `${url || 'unknown'}-${tabId || 'unknown'}`,
+    lastUpdated: panelManagerContent?.meta?.lastUpdated || null,
+    bookmarkStatus: panelManagerContent?.statuses?.bookmarkStatus || 'not-bookmarked'
   });
 
   // Derived content data for display
-  const contentPreview = $derived(content?.content?.text?.substring(0, 500) || '');
-  const htmlPreview = $derived(content?.content?.html?.substring(0, 500) || '');
-  const metadataDisplay = $derived(content?.content?.metadata ? JSON.stringify(content.content.metadata, null, 2) : '');
-  const fullContentDisplay = $derived(content ? JSON.stringify(content, null, 2) : '');
+  const contentPreview = $derived(panelManagerContent?.content?.text?.substring(0, 500) || '');
+  const htmlPreview = $derived(panelManagerContent?.content?.html?.substring(0, 500) || '');
+  const metadataDisplay = $derived(panelManagerContent?.content?.metadata ? JSON.stringify(panelManagerContent.content.metadata, null, 2) : '');
+  const fullContentDisplay = $derived(panelManagerContent ? JSON.stringify(panelManagerContent, null, 2) : '');
 
-  // Helper functions
+  // Helper functions 
   function formatTimestamp(timestamp: number | null): string {
     if (!timestamp) return 'Never';
     return new Date(timestamp).toLocaleString();
@@ -64,40 +64,63 @@
     return fullContentDisplay.length * 2; // Rough estimate (UTF-16)
   }
 
-  // Actions
-  function handleRefresh() {
-    panelManager.refresh();
-  }
-
-  function handleCopyUrl() {
-    if (url) {
-      navigator.clipboard.writeText(url);
-    }
-  }
-
-  function handleCopyContent() {
-    if (content?.content?.text) {
-      navigator.clipboard.writeText(content.content.text);
-    }
-  }
-
-  function handleCopyMarkdown() {
-    if (content?.content?.markdown) {
-      navigator.clipboard.writeText(content.content.markdown);
-    }
-  }
 </script>
 
 {#snippet collapsibleSections()}
   
   <div class="space-y-2">
     <div>
-      <ContentReader {content} {isLoading} {error} />
+      <ContentReader content={content} {isLoading} {error} />
     </div>
 
     <div>
-      <ContentStructure {content} {isLoading} {error} />
+      <ContentStructure url={url} content={content} {contentStructure} {isLoading} {error} onRefresh={() => panelManager.refreshDataOnly()} />
     </div>
+
+    <!-- New Citation Metadata Section -->
+    {#if panelManager.hasCitations}
+      <CollapsibleContent
+        title="Citation Metadata {panelManager.isAcademicPaper ? '📚 Academic Paper' : ''}"
+        content={JSON.stringify(panelManager.citations, null, 2)}
+        itemCount="{Object.keys(panelManager.citations || {}).length} fields{panelManager.citationSummary ? ` • ${panelManager.citationSummary.substring(0, 100)}${panelManager.citationSummary.length > 100 ? '...' : ''}` : ''}"
+        emptyMessage="No citation metadata available"
+        {isLoading}
+      />
+    {/if}
+
+    <!-- Enhanced Metadata Section -->
+    {#if panelManager.hasSchemaData || panelManager.imageCount > 0 || panelManager.internalLinkCount > 0}
+      <CollapsibleContent
+        title="Enhanced Metadata"
+        content={JSON.stringify({
+          schemaData: panelManager.schemaData,
+          images: panelManager.images,
+          links: panelManager.links,
+          headings: panelManager.headings,
+          openGraph: {
+            title: panelManager.ogTitle,
+            description: panelManager.ogDescription,
+            image: panelManager.ogImage,
+            type: panelManager.ogType
+          },
+          twitterCard: {
+            card: panelManager.twitterCard,
+            title: panelManager.twitterTitle,
+            description: panelManager.twitterDescription,
+            image: panelManager.twitterImage
+          }
+        }, null, 2)}
+        itemCount={[
+          panelManager.imageCount > 0 ? `${panelManager.imageCount}imgs` : null,
+          panelManager.internalLinkCount + panelManager.externalLinkCount > 0 ? `${panelManager.internalLinkCount + panelManager.externalLinkCount}lnks` : null,
+          panelManager.h1Count + panelManager.h2Count + panelManager.h3Count > 0 ? `${panelManager.h1Count + panelManager.h2Count + panelManager.h3Count}hdgs` : null,
+          panelManager.ogTitle ? 'og' : null,
+          panelManager.twitterCard ? 'twtr' : null
+        ].filter(Boolean).join('•')}
+        emptyMessage="No enhanced metadata available"
+        {isLoading}
+      />
+    {/if}
 
     <CollapsibleContent
       title="Debug Data"
@@ -115,27 +138,27 @@
       {isLoading}
     />
 
-    {#if content?.content}
+    {#if panelManagerContent?.content}
       <CollapsibleContent
         title="Text Content"
-        content={content.content.text || ''}
-        itemCount="{content.content.text?.length || 0} chars"
+        content={panelManagerContent.content.text || ''}
+        itemCount="{panelManagerContent.content.text?.length || 0} chars"
         emptyMessage="No text content available"
         {isLoading}
       />
 
       <CollapsibleContent
         title="HTML Content"
-        content={content.content.html || ''}
-        itemCount="{content.content.html?.length || 0} chars"
+        content={panelManagerContent.content.html || ''}
+        itemCount="{panelManagerContent.content.html?.length || 0} chars"
         emptyMessage="No HTML content available"
         {isLoading}
       />
 
       <CollapsibleContent
         title="Markdown Content"
-        content={content.content.markdown || ''}
-        itemCount="{content.content.markdown?.length || 0} chars"
+        content={panelManagerContent.content.markdown || ''}
+        itemCount="{panelManagerContent.content.markdown?.length || 0} chars"
         emptyMessage="No Markdown content available"
         {isLoading}
       />
@@ -143,7 +166,7 @@
       <CollapsibleContent
         title="Metadata"
         content={metadataDisplay}
-        itemCount="{Object.keys(content.content.metadata || {}).length} fields"
+        itemCount="{Object.keys(panelManagerContent.content.metadata || {}).length} fields"
         emptyMessage="No metadata available"
         {isLoading}
       />

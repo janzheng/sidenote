@@ -1,4 +1,4 @@
-import { extractMetadata } from './extractMetadata';
+import { extractMetadata, cleanUrl } from './extractMetadata';
 import { contentDataController } from '../../lib/services/dataController';
 
 import TurndownService from 'turndown';
@@ -70,35 +70,44 @@ function createTurndownService(): TurndownService {
  */
 export async function extractContent(): Promise<ContentExtractionResult> {
   try {
-    console.log('📄 Extracting content for:', window.location.href);
+    const currentUrl = window.location.href;
+    const cleanedUrl = cleanUrl(currentUrl);
+    
+    console.log('📄 Extracting content for:', currentUrl);
+    if (currentUrl !== cleanedUrl) {
+      console.log('📄 Cleaned URL:', cleanedUrl);
+    }
     
     // Create Turndown service
     const turndownService = createTurndownService();
     const markdown = turndownService.turndown(document.documentElement.outerHTML);
+    
     // Calculate word count
     const wordCount = document.body.innerText.split(/\s+/).filter(word => word.length > 0).length;
 
+    // Extract comprehensive metadata
+    const metadata = extractMetadata();
     
     // Extract all content
     const content = {
-      url: window.location.href,
+      url: cleanedUrl, // Use cleaned URL
       text: document.body.innerText,
       html: document.documentElement.outerHTML,
       title: document.title,
-      metadata: extractMetadata(),
+      metadata: metadata,
       markdown: markdown,
       wordCount: wordCount,
       extractedAt: Date.now()
     };
     
     // Save to data controller - this will merge with existing data preserving statuses
-    const saveSuccess = await contentDataController.saveData(content.url, {
+    const saveSuccess = await contentDataController.saveData(cleanedUrl, {
       content: {
-        url: content.url,
+        url: cleanedUrl,
         text: content.text,
         html: content.html,
         title: content.title,
-        metadata: content.metadata,
+        metadata: metadata,
         markdown: markdown,
         wordCount: wordCount,
         extractedAt: Date.now()
@@ -110,12 +119,14 @@ export async function extractContent(): Promise<ContentExtractionResult> {
     }
     
     console.log('📄 Content extracted:', {
-      url: content.url,
+      url: cleanedUrl,
       textLength: content.text.length,
       htmlLength: content.html.length,
       markdownLength: markdown.length,
       title: content.title,
       wordCount: wordCount,
+      hasSchemaData: !!metadata.schemaData,
+      hasCitations: !!metadata.citations,
       saved: saveSuccess
     });
     

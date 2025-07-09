@@ -7,6 +7,7 @@ import { handleContentExtraction } from './tasks/handleContentExtraction';
 import { handleManualContentSetting } from './tasks/handleManualContentSetting';
 import { handleBookmarking, getBookmarkStatus } from './tasks/handleBookmarking';
 import { handleSummaryGeneration, getSummaryStatus } from './tasks/handleSummaryGeneration';
+import { handleContentStructureParsing, getContentStructureStatus } from './tasks/handleContentStructureParsing';
 import { DataController } from '../lib/services/dataController';
 
 // Shared data controller instance for background context
@@ -60,6 +61,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'getSummaryStatus') {
     const { url } = message;
     getSummaryStatus(url).then(status => {
+      sendResponse({ success: true, status });
+    }).catch(error => {
+      sendResponse({ success: false, error: error.message });
+    });
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle content structure parsing requests
+  if (message.action === 'parseContentStructure') {
+    const { url } = message;
+    handleContentStructureParsing(url, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle content structure status requests
+  if (message.action === 'getContentStructureStatus') {
+    const { url } = message;
+    getContentStructureStatus(url).then(status => {
       sendResponse({ success: true, status });
     }).catch(error => {
       sendResponse({ success: false, error: error.message });

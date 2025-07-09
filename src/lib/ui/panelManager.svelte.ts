@@ -64,6 +64,210 @@ export class PanelManager {
     return this.state.content?.content?.wordCount || 0;
   }
 
+  // Enhanced metadata getters for the new citation capabilities
+  get citations() {
+    return this.state.content?.content?.metadata?.citations || null;
+  }
+  
+  get hasCitations() {
+    return !!this.citations && Object.keys(this.citations).length > 0;
+  }
+  
+  get doi() {
+    return this.citations?.doi || null;
+  }
+  
+  get pmid() {
+    return this.citations?.pmid || null;
+  }
+  
+  get arxiv() {
+    return this.citations?.arxiv || null;
+  }
+  
+  get authors() {
+    return this.citations?.authors || [];
+  }
+  
+  get firstAuthor() {
+    return this.citations?.first_author || null;
+  }
+  
+  get journal() {
+    return this.citations?.journal || null;
+  }
+  
+  get publicationDate() {
+    return this.citations?.publication_date || null;
+  }
+  
+  get publicationYear() {
+    return this.citations?.year || null;
+  }
+  
+  get articleType() {
+    return this.citations?.type || null;
+  }
+  
+  get abstract() {
+    return this.citations?.abstract_meta || null;
+  }
+  
+  get pdfUrl() {
+    return this.citations?.pdf_url || null;
+  }
+  
+  get abstractUrl() {
+    return this.citations?.abstract_url || null;
+  }
+  
+  // Schema.org/JSON-LD data getters
+  get schemaData() {
+    return this.state.content?.content?.metadata?.schemaData || [];
+  }
+  
+  get hasSchemaData() {
+    return this.schemaData.length > 0;
+  }
+  
+  get schemaType() {
+    return this.state.content?.content?.metadata?.schemaType || null;
+  }
+  
+  // Enhanced metadata getters
+  get images() {
+    return this.state.content?.content?.metadata?.images || null;
+  }
+  
+  get imageCount() {
+    return this.images?.count || 0;
+  }
+  
+  get uniqueImageCount() {
+    return this.images?.uniqueCount || 0;
+  }
+  
+  get links() {
+    return this.state.content?.content?.metadata?.links || null;
+  }
+  
+  get internalLinkCount() {
+    return this.links?.internal || 0;
+  }
+  
+  get externalLinkCount() {
+    return this.links?.external || 0;
+  }
+  
+  get headings() {
+    return this.state.content?.content?.metadata?.headings || null;
+  }
+  
+  get h1Count() {
+    return this.headings?.h1?.length || 0;
+  }
+  
+  get h2Count() {
+    return this.headings?.h2?.length || 0;
+  }
+  
+  get h3Count() {
+    return this.headings?.h3?.length || 0;
+  }
+  
+  // Open Graph getters
+  get ogTitle() {
+    return this.state.content?.content?.metadata?.ogTitle || null;
+  }
+  
+  get ogDescription() {
+    return this.state.content?.content?.metadata?.ogDescription || null;
+  }
+  
+  get ogImage() {
+    return this.state.content?.content?.metadata?.ogImage || null;
+  }
+  
+  get ogType() {
+    return this.state.content?.content?.metadata?.ogType || null;
+  }
+  
+  // Twitter Card getters
+  get twitterCard() {
+    return this.state.content?.content?.metadata?.twitterCard || null;
+  }
+  
+  get twitterTitle() {
+    return this.state.content?.content?.metadata?.twitterTitle || null;
+  }
+  
+  get twitterDescription() {
+    return this.state.content?.content?.metadata?.twitterDescription || null;
+  }
+  
+  get twitterImage() {
+    return this.state.content?.content?.metadata?.twitterImage || null;
+  }
+  
+  // Helper method to get all available identifiers
+  get allIdentifiers() {
+    if (!this.citations) return {};
+    
+    const identifiers: Record<string, string> = {};
+    
+    if (this.citations.doi) identifiers.DOI = this.citations.doi;
+    if (this.citations.pmid) identifiers.PMID = this.citations.pmid;
+    if (this.citations.pmcid) identifiers.PMCID = this.citations.pmcid;
+    if (this.citations.arxiv) identifiers.arXiv = this.citations.arxiv;
+    if (this.citations.isbn) identifiers.ISBN = this.citations.isbn;
+    if (this.citations.issn) identifiers.ISSN = this.citations.issn;
+    
+    return identifiers;
+  }
+  
+  // Helper method to check if this is an academic/research paper
+  get isAcademicPaper() {
+    return !!(this.doi || this.pmid || this.arxiv || this.journal);
+  }
+  
+  // Helper method to get citation summary
+  get citationSummary() {
+    if (!this.hasCitations) return null;
+    
+    const parts: string[] = [];
+    
+    if (this.firstAuthor) {
+      const authorPart = this.authors.length > 1 
+        ? `${this.firstAuthor} et al.` 
+        : this.firstAuthor;
+      parts.push(authorPart);
+    }
+    
+    if (this.publicationYear) {
+      parts.push(`(${this.publicationYear})`);
+    }
+    
+    if (this.citations?.title) {
+      parts.push(`"${this.citations.title}"`);
+    }
+    
+    if (this.journal) {
+      let journalPart = this.journal;
+      if (this.citations?.volume) {
+        journalPart += ` ${this.citations.volume}`;
+        if (this.citations?.issue) {
+          journalPart += `(${this.citations.issue})`;
+        }
+      }
+      if (this.citations?.pages) {
+        journalPart += `: ${this.citations.pages}`;
+      }
+      parts.push(journalPart);
+    }
+    
+    return parts.join('. ');
+  }
+
   private async initialize() {
     console.log('🎯 Initializing panel manager');
     
@@ -249,6 +453,8 @@ export class PanelManager {
       
       if (response.success && response.data) {
         console.log('✅ Content extracted successfully');
+        console.log('🔍 Citation metadata found:', !!response.data?.content?.metadata?.citations);
+        console.log('🔍 Schema data found:', !!response.data?.content?.metadata?.schemaData);
         this.state.content = response.data;
         this.lastExtractedUrl = this.state.url; // Mark as extracted
       } else {

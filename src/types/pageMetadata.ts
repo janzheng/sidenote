@@ -69,4 +69,68 @@ export interface PageMetadata {
     external: number;
   };
 
+  // Academic/Citation metadata
+  citations?: {
+    // Core identifiers
+    doi?: string;
+    pmid?: string;
+    pmcid?: string;
+    arxiv?: string;
+    isbn?: string;
+    issn?: string;
+
+    // Publication details
+    journal?: string;
+    volume?: string;
+    issue?: string;
+    pages?: string;
+    publication_date?: string;
+    year?: string;
+    type?: string;
+    format?: string;
+
+    // Author information
+    authors?: string[];
+    first_author?: string;
+    last_author?: string;
+
+    // Content
+    title?: string;
+    abstract_meta?: string;
+    keywords_meta?: string[];
+
+    // URLs
+    abstract_url?: string;
+    pdf_url?: string;
+    url?: string;
+
+    // Dublin Core fields
+    coverage?: string;
+    rights?: string;
+    date_scheme?: string;
+    identifier?: string;
+    publisher_id?: string;
+
+    // AAAS-specific fields
+    issue_date?: string;
+    nlm_article_type?: string;
+    view_type?: string;
+    in_press?: boolean;
+    first_release?: boolean;
+    aaas_program?: string;
+    subject?: string;
+    access_type?: string;
+    free_access?: boolean;
+    open_access?: boolean;
+    user_access?: {
+      access_method?: string;
+      registered_user?: boolean;
+      authenticated?: boolean;
+      entitled?: boolean;
+      has_access?: boolean;
+    };
+
+    // Dynamic identifier fields (for scheme-based identifiers)
+    [key: string]: any;
+  };
 }
