@@ -7,6 +7,7 @@
   import ManualContentInput from './lib/components/ManualContentInput.svelte';
   import DebugPanel from './lib/components/DebugPanel.svelte';
   import AiSummary from './lib/components/AiSummary.svelte';
+  import Threadgirl from './lib/components/Threadgirl.svelte';
   import Citations from './lib/components/Citations.svelte';
   import AiChat from './lib/components/AiChat.svelte';
   import Icon from "@iconify/svelte";
@@ -177,8 +178,6 @@
         </div>
       {/if}
 
-      
-
       <!-- AI Chat Component -->
       {#if currentTab === 'content' && panelManager.content}
         <div class="">
@@ -201,6 +200,19 @@
             citations={panelManager.content.analysis?.citations}
             isGenerating={panelManager.content.processing?.citations?.isGenerating || false}
             onRefresh={() => panelManager.refresh()}
+          />
+        </div>
+      {/if}
+
+      <!-- Threadgirl Component -->
+      {#if currentTab === 'content' && panelManager.content}
+        <div class="">
+          <Threadgirl 
+            url={panelManager.url}
+            content={panelManager.content.content}
+            threadgirlResults={panelManager.content.analysis?.threadgirlResults}
+            isProcessing={panelManager.content.processing?.threadgirl?.isProcessing || false}
+            onRefresh={() => panelManager.refreshDataOnly()}
           />
         </div>
       {/if}

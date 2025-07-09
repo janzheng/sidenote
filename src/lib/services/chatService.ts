@@ -54,7 +54,7 @@ export class ChatService {
 **Word Count:** ${wordCount}
 
 **Content:**
-${text.substring(0, 6000)}${text.length > 6000 ? '...\n\n[Content truncated for length]' : ''}
+${text.substring(0, 10000)}${text.length > 10000 ? '...\n\n[Content truncated for length]' : ''}
 
 Your role is to:
 1. Answer questions about the content accurately
@@ -63,7 +63,7 @@ Your role is to:
 4. Reference specific parts of the content when relevant
 5. Be conversational and helpful
 
-Always base your responses on the provided content when possible. If asked about something not in the content, clearly state that and provide general knowledge if appropriate.`;
+Always base your responses on the provided content when possible. If asked about something not in the content, clearly state that and provide general knowledge if appropriate. Also try to mirror the tone and style of the user's message; if the user is casual, be casual, if the user is formal, be formal!`;
 
       // Prepare conversation history
       const conversationHistory: ChatMessage[] = [

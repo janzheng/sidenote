@@ -59,7 +59,7 @@ Write in clear, professional prose. Focus on accuracy and usefulness.`;
 **Word Count:** ${wordCount}
 
 **Content:**
-${text.substring(0, 8000)}${text.length > 8000 ? '...\n\n[Content truncated for length]' : ''}
+${text.substring(0, 10000)}${text.length > 10000 ? '...\n\n[Content truncated for length]' : ''}
 
 Provide a comprehensive but concise summary.`;
 

@@ -28,7 +28,9 @@ export async function handleSummaryGeneration(url: string, sendResponse: (respon
       processing: { 
         summary: { isStreaming: true, error: null },
         citations: tabData.processing?.citations || { isGenerating: false, error: null },
-        researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null }
+        researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
+        chat: tabData.processing?.chat || { isGenerating: false, error: null },
+        threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null }
       }
     });
 
@@ -42,12 +44,16 @@ export async function handleSummaryGeneration(url: string, sendResponse: (respon
           summary: summaryResult.summary,
           citations: tabData.analysis?.citations || null,
           researchPaper: tabData.analysis?.researchPaper || null,
-          contentStructure: tabData.analysis?.contentStructure || null
+          contentStructure: tabData.analysis?.contentStructure || null,
+          chatMessages: tabData.analysis?.chatMessages || null,
+          threadgirlResults: tabData.analysis?.threadgirlResults || null
         },
         processing: { 
           summary: { isStreaming: false, error: null },
           citations: tabData.processing?.citations || { isGenerating: false, error: null },
-          researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null }
+          researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
+          chat: tabData.processing?.chat || { isGenerating: false, error: null },
+          threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null }
         }
       });
       
@@ -69,7 +75,9 @@ export async function handleSummaryGeneration(url: string, sendResponse: (respon
         processing: { 
           summary: { isStreaming: false, error: summaryResult.error || 'Unknown error' },
           citations: tabData.processing?.citations || { isGenerating: false, error: null },
-          researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null }
+          researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
+          chat: tabData.processing?.chat || { isGenerating: false, error: null },
+          threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null }
         }
       });
       
@@ -89,7 +97,9 @@ export async function handleSummaryGeneration(url: string, sendResponse: (respon
         processing: { 
           summary: { isStreaming: false, error: error instanceof Error ? error.message : 'Unknown error' },
           citations: { isGenerating: false, error: null },
-          researchPaper: { isExtracting: false, progress: '', error: null }
+          researchPaper: { isExtracting: false, progress: '', error: null },
+          chat: { isGenerating: false, error: null },
+          threadgirl: { isProcessing: false, error: null }
         }
       });
     } catch (saveError) {

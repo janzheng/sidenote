@@ -9,6 +9,7 @@ import { handleBookmarking, getBookmarkStatus } from './tasks/handleBookmarking'
 import { handleSummaryGeneration, getSummaryStatus } from './tasks/handleSummaryGeneration';
 import { handleContentStructureParsing, getContentStructureStatus } from './tasks/handleContentStructureParsing';
 import { handleChatMessage, handleClearChatHistory, getChatStatus } from './tasks/handleChatMessage';
+import { handleThreadgirlProcessing, getThreadgirlStatus } from './tasks/handleThreadgirlProcessing';
 import { DataController } from '../lib/services/dataController';
 
 // Shared data controller instance for background context
@@ -105,6 +106,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'getChatStatus') {
     const { url } = message;
     getChatStatus(url).then(status => {
+      sendResponse({ success: true, status });
+    }).catch(error => {
+      sendResponse({ success: false, error: error.message });
+    });
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle Threadgirl processing requests
+  if (message.action === 'processWithThreadgirl') {
+    const { url, prompt, model, externalResult } = message;
+    handleThreadgirlProcessing(url, prompt, model || 'llama-3.1-8b-instant', sendResponse, externalResult);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle Threadgirl status requests
+  if (message.action === 'getThreadgirlStatus') {
+    const { url } = message;
+    getThreadgirlStatus(url).then(status => {
       sendResponse({ success: true, status });
     }).catch(error => {
       sendResponse({ success: false, error: error.message });

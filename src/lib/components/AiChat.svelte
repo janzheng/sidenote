@@ -184,7 +184,7 @@
         <CopyButton 
           copyFn={handleCopyAllMessages}
           buttonClass="px-2 py-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center gap-1 cursor-pointer {isGenerating || chatManager.isGenerating ? 'opacity-50 cursor-not-allowed' : ''}"
-          iconClass="w-4 h-4"
+          iconClass="w-6 h-6"
           title="Copy all messages as JSON"
         />
         <button 
@@ -194,7 +194,7 @@
           class="px-2 py-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center gap-1 cursor-pointer {isGenerating || chatManager.isGenerating ? 'opacity-50 cursor-not-allowed' : ''}"
           disabled={isGenerating || chatManager.isGenerating}
         >
-          <Icon icon="mdi:trash-can" class="w-4 h-4" />
+          <Icon icon="mdi:trash-can" class="w-6 h-6" />
         </button>
       </div>
     {/if}
