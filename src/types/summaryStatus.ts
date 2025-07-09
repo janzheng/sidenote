@@ -1,0 +1,1 @@
+export type SummaryStatus = 'idle' | 'generating' | 'success' | 'error'; 

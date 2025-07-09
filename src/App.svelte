@@ -1,25 +1,131 @@
 <script lang="ts">
   import '@fontsource-variable/eb-garamond';
-  import { onMount, onDestroy } from "svelte";
+  import { onDestroy } from "svelte";
   import { panelManager } from './lib/ui/panelManager.svelte';
+  import { bookmarkManager } from './lib/ui/bookmarkManager.svelte';
+  import { summaryManager } from './lib/ui/summaryManager.svelte';
+  import Settings from './lib/components/Settings.svelte';
+  import ManualContentInput from './lib/components/ManualContentInput.svelte';
+  import DebugPanel from './lib/components/DebugPanel.svelte';
+  import AiSummary from './lib/components/AiSummary.svelte';
+  import Icon from "@iconify/svelte";
   
-  onMount(async () => {
-    // Panel manager initializes itself
-  });
-
+  type TabType = 'content' | 'settings' | 'manual-input' | 'debug';
+  let currentTab = $state<TabType>('content');
+  
+  const toggleManualInput = () => {
+    currentTab = currentTab === 'manual-input' ? 'content' : 'manual-input';
+  };
+  
+  const toggleSettings = () => {
+    currentTab = currentTab === 'settings' ? 'content' : 'settings';
+  };
+  
+  const toggleDebug = () => {
+    currentTab = currentTab === 'debug' ? 'content' : 'debug';
+  };
+  
   onDestroy(() => {
     panelManager.cleanup();
   });
 </script>
 
 <div class="flex flex-col bg-paper min-h-screen">
+  <!-- Header -->
+  <header class="px-2 py-2 flex-shrink-0">
+    <div class="flex items-center justify-between w-full">
+      <!-- Left side buttons -->
+      <div class="flex items-center gap-2">
+        <button 
+          onclick={() => panelManager.refresh()}
+          class="px-6 py-1 rounded text-md flex items-center gap-1 transition-colors duration-200 border
+                 {panelManager.isLoading ? 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700' :
+                  'bg-gray-800 border-gray-800 text-white hover:bg-gray-900'}"
+          disabled={panelManager.isLoading}
+        >
+          {#if panelManager.isLoading}
+            <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          {:else}
+            <Icon icon="mdi:refresh" />
+          {/if}
+        </button>
+        
+        <!-- Quick bookmark button -->
+        <button 
+          onclick={() => bookmarkManager.handleQuickBookmark(panelManager.url, () => panelManager.refreshDataOnly())}
+          class="{panelManager.isBookmarked ? 
+            'px-6 py-1 rounded text-md text-white bg-green-600 border border-green-600 hover:bg-green-700 flex items-center gap-1' :
+            bookmarkManager.getQuickBookmarkClass()}"
+          disabled={panelManager.isLoading || bookmarkManager.isQuickBookmarking || !panelManager.content}
+          title={panelManager.isBookmarked ? "Already bookmarked" : (bookmarkManager.quickBookmarkError || "Quick Bookmark to External API")}
+        >
+          {#if bookmarkManager.isQuickBookmarking}
+            <Icon icon="mdi:loading" class="animate-spin" />
+          {:else if panelManager.isBookmarked}
+            <Icon icon="mdi:check" />
+          {:else if bookmarkManager.quickBookmarkStatus === 'success'}
+            <Icon icon="mdi:check" />
+          {:else if bookmarkManager.quickBookmarkStatus === 'error'}
+            <Icon icon="mdi:alert" />
+          {:else}
+            <Icon icon="mdi:bookmark" />
+          {/if}
+        </button>
+
+      </div>
+      
+      <!-- Right side buttons -->
+      <div class="flex items-center gap-2">
+        <button 
+          onclick={toggleManualInput}
+          class="px-6 py-1 rounded text-md text-white bg-gray-800 border border-gray-800 hover:bg-gray-900 flex items-center gap-1"
+          class:bg-blue-600={currentTab === 'manual-input'}
+          class:hover:bg-blue-700={currentTab === 'manual-input'}
+          title="Manual Content Input"
+        >
+          <Icon icon="mdi:briefcase" />
+          {#if currentTab === 'manual-input'}
+            <span class="text-sm leading-none">Back</span>
+          {/if}
+        </button>
+        
+        <button 
+          onclick={toggleDebug}
+          class="px-6 py-1 rounded text-md text-white bg-gray-800 border border-gray-800 hover:bg-gray-900 flex items-center gap-1"
+          class:bg-blue-600={currentTab === 'debug'}
+          class:hover:bg-blue-700={currentTab === 'debug'}
+          title="Debug Panel"
+        >
+          <Icon icon="mdi:bug" />
+          {#if currentTab === 'debug'}
+            <span class="text-sm leading-none">Back</span>
+          {/if}
+        </button>
+        
+        <button 
+          onclick={toggleSettings}
+          class="px-6 py-1 rounded text-md text-white bg-gray-800 border border-gray-800 hover:bg-gray-900 flex items-center gap-1"
+          class:bg-blue-600={currentTab === 'settings'}
+          class:hover:bg-blue-700={currentTab === 'settings'}
+          title="Settings"
+        >
+          <Icon icon="mdi:settings" />
+          {#if currentTab === 'settings'}
+            <span class="text-sm leading-none">Back</span>
+          {/if}
+        </button>
+      </div>
+    </div>
+  </header>
+
   <!-- Main Content -->
   <main class="flex-1 px-2 overflow-auto flex flex-col gap-2 min-h-0 flex-grow">
-    {#if panelManager.isLoading}
-      <div class="p-4 text-center">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-        <p class="mt-2">Loading content...</p>
-      </div>
+    {#if currentTab === 'settings'}
+      <Settings />
+    {:else if currentTab === 'manual-input'}
+      <ManualContentInput />
+    {:else if currentTab === 'debug'}
+      <DebugPanel {panelManager} />
     {:else if panelManager.error}
       <div class="p-4 text-center">
         <div class="text-red-600 mb-2">❌ Error</div>
@@ -38,14 +144,14 @@
           <div class="text-sm text-gray-600 space-y-1">
             <p><strong>URL:</strong> {panelManager.url}</p>
             <p><strong>Tab ID:</strong> {panelManager.tabId}</p>
-            <p><strong>Word count:</strong> {panelManager.content.text?.split(' ').length || 0}</p>
+            <p><strong>Word count:</strong> {panelManager.wordCount}</p>
           </div>
         </div>
         
         <div class="border-t pt-4">
           <h3 class="font-semibold mb-2">Content Preview:</h3>
           <p class="text-sm bg-gray-50 p-3 rounded max-h-40 overflow-y-auto">
-            {panelManager.content.text?.substring(0, 500)}...
+            {panelManager.contentText?.substring(0, 500)}...
           </p>
         </div>
         
@@ -67,6 +173,26 @@
         >
           Load Content
         </button>
+      </div>
+    {/if}
+
+    <!-- AI Summary Component -->
+    {#if currentTab === 'content' && panelManager.content}
+      <div class="mt-4">
+        <AiSummary 
+          url={panelManager.url}
+          content={panelManager.content.content}
+          summary={panelManager.content.analysis?.summary}
+          isGenerating={panelManager.content.processing?.summary?.isStreaming || false}
+          onRefresh={() => panelManager.refreshDataOnly()}
+        />
+      </div>
+    {/if}
+
+    <!-- Debug Panel at bottom with collapsibles only mode -->
+    {#if currentTab !== 'debug'}
+      <div class="mt-8 border-t pt-4">
+        <DebugPanel {panelManager} collapsiblesOnly={true} />
       </div>
     {/if}
   </main>

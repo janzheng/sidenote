@@ -1,5 +1,7 @@
 import type { PageMetadata } from './pageMetadata';
-
+import type { CitationData } from './citations';
+import type { ResearchPaperAnalysis } from './researchPaper';
+import type { ContentGraph } from './contentGraph';
 
 export interface TabData {
   content: {
@@ -18,6 +20,10 @@ export interface TabData {
     citations: CitationData | null;
     researchPaper: ResearchPaperAnalysis | null;
     contentStructure: ContentGraph | null;
+  };
+
+  statuses: {
+    bookmarkStatus: 'not-bookmarked' | 'success' | 'error';
   };
   
   processing: {

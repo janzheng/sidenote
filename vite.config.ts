@@ -16,7 +16,7 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, 'index.html'),
         background: path.resolve(__dirname, 'src/background/index.ts'),
-        'content-script': path.resolve(__dirname, 'src/content-script/index.ts'),
+        // content-script is built separately with vite.content.config.ts
       },
       output: {
         entryFileNames: `[name].js`,

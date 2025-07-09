@@ -37,10 +37,65 @@ export class PanelManager {
   get tabId() { return this.state.tabId; }
   get url() { return this.state.url; }
   get title() { return this.state.title; }
+  
+  // Check if current content is bookmarked
+  get isBookmarked() {
+    return this.state.content?.statuses?.bookmarkStatus === 'success';
+  }
+  
+  // Convenience getters for content fields
+  get contentText() {
+    return this.state.content?.content?.text || '';
+  }
+  
+  get contentHtml() {
+    return this.state.content?.content?.html || '';
+  }
+  
+  get contentMarkdown() {
+    return this.state.content?.content?.markdown || '';
+  }
+  
+  get contentMetadata() {
+    return this.state.content?.content?.metadata || {};
+  }
+  
+  get wordCount() {
+    return this.state.content?.content?.wordCount || 0;
+  }
 
   private async initialize() {
-    console.log('🎯 Initializing panel manager for this tab');
-    await this.refreshCurrentTab();
+    console.log('🎯 Initializing panel manager');
+    
+    // Check if we have URL parameters with tab/url info
+    const urlParams = this.getUrlParameters();
+    if (urlParams.tabId) {
+      console.log('🎯 Found URL parameters:', urlParams);
+      this.state.tabId = urlParams.tabId;
+      if (urlParams.url) {
+        this.state.url = urlParams.url;
+      }
+    }
+    
+    // Schedule initial refresh
+    this.scheduleRefresh('initialization');
+  }
+
+  private getUrlParameters(): { tabId?: number; url?: string } {
+    const params = new URLSearchParams(window.location.search);
+    const result: { tabId?: number; url?: string } = {};
+    
+    const tabIdParam = params.get('tabId');
+    if (tabIdParam) {
+      result.tabId = parseInt(tabIdParam, 10);
+    }
+    
+    const urlParam = params.get('url');
+    if (urlParam) {
+      result.url = decodeURIComponent(urlParam);
+    }
+    
+    return result;
   }
 
   private setupEventListeners() {
@@ -213,6 +268,43 @@ export class PanelManager {
     // Force refresh by clearing cache
     this.lastExtractedUrl = null;
     await this.refreshCurrentTab();
+  }
+
+  // Refresh data only (without re-extracting content)
+  async refreshDataOnly() {
+    if (!this.state.url) {
+      console.log('🔄 No URL available for data refresh');
+      return;
+    }
+
+    try {
+      this.state.isLoading = true;
+      this.state.error = null;
+      
+      console.log('🔄 Refreshing data only for URL:', this.state.url);
+      
+      // Use the existing DataController messaging to load data
+      const response = await chrome.runtime.sendMessage({
+        action: 'loadData',
+        url: this.state.url,
+        timestamp: Date.now()
+      });
+      
+      if (response.success && response.data) {
+        console.log('✅ Data refreshed successfully');
+        console.log('🔄 Loaded bookmark status:', response.data?.statuses?.bookmarkStatus);
+        this.state.content = response.data;
+      } else {
+        console.log('ℹ️ No existing data found for URL');
+        console.log('🔄 Response:', response);
+        // Don't set error - this is normal for new URLs
+      }
+    } catch (error) {
+      console.error('Failed to refresh data:', error);
+      this.state.error = error instanceof Error ? error.message : 'Failed to refresh data';
+    } finally {
+      this.state.isLoading = false;
+    }
   }
 
   // Clean up event listeners and timeouts

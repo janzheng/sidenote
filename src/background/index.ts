@@ -3,6 +3,90 @@
 
 const PANEL_PATH = 'index.html';
 
+import { handleContentExtraction } from './tasks/handleContentExtraction';
+import { handleManualContentSetting } from './tasks/handleManualContentSetting';
+import { handleBookmarking, getBookmarkStatus } from './tasks/handleBookmarking';
+import { handleSummaryGeneration, getSummaryStatus } from './tasks/handleSummaryGeneration';
+import { DataController } from '../lib/services/dataController';
+
+// Shared data controller instance for background context
+export const backgroundDataController = new DataController('background');
+
+
+// Handle content extraction requests (from side panels)
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('🔧 Background received message:', message);
+
+  // Handle content extraction requests
+  if (message.action === 'extractContentForCurrentTab') {
+    const { tabId } = message;
+    handleContentExtraction(tabId, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle manual content setting
+  if (message.action === 'setManualContent') {
+    const { url, data } = message;
+    handleManualContentSetting(url, data, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle bookmarking requests
+  if (message.action === 'bookmarkContent') {
+    const { url } = message;
+    handleBookmarking(url, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle bookmark status requests
+  if (message.action === 'getBookmarkStatus') {
+    const { url } = message;
+    getBookmarkStatus(url).then(status => {
+      sendResponse({ success: true, status });
+    }).catch(error => {
+      sendResponse({ success: false, error: error.message });
+    });
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle summary generation requests
+  if (message.action === 'generateSummary') {
+    const { url } = message;
+    handleSummaryGeneration(url, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle summary status requests
+  if (message.action === 'getSummaryStatus') {
+    const { url } = message;
+    getSummaryStatus(url).then(status => {
+      sendResponse({ success: true, status });
+    }).catch(error => {
+      sendResponse({ success: false, error: error.message });
+    });
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle load data requests (for refreshing without re-extraction)
+  if (message.action === 'loadData') {
+    const { url } = message;
+    backgroundDataController.loadData(url).then(data => {
+      sendResponse({ success: true, data });
+    }).catch(error => {
+      sendResponse({ success: false, error: error.message });
+    });
+    return true; // Keep message channel open for async response
+  }
+
+  // Data controller messages are handled automatically by the controller instance
+  // No need to handle them explicitly here
+
+  sendResponse({ success: false, error: 'Unknown action' });
+  return true;
+});
+
+
+
 // Enable side panel for a specific tab
 async function enablePanelForTab(tabId: number) {
   try {
@@ -50,83 +134,3 @@ chrome.action.onClicked.addListener((tab) => {
     });
   }
 });
-
-// Handle content extraction requests (from side panels)
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('🔧 Background received message:', message);
-  
-  // Handle content extraction requests
-  if (message.action === 'extractContentForCurrentTab') {
-    const { tabId } = message;
-    handleContentExtraction(tabId, sendResponse);
-    return true; // Keep message channel open for async response
-  }
-  
-  sendResponse({ success: false, error: 'Unknown action' });
-  return true;
-});
-
-async function handleContentExtraction(tabId: number, sendResponse: (response: any) => void) {
-  try {
-    console.log('🔧 Extracting content for tab:', tabId);
-    
-    // Get tab info first
-    const tab = await chrome.tabs.get(tabId);
-    if (!tab.url) {
-      sendResponse({ success: false, error: 'No URL found for tab' });
-      return;
-    }
-    
-    // Try to extract content directly
-    chrome.tabs.sendMessage(tabId, { action: 'extractContent' }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.log('🔍 Content script not available, injecting...', chrome.runtime.lastError.message);
-        
-        // Inject content script if it doesn't exist
-        chrome.scripting.executeScript({
-          target: { tabId: tabId },
-          files: ['content-script.js']
-        }).then(() => {
-          console.log('✅ Content script injected for tab:', tabId);
-          
-          // Wait a bit for the script to initialize, then try again
-          setTimeout(() => {
-            chrome.tabs.sendMessage(tabId, { action: 'extractContent' }, (retryResponse) => {
-              if (chrome.runtime.lastError) {
-                console.error('❌ Content extraction failed after injection:', chrome.runtime.lastError);
-                sendResponse({ success: false, error: chrome.runtime.lastError.message });
-                return;
-              }
-              
-              if (retryResponse?.success) {
-                console.log('✅ Content extracted successfully after injection');
-                sendResponse({ success: true, data: retryResponse.content });
-              } else {
-                console.error('❌ Content extraction returned failure after injection:', retryResponse);
-                sendResponse({ success: false, error: 'Failed to extract content after injection' });
-              }
-            });
-          }, 100);
-        }).catch((injectError) => {
-          console.error('❌ Failed to inject content script:', injectError);
-          const errorMessage = injectError instanceof Error ? injectError.message : String(injectError);
-          sendResponse({ success: false, error: 'Failed to inject content script: ' + errorMessage });
-        });
-        return;
-      }
-      
-      if (response?.success) {
-        console.log('✅ Content extracted successfully for tab:', tabId);
-        sendResponse({ success: true, data: response.content });
-      } else {
-        console.error('❌ Content extraction returned failure:', response);
-        sendResponse({ success: false, error: 'Failed to extract content' });
-      }
-    });
-    
-  } catch (error) {
-    console.error('❌ Handle content extraction error:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    sendResponse({ success: false, error: errorMessage });
-  }
-}

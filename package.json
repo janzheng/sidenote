@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && vite build --config vite.content.config.ts",
+    "build:main": "vite build",
+    "build:content": "vite build --config vite.content.config.ts",
     "commit": "git add . && git commit && git push origin main",
     "pack": "git pull origin main && npm run build",
     "preview": "vite preview",
