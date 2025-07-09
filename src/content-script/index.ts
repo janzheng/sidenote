@@ -1,5 +1,6 @@
 // Simplified content script - only handles content extraction when requested
 import { extractContent } from './tasks/extractContent';
+import { extractPageAssets } from './tasks/extractPageAssets';
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('📄 Content script received message:', message);
@@ -13,6 +14,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ 
         success: false, 
         error: error instanceof Error ? error.message : 'Content extraction failed' 
+      });
+    });
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle page assets extraction requests
+  if (message.action === 'extractPageAssets') {
+    extractPageAssets().then(result => {
+      sendResponse(result);
+    }).catch(error => {
+      console.error('🎨 Page assets extraction failed:', error);
+      sendResponse({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Page assets extraction failed' 
       });
     });
     return true; // Keep message channel open for async response

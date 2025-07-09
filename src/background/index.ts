@@ -10,6 +10,7 @@ import { handleSummaryGeneration, getSummaryStatus } from './tasks/handleSummary
 import { handleContentStructureParsing, getContentStructureStatus } from './tasks/handleContentStructureParsing';
 import { handleChatMessage, handleClearChatHistory, getChatStatus } from './tasks/handleChatMessage';
 import { handleThreadgirlProcessing, getThreadgirlStatus } from './tasks/handleThreadgirlProcessing';
+import { handlePageAssetsExtraction, getPageAssetsStatus } from './tasks/handlePageAssetsExtraction';
 import { DataController } from '../lib/services/dataController';
 
 // Shared data controller instance for background context
@@ -124,6 +125,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'getThreadgirlStatus') {
     const { url } = message;
     getThreadgirlStatus(url).then(status => {
+      sendResponse({ success: true, status });
+    }).catch(error => {
+      sendResponse({ success: false, error: error.message });
+    });
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle page assets extraction requests
+  if (message.action === 'extractPageAssets') {
+    const { url } = message;
+    handlePageAssetsExtraction(url, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle page assets status requests
+  if (message.action === 'getPageAssetsStatus') {
+    const { url } = message;
+    getPageAssetsStatus(url).then(status => {
       sendResponse({ success: true, status });
     }).catch(error => {
       sendResponse({ success: false, error: error.message });

@@ -27,18 +27,6 @@
   const hasMessages = $derived(chatMessages && chatMessages.length > 0);
   const displayMessages = $derived(chatMessages || []);
 
-  // Context-aware subtitle and placeholder
-  const chatSubtitle = $derived(() => {
-    if (displayMessages.length > 0) {
-      return `${displayMessages.length} message${displayMessages.length !== 1 ? 's' : ''}`;
-    }
-    if (content?.url) {
-      const hostname = new URL(content.url).hostname.replace('www.', '');
-      return `Ask about ${hostname}`;
-    }
-    return 'Ask questions about this page';
-  });
-
   const chatPlaceholder = $derived(() => {
     if (content?.title) {
       return `Ask about "${content.title.slice(0, 50)}${content.title.length > 50 ? '...' : ''}"`;
@@ -173,7 +161,6 @@
 
   <ToggleDrawer
     title="AI Chat"
-    subtitle={chatSubtitle()}
     bind:isExpanded
     onToggle={handleToggle}
   >

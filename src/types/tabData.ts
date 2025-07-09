@@ -4,6 +4,7 @@ import type { ResearchPaperAnalysis } from './researchPaper';
 import type { ContentGraph } from './contentGraph';
 import type { ChatMessage } from './chatMessage';
 import type { ThreadgirlResult } from './threadgirlResult';
+import type { PageAssets } from './pageAssets';
 
 export interface TabData {
   content: {
@@ -24,6 +25,7 @@ export interface TabData {
     contentStructure: ContentGraph | null;
     chatMessages: ChatMessage[] | null;
     threadgirlResults: ThreadgirlResult[] | null;
+    pageAssets: PageAssets | null;
   };
 
   statuses: {
@@ -36,6 +38,7 @@ export interface TabData {
     researchPaper: { isExtracting: boolean; progress: string; error: string | null };
     chat: { isGenerating: boolean; error: string | null };
     threadgirl: { isProcessing: boolean; error: string | null };
+    pageAssets: { isExtracting: boolean; error: string | null };
   };
   
   meta: {

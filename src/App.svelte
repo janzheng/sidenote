@@ -10,6 +10,7 @@
   import Threadgirl from './lib/components/Threadgirl.svelte';
   import Citations from './lib/components/Citations.svelte';
   import AiChat from './lib/components/AiChat.svelte';
+  import PageAssets from './lib/components/PageAssets.svelte';
   import Icon from "@iconify/svelte";
   
   type TabType = 'content' | 'settings' | 'manual-input' | 'debug';
@@ -212,6 +213,19 @@
             content={panelManager.content.content}
             threadgirlResults={panelManager.content.analysis?.threadgirlResults}
             isProcessing={panelManager.content.processing?.threadgirl?.isProcessing || false}
+            onRefresh={() => panelManager.refreshDataOnly()}
+          />
+        </div>
+      {/if}
+
+      <!-- Page Assets Component -->
+      {#if currentTab === 'content' && panelManager.content}
+        <div class="">
+          <PageAssets 
+            url={panelManager.url}
+            content={panelManager.content.content}
+            pageAssets={panelManager.content.analysis?.pageAssets}
+            isExtracting={panelManager.content.processing?.pageAssets?.isExtracting || false}
             onRefresh={() => panelManager.refreshDataOnly()}
           />
         </div>
