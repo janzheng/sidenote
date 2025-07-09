@@ -30,7 +30,8 @@ export async function handleSummaryGeneration(url: string, sendResponse: (respon
         citations: tabData.processing?.citations || { isGenerating: false, error: null },
         researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
         chat: tabData.processing?.chat || { isGenerating: false, error: null },
-        threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null }
+        threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null },
+        pageAssets: tabData.processing?.pageAssets || { isExtracting: false, error: null }
       }
     });
 
@@ -46,14 +47,16 @@ export async function handleSummaryGeneration(url: string, sendResponse: (respon
           researchPaper: tabData.analysis?.researchPaper || null,
           contentStructure: tabData.analysis?.contentStructure || null,
           chatMessages: tabData.analysis?.chatMessages || null,
-          threadgirlResults: tabData.analysis?.threadgirlResults || null
+          threadgirlResults: tabData.analysis?.threadgirlResults || null,
+          pageAssets: tabData.analysis?.pageAssets || null
         },
         processing: { 
           summary: { isStreaming: false, error: null },
           citations: tabData.processing?.citations || { isGenerating: false, error: null },
           researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
           chat: tabData.processing?.chat || { isGenerating: false, error: null },
-          threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null }
+          threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null },
+          pageAssets: tabData.processing?.pageAssets || { isExtracting: false, error: null }
         }
       });
       
@@ -77,7 +80,8 @@ export async function handleSummaryGeneration(url: string, sendResponse: (respon
           citations: tabData.processing?.citations || { isGenerating: false, error: null },
           researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
           chat: tabData.processing?.chat || { isGenerating: false, error: null },
-          threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null }
+          threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null },
+          pageAssets: tabData.processing?.pageAssets || { isExtracting: false, error: null }
         }
       });
       
@@ -99,7 +103,8 @@ export async function handleSummaryGeneration(url: string, sendResponse: (respon
           citations: { isGenerating: false, error: null },
           researchPaper: { isExtracting: false, progress: '', error: null },
           chat: { isGenerating: false, error: null },
-          threadgirl: { isProcessing: false, error: null }
+          threadgirl: { isProcessing: false, error: null },
+          pageAssets: { isExtracting: false, error: null }
         }
       });
     } catch (saveError) {

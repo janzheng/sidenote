@@ -11,6 +11,8 @@
   import Citations from './lib/components/Citations.svelte';
   import AiChat from './lib/components/AiChat.svelte';
   import PageAssets from './lib/components/PageAssets.svelte';
+  import PageScreenshots from './lib/components/PageScreenshots.svelte';
+  
   import Icon from "@iconify/svelte";
   
   type TabType = 'content' | 'settings' | 'manual-input' | 'debug';
@@ -225,6 +227,19 @@
             url={panelManager.url}
             content={panelManager.content.content}
             pageAssets={panelManager.content.analysis?.pageAssets}
+            isExtracting={panelManager.content.processing?.pageAssets?.isExtracting || false}
+            onRefresh={() => panelManager.refreshDataOnly()}
+          />
+        </div>
+      {/if}
+
+      <!-- Page Screenshots Component -->
+      {#if currentTab === 'content' && panelManager.content}
+        <div class="">
+          <PageScreenshots 
+            url={panelManager.url}
+            content={panelManager.content.content}
+            screenshots={panelManager.content.analysis?.pageAssets?.screenshots}
             isExtracting={panelManager.content.processing?.pageAssets?.isExtracting || false}
             onRefresh={() => panelManager.refreshDataOnly()}
           />

@@ -39,10 +39,18 @@ export interface SvgInfo {
   context: 'inline' | 'icon' | 'illustration' | 'background';
 }
 
+export interface ScreenshotInfo {
+  pageshot?: string;
+  screenshot?: string;
+  capturedAt?: number;
+  error?: string;
+}
+
 export interface PageAssets {
   fonts: FontInfo[];
   images: ImageInfo[];
   svgs: SvgInfo[];
+  screenshots?: ScreenshotInfo;
   stats: {
     totalFonts: number;
     totalImages: number;
