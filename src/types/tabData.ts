@@ -2,6 +2,7 @@ import type { PageMetadata } from './pageMetadata';
 import type { CitationData } from './citations';
 import type { ResearchPaperAnalysis } from './researchPaper';
 import type { ContentGraph } from './contentGraph';
+import type { ChatMessage } from './chatMessage';
 
 export interface TabData {
   content: {
@@ -20,6 +21,7 @@ export interface TabData {
     citations: CitationData | null;
     researchPaper: ResearchPaperAnalysis | null;
     contentStructure: ContentGraph | null;
+    chatMessages: ChatMessage[] | null;
   };
 
   statuses: {
@@ -30,6 +32,7 @@ export interface TabData {
     summary: { isStreaming: boolean; error: string | null };
     citations: { isGenerating: boolean; error: string | null };
     researchPaper: { isExtracting: boolean; progress: string; error: string | null };
+    chat: { isGenerating: boolean; error: string | null };
   };
   
   meta: {

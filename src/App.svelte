@@ -3,11 +3,12 @@
   import { onDestroy } from "svelte";
   import { panelManager } from './lib/ui/panelManager.svelte';
   import { bookmarkManager } from './lib/ui/bookmarkManager.svelte';
-  import { summaryManager } from './lib/ui/summaryManager.svelte';
   import Settings from './lib/components/Settings.svelte';
   import ManualContentInput from './lib/components/ManualContentInput.svelte';
   import DebugPanel from './lib/components/DebugPanel.svelte';
   import AiSummary from './lib/components/AiSummary.svelte';
+  import Citations from './lib/components/Citations.svelte';
+  import AiChat from './lib/components/AiChat.svelte';
   import Icon from "@iconify/svelte";
   
   type TabType = 'content' | 'settings' | 'manual-input' | 'debug';
@@ -138,7 +139,7 @@
         </button>
       </div>
     {:else if panelManager.content}
-      <div class="p-4">
+      <div class="">
         <div class="mb-4">
           <h2 class="text-xl font-bold mb-2">{panelManager.title}</h2>
           <div class="text-sm text-gray-600 space-y-1">
@@ -148,21 +149,6 @@
           </div>
         </div>
         
-        <div class="border-t pt-4">
-          <h3 class="font-semibold mb-2">Content Preview:</h3>
-          <p class="text-sm bg-gray-50 p-3 rounded max-h-40 overflow-y-auto">
-            {panelManager.contentText?.substring(0, 500)}...
-          </p>
-        </div>
-        
-        <div class="mt-4">
-          <button 
-            class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-            onclick={() => panelManager.refresh()}
-          >
-            Refresh Content
-          </button>
-        </div>
       </div>
     {:else}
       <div class="p-4 text-center text-gray-500">
@@ -176,22 +162,53 @@
       </div>
     {/if}
 
-    <!-- AI Summary Component -->
-    {#if currentTab === 'content' && panelManager.content}
-      <div class="mt-4">
-        <AiSummary 
-          url={panelManager.url}
-          content={panelManager.content.content}
-          summary={panelManager.content.analysis?.summary}
-          isGenerating={panelManager.content.processing?.summary?.isStreaming || false}
-          onRefresh={() => panelManager.refreshDataOnly()}
-        />
-      </div>
-    {/if}
+    <!-- Components -->
+    <div class="space-y-2">
+      <!-- AI Summary Component -->
+      {#if currentTab === 'content' && panelManager.content}
+        <div class="">
+          <AiSummary 
+            url={panelManager.url}
+            content={panelManager.content.content}
+            summary={panelManager.content.analysis?.summary}
+            isGenerating={panelManager.content.processing?.summary?.isStreaming || false}
+            onRefresh={() => panelManager.refreshDataOnly()}
+          />
+        </div>
+      {/if}
+
+      
+
+      <!-- AI Chat Component -->
+      {#if currentTab === 'content' && panelManager.content}
+        <div class="">
+          <AiChat 
+            url={panelManager.url}
+            content={panelManager.content.content}
+            chatMessages={panelManager.content.analysis?.chatMessages}
+            isGenerating={panelManager.content.processing?.chat?.isGenerating || false}
+            onRefresh={() => panelManager.refreshDataOnly()}
+          />
+        </div>
+      {/if}
+
+      <!-- Citations Component -->
+      {#if currentTab === 'content' && panelManager.content}
+        <div class="">
+          <Citations 
+            url={panelManager.url}
+            content={panelManager.content.content}
+            citations={panelManager.content.analysis?.citations}
+            isGenerating={panelManager.content.processing?.citations?.isGenerating || false}
+            onRefresh={() => panelManager.refresh()}
+          />
+        </div>
+      {/if}
+    </div>
 
     <!-- Debug Panel at bottom with collapsibles only mode -->
     {#if currentTab !== 'debug'}
-      <div class="mt-8 border-t pt-4">
+      <div class="mt-8 pt-4">
         <DebugPanel {panelManager} collapsiblesOnly={true} />
       </div>
     {/if}

@@ -100,19 +100,46 @@ export async function extractContent(): Promise<ContentExtractionResult> {
       extractedAt: Date.now()
     };
     
-    // Save to data controller - this will merge with existing data preserving statuses
-    const saveSuccess = await contentDataController.saveData(cleanedUrl, {
-      content: {
-        url: cleanedUrl,
-        text: content.text,
-        html: content.html,
-        title: content.title,
-        metadata: metadata,
-        markdown: markdown,
-        wordCount: wordCount,
-        extractedAt: Date.now()
+    // Prepare the base content data structure
+    const baseContentData = {
+      url: cleanedUrl,
+      text: content.text,
+      html: content.html,
+      title: content.title,
+      metadata: metadata,
+      markdown: markdown,
+      wordCount: wordCount,
+      extractedAt: Date.now()
+    };
+
+    // Generate citations and prepare save data
+    console.log('📚 Generating citations from extracted metadata...');
+    let saveData: any = { content: baseContentData };
+    
+    try {
+      const { CitationService } = await import('../../lib/services/citationService');
+      const citationResult = await CitationService.generateCitations(metadata, cleanedUrl);
+      
+      if (citationResult.success && citationResult.citations) {
+        console.log('✅ Citations generated successfully');
+        console.log('📋 Citation formats available:', Object.keys(citationResult.citations));
+        
+        // Add citations to the save data
+        saveData.analysis = {
+          summary: null,
+          citations: citationResult.citations,
+          researchPaper: null,
+          contentStructure: null
+        };
+      } else {
+        console.warn('⚠️ Citation generation failed:', citationResult.error);
       }
-    });
+    } catch (citationError) {
+      console.warn('⚠️ Citation service error:', citationError);
+    }
+    
+    // Save to data controller - this will merge with existing data preserving statuses
+    const saveSuccess = await contentDataController.saveData(cleanedUrl, saveData);
     
     if (!saveSuccess) {
       console.warn('⚠️ Failed to save content to data controller, but extraction succeeded');

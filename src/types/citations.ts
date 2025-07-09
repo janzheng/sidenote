@@ -1,9 +1,16 @@
 export interface CitationData {
-  citations: Array<{
-    text: string;
-    source: string;
-    url?: string;
-    type: 'quote' | 'paraphrase' | 'reference';
-  }>;
-  generatedAt: number;
+  bibtex: string;
+  apa: string;
+  vancouver: string;
+  harvard: string;
+  chicago?: string;
+  mla?: string;
+}
+
+export interface CitationResult {
+  success: boolean;
+  citations?: CitationData;
+  error?: string;
+  source?: string; // 'doi' | 'url' | 'metadata' | 'ai' | 'manual-url' | 'enhanced-metadata'
+  generatedAt?: number;
 } 

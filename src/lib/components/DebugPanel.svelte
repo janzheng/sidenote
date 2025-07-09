@@ -1,7 +1,6 @@
 <script lang="ts">
   import Icon from "@iconify/svelte";
   import ContentStructure from "./ui/ContentStructure.svelte";
-  import ContentReader from "./ContentReader.svelte";
   import CollapsibleContent from "./ui/CollapsibleContent.svelte";
   import CopyButton from "./ui/CopyButton.svelte";
   import type { PanelManager } from "../ui/panelManager.svelte";
@@ -69,10 +68,9 @@
 {#snippet collapsibleSections()}
   
   <div class="space-y-2">
-    <div>
-      <ContentReader content={content} {isLoading} {error} />
-    </div>
-
+    <h3 class="font-medium text-gray-700 dark:text-gray-300 mb-3">
+      Debug Panel
+    </h3>
     <div>
       <ContentStructure url={url} content={content} {contentStructure} {isLoading} {error} onRefresh={() => panelManager.refreshDataOnly()} />
     </div>

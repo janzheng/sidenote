@@ -180,7 +180,8 @@ export class DataController {
         summary: null,
         citations: null,
         researchPaper: null,
-        contentStructure: null
+        contentStructure: null,
+        chatMessages: null
       },
       statuses: {
         bookmarkStatus: 'not-bookmarked'
@@ -188,7 +189,8 @@ export class DataController {
       processing: {
         summary: { isStreaming: false, error: null },
         citations: { isGenerating: false, error: null },
-        researchPaper: { isExtracting: false, progress: '', error: null }
+        researchPaper: { isExtracting: false, progress: '', error: null },
+        chat: { isGenerating: false, error: null }
       },
       meta: {
         contentId: this.generateContentId(url),

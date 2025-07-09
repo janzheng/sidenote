@@ -8,6 +8,7 @@ import { handleManualContentSetting } from './tasks/handleManualContentSetting';
 import { handleBookmarking, getBookmarkStatus } from './tasks/handleBookmarking';
 import { handleSummaryGeneration, getSummaryStatus } from './tasks/handleSummaryGeneration';
 import { handleContentStructureParsing, getContentStructureStatus } from './tasks/handleContentStructureParsing';
+import { handleChatMessage, handleClearChatHistory, getChatStatus } from './tasks/handleChatMessage';
 import { DataController } from '../lib/services/dataController';
 
 // Shared data controller instance for background context
@@ -79,6 +80,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'getContentStructureStatus') {
     const { url } = message;
     getContentStructureStatus(url).then(status => {
+      sendResponse({ success: true, status });
+    }).catch(error => {
+      sendResponse({ success: false, error: error.message });
+    });
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle chat message requests
+  if (message.action === 'sendChatMessage') {
+    const { url, message: chatMessage, chatHistory } = message;
+    handleChatMessage(url, chatMessage, chatHistory, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle clear chat history requests
+  if (message.action === 'clearChatHistory') {
+    const { url } = message;
+    handleClearChatHistory(url, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle chat status requests
+  if (message.action === 'getChatStatus') {
+    const { url } = message;
+    getChatStatus(url).then(status => {
       sendResponse({ success: true, status });
     }).catch(error => {
       sendResponse({ success: false, error: error.message });
