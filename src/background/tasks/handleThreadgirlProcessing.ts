@@ -10,8 +10,7 @@ export async function handleThreadgirlProcessing(
   url: string, 
   prompt: string, 
   model: string, 
-  sendResponse: (response: any) => void,
-  externalResult?: ThreadgirlResult // Optional external result to avoid double processing
+  sendResponse: (response: any) => void
 ) {
   try {
     console.log('🤖 Starting Threadgirl processing for URL:', url);
@@ -27,8 +26,8 @@ export async function handleThreadgirlProcessing(
       return;
     }
 
-    // Check if we have content to process (unless external result is provided)
-    if (!externalResult && (!tabData.content?.text || tabData.content.text.trim().length === 0)) {
+    // Check if we have content to process
+    if (!tabData.content?.text || tabData.content.text.trim().length === 0) {
       console.error('❌ No text content found for URL:', url);
       sendResponse({ 
         success: false, 
@@ -51,39 +50,43 @@ export async function handleThreadgirlProcessing(
       }
     });
 
-    let threadgirlResult: ThreadgirlResult;
-
-    if (externalResult) {
-      // Use the external result that was already processed
-      console.log('🤖 Using external ThreadGirl result');
-      threadgirlResult = externalResult;
-    } else {
-      // Use the local ThreadgirlService to process content
-      console.log('🤖 Using local ThreadGirl service');
-      const localResult = await ThreadgirlService.processContent(tabData, prompt, model);
-      
-      if (!localResult.success || !localResult.result) {
-        // Update processing status to error
-        await backgroundDataController.saveData(url, {
-          processing: { 
-            summary: tabData.processing?.summary || { isStreaming: false, error: null },
-            citations: tabData.processing?.citations || { isGenerating: false, error: null },
-            researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-            chat: tabData.processing?.chat || { isGenerating: false, error: null },
-            threadgirl: { isProcessing: false, error: localResult.error || 'Unknown error' }
-          }
-        });
-        
-        console.error('❌ Threadgirl processing failed:', localResult.error);
-        sendResponse({ 
-          success: false, 
-          error: localResult.error || 'Failed to process content' 
-        });
-        return;
-      }
-
-      threadgirlResult = localResult.result;
+    // Use the ThreadgirlService to process content
+    console.log('🤖 Using ThreadGirl service');
+    console.log(`🤖 Background received model parameter: "${model}"`);
+    console.log(`🤖 Background model type: ${typeof model}`);
+    
+    if (!model || typeof model !== 'string' || model.trim() === '') {
+      console.error('❌ No valid model provided to background script');
+      sendResponse({ 
+        success: false, 
+        error: 'No valid model specified for processing' 
+      });
+      return;
     }
+    
+    const localResult = await ThreadgirlService.processContent(tabData, prompt, model);
+    
+    if (!localResult.success || !localResult.result) {
+      // Update processing status to error
+      await backgroundDataController.saveData(url, {
+        processing: { 
+          summary: tabData.processing?.summary || { isStreaming: false, error: null },
+          citations: tabData.processing?.citations || { isGenerating: false, error: null },
+          researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
+          chat: tabData.processing?.chat || { isGenerating: false, error: null },
+          threadgirl: { isProcessing: false, error: localResult.error || 'Unknown error' }
+        }
+      });
+      
+      console.error('❌ Threadgirl processing failed:', localResult.error);
+      sendResponse({ 
+        success: false, 
+        error: localResult.error || 'Failed to process content' 
+      });
+      return;
+    }
+
+    const threadgirlResult = localResult.result;
 
     // Get existing results and add the new one
     const existingResults = tabData.analysis?.threadgirlResults || [];

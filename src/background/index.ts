@@ -115,8 +115,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Handle Threadgirl processing requests
   if (message.action === 'processWithThreadgirl') {
-    const { url, prompt, model, externalResult } = message;
-    handleThreadgirlProcessing(url, prompt, model || 'llama-3.1-8b-instant', sendResponse, externalResult);
+    const { url, prompt, model } = message;
+    handleThreadgirlProcessing(url, prompt, model, sendResponse);
     return true; // Keep message channel open for async response
   }
 

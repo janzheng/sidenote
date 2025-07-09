@@ -18,7 +18,7 @@ class ThreadgirlManager {
   private state = $state<ThreadgirlState>({
     isProcessing: false,
     error: null,
-    selectedModel: ThreadgirlService.getDefaultModel(),
+    selectedModel: ThreadgirlService.DEFAULT_MODEL,
     customPrompt: '',
     prompts: [],
     isLoadingPrompts: false,
@@ -39,6 +39,10 @@ class ThreadgirlManager {
 
   get selectedModel() {
     return this.state.selectedModel;
+  }
+
+  set selectedModel(value: string) {
+    this.state.selectedModel = value;
   }
 
   get customPrompt() {
@@ -78,12 +82,8 @@ class ThreadgirlManager {
     this.state.customPrompt = prompt;
   }
 
-  // Load prompts from external service (only available in external mode)
+  // Load prompts from external service
   async loadPrompts(useCache: boolean = true) {
-    if (!ThreadgirlService.isExternalModeEnabled()) {
-      console.warn('🤖 Prompt loading only available in external mode');
-      return;
-    }
 
     this.state.isLoadingPrompts = true;
     this.state.promptsError = null;
@@ -103,13 +103,8 @@ class ThreadgirlManager {
     }
   }
 
-  // Save a new prompt to external service (only available in external mode)
+  // Save a new prompt to external service
   async savePrompt(hash: string, name: string, prompt: string) {
-    if (!ThreadgirlService.isExternalModeEnabled()) {
-      this.state.promptSaveError = 'Prompt saving only available in external mode';
-      this.state.promptSaveStatus = 'error';
-      return { success: false, error: 'Prompt saving only available in external mode' };
-    }
 
     if (!hash.trim() || !name.trim() || !prompt.trim()) {
       this.state.promptSaveError = 'All fields are required';
@@ -176,7 +171,7 @@ class ThreadgirlManager {
     }
   }
 
-  // Process content with unified ThreadGirl service
+  // Process content with ThreadGirl service
   async handleProcessContent(url: string | null, prompt: string, onSuccess?: () => void) {
     if (!url || this.state.isProcessing) {
       return;
@@ -187,75 +182,33 @@ class ThreadgirlManager {
 
     try {
       console.log('🤖 Starting ThreadGirl processing for:', url);
+      console.log(`🤖 Manager sending model: ${this.state.selectedModel}`);
+      console.log(`🤖 Manager model type: ${typeof this.state.selectedModel}`);
       
-      if (ThreadgirlService.isExternalModeEnabled()) {
-        // Use external service - get tab data first, then process it
-        const response = await chrome.runtime.sendMessage({
-          action: 'loadData',
-          url: url
-        });
+      // Ensure we have a valid model
+      const modelToUse = this.state.selectedModel || ThreadgirlService.DEFAULT_MODEL;
+      console.log(`🤖 Manager using model: ${modelToUse}`);
+      
+      // Process with ThreadGirl service via background script
+      const saveResponse = await chrome.runtime.sendMessage({
+        action: 'processWithThreadgirl',
+        url: url,
+        prompt: prompt,
+        model: modelToUse
+      });
 
-        if (!response.success || !response.data) {
-          throw new Error('No content data found for this URL. Please extract content first.');
-        }
-
-        // Process with unified service (external mode)
-        const processResult = await ThreadgirlService.processContent(
-          response.data,
-          prompt,
-          this.state.selectedModel,
-          true // use cache
-        );
-
-        if (processResult.success && processResult.result) {
-          // Save the result back to the tab data via background script
-          const saveResponse = await chrome.runtime.sendMessage({
-            action: 'processWithThreadgirl',
-            url: url,
-            prompt: prompt,
-            model: this.state.selectedModel,
-            // Pass the result directly to avoid double processing
-            externalResult: processResult.result
-          });
-
-          if (saveResponse.success) {
-            console.log('✅ External ThreadGirl processing successful');
-            this.state.error = null;
-            
-            // Call the success callback to refresh the panel
-            if (onSuccess) {
-              setTimeout(() => {
-                onSuccess();
-              }, 100); // Small delay to ensure background processing is complete
-            }
-          } else {
-            throw new Error(saveResponse.error || 'Failed to save result');
-          }
-        } else {
-          throw new Error(processResult.error || 'Processing failed');
+      if (saveResponse.success) {
+        console.log('✅ ThreadGirl processing successful');
+        this.state.error = null;
+        
+        // Call the success callback to refresh the panel
+        if (onSuccess) {
+          setTimeout(() => {
+            onSuccess();
+          }, 100); // Small delay to ensure background processing is complete
         }
       } else {
-        // Use local service via background script
-        const response = await chrome.runtime.sendMessage({
-          action: 'processWithThreadgirl',
-          url: url,
-          prompt: prompt,
-          model: this.state.selectedModel
-        });
-
-        if (response.success) {
-          console.log('✅ Local ThreadGirl processing successful');
-          this.state.error = null;
-          
-          // Call the success callback to refresh the panel
-          if (onSuccess) {
-            setTimeout(() => {
-              onSuccess();
-            }, 100); // Small delay to ensure background processing is complete
-          }
-        } else {
-          throw new Error(response.error || 'Processing failed');
-        }
+        throw new Error(saveResponse.error || 'Failed to process content');
       }
     } catch (error) {
       console.error('❌ ThreadGirl processing error:', error);
@@ -275,9 +228,9 @@ class ThreadgirlManager {
     return this.state.prompts.find(p => p.hash === hash) || null;
   }
 
-  // Check if external features are available
+  // All features are always available
   isExternalModeEnabled(): boolean {
-    return ThreadgirlService.isExternalModeEnabled();
+    return true;
   }
 
   // Reset state

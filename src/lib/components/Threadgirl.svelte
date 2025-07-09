@@ -33,7 +33,7 @@
   // Copy success states for labeled buttons
   let copyStates = $state(new Map<string, boolean>());
 
-  // Handle template selection - now uses real prompts from external service
+  // Handle template selection - uses prompts from service
   function handleTemplateChange() {
     if (selectedTemplate) {
       const selectedPrompt = threadgirlManager.getPromptByHash(selectedTemplate);
@@ -56,7 +56,7 @@
       return;
     }
 
-    console.log("ThreadGirl: Starting external processing...");
+    console.log("ThreadGirl: Starting processing...");
     
     await threadgirlManager.handleProcessContent(url, instructionsText, () => {
       if (onRefresh) {
@@ -65,14 +65,14 @@
     });
   }
 
-  // Save new prompt using external service
+  // Save new prompt using service
   async function savePrompt() {
     if (!newPromptHash.trim() || !newPromptName.trim() || !instructionsText.trim()) {
       console.log("ThreadGirl: Please fill in hash, name, and instructions");
       return;
     }
 
-    console.log("ThreadGirl: Saving prompt to external service...");
+    console.log("ThreadGirl: Saving prompt to service...");
     
     const result = await threadgirlManager.savePrompt(
       newPromptHash.trim(),
@@ -90,9 +90,9 @@
     }
   }
 
-  // Refresh prompts from external service
+  // Refresh prompts from service
   async function refreshPrompts() {
-    console.log("ThreadGirl: Refreshing prompts from external service...");
+    console.log("ThreadGirl: Refreshing prompts from service...");
     await threadgirlManager.loadPrompts(false); // Force refresh, no cache
   }
 
@@ -188,7 +188,7 @@
   }
 
   onMount(() => {
-    // Load prompts from external service on mount
+    // Load prompts from service on mount
     console.log("ThreadGirl: Component mounted, loading prompts...");
     threadgirlManager.loadPrompts(true); // Use cache on initial load
   });
@@ -219,6 +219,10 @@
         <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
           <Icon icon="mdi:chevron-down" class="w-6 h-6" />
         </div>
+      </div>
+      <!-- Debug: Show currently selected model -->
+      <div class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 p-2 rounded">
+        Selected: {threadgirlManager.selectedModel}
       </div>
     </div>
 
@@ -283,7 +287,7 @@
         placeholder="Select a template or write your own instructions..."
         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 dark:text-white outline-none"
         rows="4"
-        style="min-height: 100px; max-height: 300px; overflow-y: auto;"
+        style="min-height: 100px; overflow-y: auto;"
       ></textarea>
     </div>
 
@@ -340,7 +344,7 @@
     </div>
 
     <!-- Thread It Out Button -->
-    <div class="pt-2 mt-8 border-t border-gray-200 dark:border-gray-700">
+    <div class="pt-2 mt-8">
       <button 
         onclick={threadItOut}
         class="w-full px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition flex items-center justify-center gap-2 font-semibold cursor-pointer"
@@ -389,7 +393,7 @@
           </div>
         </div>
         
-        <div class="space-y-3 max-h-96 overflow-y-auto">
+        <div class="space-y-3 overflow-y-auto">
           {#each results as result (result.id)}
             <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded border group">
               <div class="flex items-center justify-between mb-2">
@@ -431,7 +435,7 @@
                 <strong>Prompt:</strong> {result.prompt}
               </div>
               
-              <div class="overflow-y-auto max-h-32">
+              <div class="overflow-y-auto">
                 <pre class="text-sm whitespace-pre-wrap text-gray-700 dark:text-gray-300">{result.result}</pre>
               </div>
             </div>
@@ -454,43 +458,3 @@
     {/if}
   {/snippet}
 </ToggleDrawer>
-
-<style>
-  .markdown-content :global(ul) {
-    list-style-type: disc;
-    margin-left: 2rem;
-    padding-left: 0.5rem;
-    margin-bottom: 1rem;
-  }
-
-  .markdown-content :global(ol) {
-    list-style-type: decimal;
-    margin-left: 2rem;
-    padding-left: 0.5rem;
-    margin-bottom: 1rem;
-  }
-
-  .markdown-content :global(li) {
-    margin-bottom: 0.25rem;
-    padding-left: 0.5rem;
-  }
-
-  .markdown-content :global(p) {
-    margin-bottom: 0.75rem;
-  }
-
-  .markdown-content :global(h1),
-  .markdown-content :global(h2),
-  .markdown-content :global(h3),
-  .markdown-content :global(h4),
-  .markdown-content :global(h5),
-  .markdown-content :global(h6) {
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    margin-top: 1rem;
-  }
-
-  .markdown-content :global(h1) { font-size: 1.25rem; }
-  .markdown-content :global(h2) { font-size: 1.125rem; }
-  .markdown-content :global(h3) { font-size: 1rem; }
-</style>
