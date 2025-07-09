@@ -7,6 +7,7 @@
   import ManualContentInput from './lib/components/ManualContentInput.svelte';
   import DebugPanel from './lib/components/DebugPanel.svelte';
   import AiSummary from './lib/components/AiSummary.svelte';
+  import AiRecipe from './lib/components/AiRecipe.svelte';
   import Threadgirl from './lib/components/Threadgirl.svelte';
   import Citations from './lib/components/Citations.svelte';
   import AiChat from './lib/components/AiChat.svelte';
@@ -215,6 +216,20 @@
             content={panelManager.content.content}
             threadgirlResults={panelManager.content.analysis?.threadgirlResults}
             isProcessing={panelManager.content.processing?.threadgirl?.isProcessing || false}
+            onRefresh={() => panelManager.refreshDataOnly()}
+          />
+        </div>
+      {/if}
+
+
+      <!-- AI Recipe Component -->
+      {#if currentTab === 'content' && panelManager.content}
+        <div class="">
+          <AiRecipe 
+            url={panelManager.url}
+            content={panelManager.content.content}
+            recipe={panelManager.content.analysis?.recipe}
+            isExtracting={panelManager.content.processing?.recipe?.isExtracting || false}
             onRefresh={() => panelManager.refreshDataOnly()}
           />
         </div>

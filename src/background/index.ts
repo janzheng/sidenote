@@ -12,6 +12,7 @@ import { handleChatMessage, handleClearChatHistory, getChatStatus } from './task
 import { handleThreadgirlProcessing, getThreadgirlStatus } from './tasks/handleThreadgirlProcessing';
 import { handlePageAssetsExtraction, getPageAssetsStatus } from './tasks/handlePageAssetsExtraction';
 import { handleJinaPageshot, handleJinaScreenshot, getScreenshotStatus } from './tasks/handleJinaScreenshots';
+import { handleRecipeExtraction, getRecipeStatus } from './tasks/handleRecipeExtraction';
 import { DataController } from '../lib/services/dataController';
 
 // Shared data controller instance for background context
@@ -169,6 +170,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'getScreenshotStatus') {
     const { url } = message;
     getScreenshotStatus(url).then(status => {
+      sendResponse({ success: true, status });
+    }).catch(error => {
+      sendResponse({ success: false, error: error.message });
+    });
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle recipe extraction requests
+  if (message.action === 'extractRecipe') {
+    const { url } = message;
+    handleRecipeExtraction(url, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle recipe status requests
+  if (message.action === 'getRecipeStatus') {
+    const { url } = message;
+    getRecipeStatus(url).then(status => {
       sendResponse({ success: true, status });
     }).catch(error => {
       sendResponse({ success: false, error: error.message });

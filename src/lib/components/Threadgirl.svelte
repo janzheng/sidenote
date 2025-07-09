@@ -220,10 +220,6 @@
           <Icon icon="mdi:chevron-down" class="w-6 h-6" />
         </div>
       </div>
-      <!-- Debug: Show currently selected model -->
-      <div class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 p-2 rounded">
-        Selected: {threadgirlManager.selectedModel}
-      </div>
     </div>
 
     <!-- Template Selection -->

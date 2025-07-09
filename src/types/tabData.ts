@@ -5,6 +5,7 @@ import type { ContentGraph } from './contentGraph';
 import type { ChatMessage } from './chatMessage';
 import type { ThreadgirlResult } from './threadgirlResult';
 import type { PageAssets } from './pageAssets';
+import type { Recipe } from './recipe';
 
 export interface TabData {
   content: {
@@ -26,6 +27,7 @@ export interface TabData {
     chatMessages: ChatMessage[] | null;
     threadgirlResults: ThreadgirlResult[] | null;
     pageAssets: PageAssets | null;
+    recipe: Recipe | null;
   };
 
   statuses: {
@@ -39,6 +41,7 @@ export interface TabData {
     chat: { isGenerating: boolean; error: string | null };
     threadgirl: { isProcessing: boolean; error: string | null };
     pageAssets: { isExtracting: boolean; error: string | null };
+    recipe: { isExtracting: boolean; error: string | null };
   };
   
   meta: {
