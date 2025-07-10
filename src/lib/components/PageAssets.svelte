@@ -248,7 +248,7 @@
           <Icon icon="mdi:alert-circle" class="w-5 h-5" />
           <div>
             <div class="font-medium">Asset Extraction Error</div>
-            <div class="text-sm opacity-75">{pageAssetsManager.extractionError}</div>
+            <div class="opacity-75">{pageAssetsManager.extractionError}</div>
           </div>
         </div>
       </div>
@@ -327,7 +327,7 @@
                       <CopyButton 
                         copyFn={() => handleCopyWithLog(font.css || `${font.element} {\n  font-family: ${font.family};\n}`, 'Font CSS copied!')}
                         buttonClass="p-1 rounded transition-colors hover:bg-gray-200 dark:hover:bg-gray-500 opacity-60 hover:opacity-100"
-                        iconClass="w-3 h-3"
+                        iconClass="w-5 h-5"
                         title="Copy CSS"
                       />
                     </div>
@@ -361,7 +361,7 @@
                               target.style.display = 'none';
                               const parent = target.parentElement;
                               if (parent) {
-                                parent.innerHTML = `<div class="w-full h-full flex items-center justify-center text-center p-1"><div class="text-xs text-gray-600 dark:text-gray-300">${image.filename || image.alt || 'Image'}</div></div>`;
+                                parent.innerHTML = `<div class="w-full h-full flex items-center justify-center text-center p-1"><div class="text-sm text-gray-600 dark:text-gray-300">${image.filename || image.alt || 'Image'}</div></div>`;
                               }
                             }}
                           />
@@ -374,21 +374,21 @@
                           <CopyButton 
                             copyFn={() => handleCopyWithLog(image.src, 'Image URL copied!')}
                             buttonClass="p-1 rounded transition-colors hover:bg-gray-200 dark:hover:bg-gray-500 opacity-60 hover:opacity-100"
-                            iconClass="w-3 h-3"
+                            iconClass="w-5 h-5"
                             title="Copy URL"
                           />
                         </div>
                         
                         {#if image.alt}
-                          <div class="mt-1 text-sm text-gray-700 dark:text-gray-300 break-words">{image.alt}</div>
+                          <div class="mt-1 text-gray-700 dark:text-gray-300 break-words">{image.alt}</div>
                         {/if}
                         
                         {#if image.caption}
-                          <div class="mt-1 text-sm text-gray-600 dark:text-gray-400 italic break-words">{image.caption}</div>
+                          <div class="mt-1 text-gray-600 dark:text-gray-400 italic break-words">{image.caption}</div>
                         {/if}
                         
                         <!-- Image Dimensions -->
-                        <div class="mt-1 text-xs text-gray-500">
+                        <div class="mt-1 text-sm text-gray-500">
                           {#if loadingDimensions.has(image.id)}
                             <span class="flex items-center gap-1">
                               <Icon icon="mdi:loading" class="animate-spin w-3 h-3" />
@@ -415,7 +415,7 @@
                               href={image.src}
                               target="_blank"
                               rel="noopener noreferrer"
-                              class="text-xs text-blue-600 dark:text-blue-400 font-mono hover:underline break-words block"
+                              class="text-sm text-blue-600 dark:text-blue-400 font-mono hover:underline break-words block"
                               title="Click to open image in new tab"
                             >
                               {image.filename}
@@ -423,7 +423,7 @@
                           </div>
                         {/if}
                         
-                        <div class="mt-2 text-xs text-gray-500 break-words max-h-16 overflow-y-auto" title="Full URL">{image.src}</div>
+                        <div class="mt-2 text-sm text-gray-500 break-words max-h-16 overflow-y-auto" title="Full URL">{image.src}</div>
                       </div>
                     </div>
                   </div>
@@ -451,16 +451,16 @@
                         <div class="flex items-start justify-between">
                           <div class="flex items-center gap-2">
                             <Icon icon={getSvgContextIcon(svg.context)} class="w-4 h-4" />
-                            <span class="text-sm font-medium">{svg.context}</span>
+                            <span class="font-medium">{svg.context}</span>
                             {#if svg.viewBox}
-                              <span class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-500 rounded">{svg.viewBox}</span>
+                              <span class="px-2 py-1 text-sm bg-gray-100 dark:bg-gray-500 rounded">{svg.viewBox}</span>
                             {/if}
                           </div>
                           <div class="flex gap-1">
                             <CopyButton 
                               copyFn={() => handleCopyWithLog(svg.code, 'SVG code copied!')}
                               buttonClass="p-1 rounded transition-colors hover:bg-gray-200 dark:hover:bg-gray-500 opacity-60 hover:opacity-100"
-                              iconClass="w-3 h-3"
+                              iconClass="w-5 h-5"
                               title="Copy SVG Code"
                             />
                             <button 
@@ -474,26 +474,26 @@
                         </div>
                         
                         {#if svg.title}
-                          <div class="mt-1 text-sm text-gray-700 dark:text-gray-300 font-medium">{svg.title}</div>
+                          <div class="mt-1 text-gray-700 dark:text-gray-300 font-medium">{svg.title}</div>
                         {/if}
                         
                         {#if svg.description}
-                          <div class="mt-1 text-sm text-gray-600 dark:text-gray-400">{svg.description}</div>
+                          <div class="mt-1 text-gray-600 dark:text-gray-400">{svg.description}</div>
                         {/if}
                         
                         {#if svg.width || svg.height}
-                          <div class="mt-1 text-xs text-gray-500">{formatDimensions(svg.width, svg.height)}</div>
+                          <div class="mt-1 text-sm text-gray-500">{formatDimensions(svg.width, svg.height)}</div>
                         {/if}
                         
                         <button 
                           onclick={() => toggleItem(svg.id)}
-                          class="mt-2 text-xs text-blue-600 hover:text-blue-800"
+                          class="mt-2 text-sm text-blue-600 hover:text-blue-800"
                         >
                           {expandedItems.has(svg.id) ? 'Hide' : 'Show'} SVG Code
                         </button>
                         
                         {#if expandedItems.has(svg.id)}
-                          <div class="mt-2 p-2 bg-gray-100 dark:bg-gray-500 rounded text-xs font-mono overflow-x-auto">
+                          <div class="mt-2 p-2 bg-gray-100 dark:bg-gray-500 rounded text-sm font-mono overflow-x-auto">
                             <pre>{svg.code}</pre>
                           </div>
                         {/if}
@@ -510,7 +510,7 @@
         </div>
       </div>
     {:else if !canExtract}
-      <div class="text-gray-500 italic text-sm text-center py-8 flex flex-col items-center gap-2">
+      <div class="text-gray-500 italic text-center py-8 flex flex-col items-center gap-2">
         <Icon icon="mdi:file-document-outline" class="w-8 h-8 opacity-50" />
         <div>No HTML content available to extract assets from</div>
         {#if !url}
@@ -520,14 +520,9 @@
         {/if}
       </div>
     {:else if isExtracting || pageAssetsManager.isExtracting}
-      <div class="text-blue-600 dark:text-blue-400 text-sm flex items-center gap-2 justify-center py-8">
+      <div class="text-blue-600 dark:text-blue-400 flex items-center gap-2 justify-center py-8">
         <Icon icon="mdi:loading" class="animate-spin w-4 h-4" />
         <div>Extracting page assets...</div>
-      </div>
-    {:else}
-      <div class="text-gray-500 italic text-sm text-center py-8 flex flex-col items-center gap-2">
-        <Icon icon="mdi:image-multiple" class="w-8 h-8 opacity-50" />
-        <div>Click "Extract Assets" to analyze page fonts, images, and SVGs</div>
       </div>
     {/if}
   {/snippet}

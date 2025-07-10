@@ -84,12 +84,25 @@
           summary: null,
           citations: null,
           researchPaper: null,
-          contentStructure: null
+          contentStructure: null,
+          chatMessages: null,
+          threadgirlResults: null,
+          pageAssets: null,
+          recipe: null,
+          socialMediaThread: null
         },
         processing: {
           summary: { isStreaming: false, error: null },
           citations: { isGenerating: false, error: null },
-          researchPaper: { isExtracting: false, progress: '', error: null }
+          researchPaper: { isExtracting: false, progress: '', error: null },
+          chat: { isGenerating: false, error: null },
+          threadgirl: { isProcessing: false, error: null },
+          pageAssets: { isExtracting: false, error: null },
+          recipe: { isExtracting: false, error: null },
+          socialMediaThread: { isExtracting: false, isExpanding: false, error: null }
+        },
+        statuses: {
+          bookmarkStatus: 'not-bookmarked'
         }
       };
 

@@ -19,8 +19,8 @@
   // Component UI state
   let isExpanded = $state(false);
   let messageInput = $state('');
-  let chatContainer: HTMLElement;
-  let inputElement: HTMLTextAreaElement;
+  let chatContainer = $state<HTMLElement>();
+  let inputElement = $state<HTMLTextAreaElement>();
 
   // Derived states
   const hasContent = $derived(url && content && content.text && content.text.length > 0);

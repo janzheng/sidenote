@@ -25,7 +25,9 @@
 <details class="bg-gray-50 dark:bg-gray-700 rounded border">
   <summary class="cursor-pointer px-2 py-1 font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded flex items-center justify-between min-h-[2rem]">
     <span class="flex items-center gap-2">
-      <Icon icon="mdi:chevron-right" class="w-4 h-4 transition-transform duration-200 arrow-icon" />
+      <span class="arrow-icon">
+        <Icon icon="mdi:chevron-right" class="w-4 h-4 transition-transform duration-200" />
+      </span>
       {title}
       {#if displayCount}({displayCount}{typeof itemCount === 'number' && itemCount === 1 ? 'entry' : typeof itemCount === 'number' ? ' entries' : ''}{typeof itemCount === 'string' ? '' : ''}){/if}
     </span>
@@ -53,6 +55,6 @@
 
 <style>
   details[open] .arrow-icon {
-    transform: rotate(180deg);
+    transform: rotate(90deg);
   }
 </style> 

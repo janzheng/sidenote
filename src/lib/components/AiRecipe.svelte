@@ -24,7 +24,6 @@
   // Derived states
   const hasRecipe = $derived(recipe && recipe.title && recipe.title.length > 0);
   const canExtract = $derived(url && content && content.text && content.text.length > 0);
-  const isRecipePage = $derived(url && content ? RecipeService.isRecipePage({ content: { url, text: content.text || '', title: content.title || '', html: '', markdown: '', metadata: {}, wordCount: 0, extractedAt: 0 } } as any) : false);
 
   // Handle recipe extraction
   async function handleExtractRecipe() {
@@ -124,26 +123,6 @@
   function formatRecipeJson(): string {
     return JSON.stringify(recipe, null, 2);
   }
-
-  // Get confidence color
-  function getConfidenceColor(confidence: number): string {
-    if (confidence >= 80) return 'text-green-600';
-    if (confidence >= 60) return 'text-yellow-600';
-    return 'text-red-600';
-  }
-
-  // Get confidence icon
-  function getConfidenceIcon(confidence: number): string {
-    if (confidence >= 80) return 'mdi:check-circle';
-    if (confidence >= 60) return 'mdi:alert-circle';
-    return 'mdi:close-circle';
-  }
-
-  // Calculate confidence for display
-  const recipeConfidence = $derived(() => {
-    if (!recipe) return 0;
-    return RecipeService.calculateRecipeConfidence(recipe);
-  });
 </script>
 
 <ToggleDrawer
@@ -155,19 +134,6 @@
     <div class="py-2">
       Extract structured recipe data from cooking websites using AI. Automatically identifies ingredients, instructions, cooking times, and nutritional information.
     </div>
-
-    <!-- Recipe Detection -->
-    {#if isRecipePage}
-      <div class="mb-4 p-3 bg-orange-50 border border-orange-200 rounded text-sm">
-        <div class="flex items-center gap-2">
-          <Icon icon="mdi:chef-hat" class="w-5 h-5 text-orange-600" />
-          <span class="font-semibold text-orange-800">Recipe page detected!</span>
-        </div>
-        <div class="mt-1 text-orange-700">
-          This page appears to contain recipe content that can be extracted.
-        </div>
-      </div>
-    {/if}
 
     <!-- Control Buttons -->
     <div class="flex gap-2 mb-4">
@@ -189,7 +155,7 @@
       {#if hasRecipe && !isExtracting && !recipeManager.isExtracting}
         <button 
           onclick={handleCopyRecipe}
-          class="px-3 py-2 text-gray-600 hover:text-orange-600 border border-gray-300 rounded transition-colors text-sm flex items-center gap-1"
+          class="px-3 py-2 text-gray-600 hover:text-orange-600 border border-gray-300 rounded transition-colors flex items-center gap-1"
           title="Copy recipe"
         >
           {#if isCopied}
@@ -201,7 +167,7 @@
         
         <button 
           onclick={() => showJson = !showJson}
-          class="px-3 py-2 text-gray-600 hover:text-orange-600 border border-gray-300 rounded transition-colors text-sm flex items-center gap-1"
+          class="px-3 py-2 text-gray-600 hover:text-orange-600 border border-gray-300 rounded transition-colors flex items-center gap-1"
           title={showJson ? 'Show formatted text' : 'Show JSON'}
         >
           <Icon icon={showJson ? 'mdi:format-text' : 'mdi:code-json'} class="w-6 h-6" />
@@ -216,25 +182,19 @@
           <Icon icon="mdi:alert-circle" class="w-5 h-5" />
           <div>
             <div class="font-medium">Recipe Extraction Error</div>
-            <div class="text-sm opacity-75">{recipeManager.recipeError}</div>
+            <div class="opacity-75">{recipeManager.recipeError}</div>
           </div>
         </div>
       </div>
     {:else if hasRecipe}
       <!-- Recipe Summary -->
-      <div class="mb-4 p-3 bg-orange-50 border border-orange-200 rounded text-sm">
+      <div class="mb-4 p-3 bg-orange-50 border border-orange-200 rounded">
         <div class="flex items-center gap-2 mb-2">
           <Icon icon="mdi:chef-hat" class="w-6 h-6 text-orange-600" />
           <span class="font-semibold text-orange-800">Recipe Extracted</span>
-          <div class="flex items-center gap-1 ml-auto">
-            <Icon icon={getConfidenceIcon(recipeConfidence())} class={`w-4 h-4 ${getConfidenceColor(recipeConfidence())}`} />
-            <span class={`text-xs font-medium ${getConfidenceColor(recipeConfidence())}`}>
-              {recipeConfidence()}% confidence
-            </span>
-          </div>
         </div>
         
-                 <div class="grid grid-cols-2 gap-2 text-xs">
+                 <div class="grid grid-cols-2 gap-2">
            <div class="flex items-center gap-1">
              <Icon icon="mdi:format-title" class="w-4 h-4 text-gray-600" />
              <span class="font-medium">{recipe?.title || 'Unknown Recipe'}</span>
@@ -276,9 +236,9 @@
       <div class="bg-gray-50 p-3 rounded border min-h-[120px] max-h-[400px] overflow-y-auto">
         <div class="text-gray-700 prose prose-sm max-w-none">
           {#if showJson}
-            <pre class="text-xs bg-gray-100 p-2 rounded overflow-x-auto">{formatRecipeJson()}</pre>
+            <pre class="bg-gray-100 p-2 rounded overflow-x-auto">{formatRecipeJson()}</pre>
           {:else}
-            <div class="whitespace-pre-wrap text-sm">{formatRecipeText()}</div>
+            <div class="whitespace-pre-wrap">{formatRecipeText()}</div>
           {/if}
           {#if isExtracting || recipeManager.isExtracting}
             <span class="inline-block w-2 h-4 bg-orange-600 animate-pulse ml-1"></span>
@@ -290,9 +250,9 @@
         <Icon icon="mdi:chef-hat" class="w-8 h-8 opacity-50" />
         <div>No page content available to extract recipes</div>
         {#if !url}
-          <div class="text-xs">Waiting for page URL...</div>
+          <div class="">Waiting for page URL...</div>
         {:else if !content?.text}
-          <div class="text-xs">No extracted content found</div>
+          <div class="">No extracted content found</div>
         {/if}
       </div>
     {:else if isExtracting || recipeManager.isExtracting}
@@ -300,7 +260,7 @@
         <div class="text-gray-500 italic text-center flex flex-col items-center gap-2">
           <Icon icon="mdi:chef-hat" class="w-8 h-8 animate-pulse text-orange-600" />
           <div>Extracting recipe data...</div>
-          <div class="text-xs opacity-75">AI is analyzing the page content</div>
+          <div class="opacity-75">AI is analyzing the page content</div>
         </div>
       </div>
     {/if}

@@ -348,9 +348,9 @@
       >
         {#if threadgirlManager.isProcessing || isProcessing}
           <Icon icon="mdi:loading" class="animate-spin w-5 h-5" />
-          Threading it out...
+          💅 I'm threading, I'm threading...
         {:else}
-          Thread it out, girl 💅
+          💅 Thread it out, girl
         {/if}
       </button>
       
