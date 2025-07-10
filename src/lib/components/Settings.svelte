@@ -9,7 +9,7 @@
       <img src="/icons/sidenote512.png" alt="SideNote Logo" class="w-16 h-16" />
       <h3 class="text-lg font-medium text-gray-700 dark:text-gray-300">SideNote</h3>
     </div>
-    <p class="text-sm text-gray-600 dark:text-gray-400 text-center">AI-powered webpage analysis and research assistant</p>
+    <p class="text-gray-600 dark:text-gray-400 text-center">AI-powered webpage analysis and research assistant</p>
   </div>
 
   <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 p-6 flex-1 flex flex-col overflow-y-auto">
@@ -35,10 +35,10 @@
        
       <!-- API Configuration -->
       <div class="border-b border-gray-200 dark:border-gray-600 pb-6">
-        <h3 class="text-md font-medium mb-3 text-gray-700 dark:text-gray-300">API Configuration</h3>
+        <h3 class="text-md font-bold mb-3 text-gray-700 dark:text-gray-300">API Configuration</h3>
         <div class="space-y-4">
           <div>
-            <label for="api-key" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Groq API Key</label>
+            <label for="api-key" class="block font-medium text-gray-700 dark:text-gray-300 mb-1">Groq API Key</label>
             <input 
               type="password" 
               id="api-key"
@@ -47,40 +47,28 @@
               bind:value={settingsManager.settings.apiKey}
               oninput={() => settingsManager.updateSetting('apiKey', settingsManager.settings.apiKey)}
             />
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Your Groq API key will be stored securely</p>
+            <p class="mt-1 text-gray-500 dark:text-gray-400">Your Groq API key will be stored securely</p>
              
             {#if !settingsManager.hasApiKey}
               <div class="mt-2 p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg">
-                <p class="text-sm text-gray-700 dark:text-gray-300 font-medium mb-1">Need a Groq API key?</p>
-                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                <p class="text-gray-700 dark:text-gray-300 font-medium mb-1">Need a Groq API key?</p>
+                <p class="text-gray-600 dark:text-gray-400 mb-2">
                   Get your free API key from Groq to enable AI-powered webpage analysis and chat features.
                 </p>
                 <a 
                   href="https://console.groq.com" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  class="inline-flex items-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 font-medium"
+                  class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 font-medium"
                 >
                   Get API Key from Groq ↗
                 </a>
-              </div>
-            {:else}
-              <div class="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <div class="flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-600 dark:text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <div class="flex-1">
-                    <p class="text-sm font-medium text-blue-700 dark:text-blue-300">Groq API Key Configured</p>
-                    <p class="text-sm text-blue-600 dark:text-blue-400">All AI features are available</p>
-                  </div>
-                </div>
               </div>
             {/if}
           </div>
            
           <div>
-            <label for="jina-api-key" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jina API Key (Optional)</label>
+            <label for="jina-api-key" class="block font-medium text-gray-700 dark:text-gray-300 mb-1">Jina API Key (Optional)</label>
             <input 
               type="password" 
               id="jina-api-key"
@@ -89,36 +77,24 @@
               bind:value={settingsManager.settings.jinaApiKey}
               oninput={() => settingsManager.updateSetting('jinaApiKey', settingsManager.settings.jinaApiKey)}
             />
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-gray-500 dark:text-gray-400">
               Optional: Enables enhanced content extraction for some websites
             </p>
              
             {#if !settingsManager.hasJinaApiKey}
               <div class="mt-2 p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg">
-                <p class="text-sm text-gray-700 dark:text-gray-300 font-medium mb-1">Optional Enhancement</p>
-                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                <p class="text-gray-700 dark:text-gray-300 font-medium mb-1">Optional Enhancement</p>
+                <p class="text-gray-600 dark:text-gray-400 mb-2">
                   Jina API provides enhanced content extraction for difficult websites. SideNote works great without it too.
                 </p>
                 <a 
                   href="https://jina.ai" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  class="inline-flex items-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 font-medium"
+                  class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 font-medium"
                 >
                   Learn about Jina API ↗
                 </a>
-              </div>
-            {:else}
-              <div class="mt-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                <div class="flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-600 dark:text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <div class="flex-1">
-                    <p class="text-sm font-medium text-green-700 dark:text-green-300">Jina API Configured</p>
-                    <p class="text-sm text-green-600 dark:text-green-400">Enhanced content extraction enabled</p>
-                  </div>
-                </div>
               </div>
             {/if}
           </div>
@@ -127,10 +103,10 @@
       
       <!-- Google Sheets Integration -->
       <div class="border-b border-gray-200 dark:border-gray-600 pb-6">
-        <h3 class="text-md font-medium mb-3 text-gray-700 dark:text-gray-300">Google Sheets Integration</h3>
+        <h3 class="text-md font-bold mb-3 text-gray-700 dark:text-gray-300">Google Sheets Integration</h3>
         <div class="space-y-4">
           <div>
-            <label for="sheet-url" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Google Sheets URL</label>
+            <label for="sheet-url" class="block font-medium text-gray-700 dark:text-gray-300 mb-1">Google Sheets URL</label>
             <input 
               type="url" 
               id="sheet-url"
@@ -139,13 +115,13 @@
               bind:value={settingsManager.settings.sheetUrl}
               oninput={() => settingsManager.updateSetting('sheetUrl', settingsManager.settings.sheetUrl)}
             />
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-gray-500 dark:text-gray-400">
               Optional: URL of your Google Sheet for bookmark export
             </p>
           </div>
           
           <div>
-            <label for="sheet-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sheet Name</label>
+            <label for="sheet-name" class="block font-medium text-gray-700 dark:text-gray-300 mb-1">Sheet Name</label>
             <input 
               type="text" 
               id="sheet-name"
@@ -154,7 +130,7 @@
               bind:value={settingsManager.settings.sheetName}
               oninput={() => settingsManager.updateSetting('sheetName', settingsManager.settings.sheetName)}
             />
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-gray-500 dark:text-gray-400">
               Name of the sheet tab where bookmarks will be added
             </p>
           </div>
@@ -163,10 +139,10 @@
       
       <!-- Personalization -->
       <div class="border-b border-gray-200 dark:border-gray-600 pb-6">
-        <h3 class="text-md font-medium mb-3 text-gray-700 dark:text-gray-300">Personalization</h3>
+        <h3 class="text-md font-bold mb-3 text-gray-700 dark:text-gray-300">Personalization</h3>
         <div class="space-y-4">
           <div>
-            <label for="user-background" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Your Background/Expertise</label>
+            <label for="user-background" class="block font-medium text-gray-700 dark:text-gray-300 mb-1">Your Background/Expertise</label>
             <textarea 
               id="user-background"
               rows="3"
@@ -175,7 +151,7 @@
               bind:value={settingsManager.settings.userBackground}
               oninput={() => settingsManager.updateSetting('userBackground', settingsManager.settings.userBackground)}
             ></textarea>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-gray-500 dark:text-gray-400">
               Optional: Help AI provide more relevant analysis and summaries
             </p>
           </div>
@@ -208,7 +184,7 @@
 
             {#if settingsManager.copyStatus === 'success'}
               <div class="mt-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                <p class="text-sm text-green-700 dark:text-green-300 flex items-center">
+                <p class="text-green-700 dark:text-green-300 flex items-center">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                   </svg>
@@ -217,7 +193,7 @@
               </div>
             {:else if settingsManager.copyStatus === 'error'}
               <div class="mt-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <p class="text-sm text-red-700 dark:text-red-300 flex items-center">
+                <p class="text-red-700 dark:text-red-300 flex items-center">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
                   </svg>
@@ -228,7 +204,7 @@
 
             {#if settingsManager.clearStatus === 'cleared'}
               <div class="mt-4 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
-                <p class="text-sm text-blue-700 dark:text-blue-300 flex items-center">
+                <p class="text-blue-700 dark:text-blue-300 flex items-center">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                   </svg>
@@ -237,7 +213,7 @@
               </div>
             {:else if settingsManager.clearStatus === 'error'}
               <div class="mt-2 p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md">
-                <p class="text-sm text-gray-700 dark:text-gray-300 flex items-center">
+                <p class="text-gray-700 dark:text-gray-300 flex items-center">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
                   </svg>

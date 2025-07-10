@@ -1,4 +1,6 @@
 import { backgroundDataController } from '../index';
+import { PDFCitationService } from '../../lib/services/pdfCitationService.svelte';
+import { CitationService } from '../../lib/services/citationService.svelte';
 
 /**
  * Handle PDF extraction request for a specific URL
@@ -124,5 +126,117 @@ export async function getPDFExtractionStatus(url: string): Promise<{
       hasContent: false,
       error: error instanceof Error ? error.message : 'Unknown error'
     };
+  }
+}
+
+/**
+ * Generate citations for any URL (PDF or regular content)
+ */
+export async function generateCitations(url: string, sendResponse: (response: any) => void) {
+  try {
+    console.log('📚 Generating citations for URL:', url);
+
+    // Load existing tab data
+    const tabData = await backgroundDataController.loadData(url);
+    
+    if (!tabData || !tabData.content) {
+      console.error('❌ No content found for URL:', url);
+      sendResponse({ 
+        success: false, 
+        error: 'No content found. Please extract content first.' 
+      });
+      return;
+    }
+
+    const content = tabData.content;
+    
+    // Set citation processing status
+    await backgroundDataController.saveData(url, {
+      processing: { 
+        citations: { isGenerating: true, error: null }
+      }
+    });
+
+    // Check if this is a PDF
+    const isPDF = (content.metadata as any)?.contentType === 'pdf' || 
+                  (content.metadata as any)?.isPDF === true ||
+                  url.toLowerCase().includes('.pdf') ||
+                  url.toLowerCase().includes('arxiv.org/pdf/');
+
+    let citationResult;
+
+    if (isPDF && content.text && content.text.length > 100) {
+      console.log('📄📚 Generating PDF citations with AI analysis');
+      
+      // Use PDF citation service for PDFs
+      citationResult = await PDFCitationService.generateComprehensivePDFCitations(
+        content.text,
+        url,
+        content.metadata
+      );
+    } else {
+      console.log('📚 Generating regular citations from metadata');
+      
+      // Use regular citation service for non-PDFs
+      citationResult = await CitationService.generateCitations(
+        content.metadata,
+        url
+      );
+    }
+
+    if (citationResult.success && citationResult.citations) {
+      console.log('✅ Citations generated successfully');
+      
+      // Update the tab data with the generated citations
+      await backgroundDataController.saveData(url, {
+        analysis: { 
+          citations: citationResult.citations
+        },
+        processing: { 
+          citations: { isGenerating: false, error: null }
+        }
+      });
+      
+      const response: any = { 
+        success: true, 
+        citations: citationResult.citations,
+        source: citationResult.source
+      };
+      
+      // Add optional properties if they exist
+      if ('extractionMethod' in citationResult) {
+        response.extractionMethod = citationResult.extractionMethod;
+      }
+      if ('confidence' in citationResult) {
+        response.confidence = citationResult.confidence;
+      }
+      
+      sendResponse(response);
+    } else {
+      console.error('❌ Citation generation failed:', citationResult.error);
+      
+      await backgroundDataController.saveData(url, {
+        processing: { 
+          citations: { isGenerating: false, error: citationResult.error || 'Citation generation failed' }
+        }
+      });
+      
+      sendResponse({ 
+        success: false, 
+        error: citationResult.error || 'Failed to generate citations' 
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Error generating citations:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    await backgroundDataController.saveData(url, {
+      processing: { 
+        citations: { isGenerating: false, error: errorMessage }
+      }
+    });
+    
+    sendResponse({ success: false, error: errorMessage });
   }
 } 

@@ -75,6 +75,14 @@
       <ContentStructure url={url} content={content} {contentStructure} {isLoading} {error} onRefresh={() => panelManager.refreshDataOnly()} />
     </div>
 
+    <CollapsibleContent
+      title="Full Content Data"
+      content={fullContentDisplay}
+      itemCount="{fullContentDisplay.length} chars"
+      emptyMessage="No content data available"
+      {isLoading}
+    />
+
     <!-- New Citation Metadata Section -->
     {#if panelManager.hasCitations}
       <CollapsibleContent
@@ -125,14 +133,6 @@
       content={JSON.stringify(debugData, null, 2)}
       itemCount="{Object.keys(debugData).length} fields"
       emptyMessage="No debug data available"
-      {isLoading}
-    />
-
-    <CollapsibleContent
-      title="Full Content Data"
-      content={fullContentDisplay}
-      itemCount="{fullContentDisplay.length} chars"
-      emptyMessage="No content data available"
       {isLoading}
     />
 

@@ -36,7 +36,13 @@ export class PanelManager {
   get error() { return this.state.error; }
   get tabId() { return this.state.tabId; }
   get url() { return this.state.url; }
-  get title() { return this.state.title; }
+  get title() {
+    // Priority: PDF-extracted title > original title > fallback
+    const pdfTitle = this.state.content?.content?.metadata?.citations?.title;
+    const originalTitle = this.state.content?.content?.title || this.state.title;
+
+    return pdfTitle || originalTitle || 'Untitled';
+  }
   get metadata() { return this.state.content?.content?.metadata || {}; }
   
   // Check if current content is bookmarked
@@ -57,8 +63,46 @@ export class PanelManager {
     return this.state.content?.content?.markdown || '';
   }
   
-  get contentMetadata() {
-    return this.state.content?.content?.metadata || {};
+  
+  get description() {
+    // Priority: PDF-extracted abstract > metadata description > meta tag abstract > fallback
+    const pdfAbstract = this.state.content?.content?.metadata?.citations?.abstract;
+    const metadataDescription = this.state.content?.content?.metadata?.description;
+    const metaTagAbstract = this.state.content?.content?.metadata?.citations?.abstract_meta;
+    
+    return pdfAbstract || metadataDescription || metaTagAbstract || null;
+  }
+
+  // Enhanced metadata getters
+  get contentMetadata() { 
+    const baseMetadata = this.state.content?.content?.metadata || {};
+    
+    // Debug logging for PDF metadata
+    if (baseMetadata.contentType === 'pdf' || baseMetadata.isPDF) {
+      console.log('📄 PDF metadata in panelManager:', {
+        hasAuthor: !!baseMetadata.author,
+        hasDescription: !!baseMetadata.description,
+        hasTitle: !!baseMetadata.title,
+        hasCitations: !!baseMetadata.citations,
+        citationFields: baseMetadata.citations ? Object.keys(baseMetadata.citations) : [],
+        author: baseMetadata.author,
+        description: baseMetadata.description,
+        title: baseMetadata.title
+      });
+    }
+    
+    // Enhance with PDF-extracted data if available
+    const enhancedMetadata = {
+      ...baseMetadata,
+      // Use PDF-extracted title if available
+      title: this.title,
+      // Use PDF-extracted abstract as description if available
+      description: this.description,
+      // Use PDF-extracted author information if available
+      author: this.state.content?.content?.metadata?.author || baseMetadata.author
+    };
+    
+    return enhancedMetadata;
   }
   
   get wordCount() {
@@ -111,7 +155,8 @@ export class PanelManager {
   }
   
   get abstract() {
-    return this.citations?.abstract_meta || null;
+    // Priority: AI-extracted abstract > meta tag abstract
+    return this.citations?.abstract || this.citations?.abstract_meta || null;
   }
   
   get pdfUrl() {

@@ -15,7 +15,7 @@ import { handleJinaPageshot, handleJinaScreenshot, getScreenshotStatus } from '.
 import { handleRecipeExtraction, getRecipeStatus } from './tasks/handleRecipeExtraction.svelte';
 import { handleTwitterThreadExtraction, handleTwitterThreadExtractionWithScroll, handleTwitterThreadExpansion, getTwitterThreadStatus } from './tasks/handleTwitterThreadExtraction.svelte';
 import { handleLinkedInThreadExtraction, handleLinkedInThreadExtractionWithScroll, handleLinkedInThreadExpansion, getLinkedInThreadStatus } from './tasks/handleLinkedInThreadExtraction.svelte';
-import { handlePDFExtraction, getPDFExtractionStatus } from './tasks/handlePDFExtraction.svelte';
+import { handlePDFExtraction, getPDFExtractionStatus, generateCitations } from './tasks/handlePDFExtraction.svelte';
 import { DataController } from '../lib/services/dataController.svelte';
 
 // Shared data controller instance for background context
@@ -277,6 +277,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }).catch(error => {
       sendResponse({ success: false, error: error.message });
     });
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle citation generation requests (unified for PDF and regular content)
+  if (message.action === 'generateCitations') {
+    const { url } = message;
+    generateCitations(url, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle PDF citation generation requests (legacy support)
+  if (message.action === 'generatePDFCitations') {
+    const { url } = message;
+    generateCitations(url, sendResponse); // Use the unified handler
     return true; // Keep message channel open for async response
   }
 

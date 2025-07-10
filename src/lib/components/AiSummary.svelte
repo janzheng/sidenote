@@ -140,7 +140,7 @@
         </div>
       </div>
     {:else if hasSummary}
-      <div class="bg-gray-50 p-3 rounded border min-h-[120px] max-h-[300px] overflow-y-auto">
+      <div class="bg-gray-50 p-3 rounded border min-h-[120px] overflow-y-auto">
         <div class="text-gray-700 prose prose-sm max-w-none markdown-content">
           {@html renderMarkdown(summary || '')}
           {#if isGenerating || summaryManager.isGenerating}

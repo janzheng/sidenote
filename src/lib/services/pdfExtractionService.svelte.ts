@@ -470,17 +470,48 @@ export class PDFExtractionService {
       metadata.citations.isPDF = true;
       metadata.citations.format = 'PDF';
       
+      // Enhance metadata with PDF content-based citations if content is available
+      // Only run in background context (not content script) to avoid API access issues
+      if (content.trim() && typeof chrome !== 'undefined' && chrome.runtime && !window.location.protocol.startsWith('http')) {
+        try {
+          // Dynamically import PDF citation service to avoid issues in content script context
+          const { PDFCitationService } = await import('./pdfCitationService.svelte');
+          if (PDFCitationService.hasAcademicCitationInfo(content)) {
+            console.log('📄📚 Enhancing PDF metadata with content-based citations');
+            metadata = await PDFCitationService.enhanceMetadataWithPDFCitations(content, url, metadata);
+            console.log('✅ PDF metadata enhanced with content-based citations');
+            
+            // ✅ FIX: Log the enhanced metadata to verify it's working
+            console.log('📊 Enhanced metadata fields:', Object.keys(metadata));
+            console.log('📄 Enhanced title:', metadata.title);
+            console.log('👥 Enhanced author:', metadata.author);
+            console.log('📝 Enhanced description:', metadata.description);
+            if (metadata.citations) {
+              console.log('📚 Enhanced citations fields:', Object.keys(metadata.citations));
+              console.log('📄 Citation title:', metadata.citations.title);
+              console.log('👥 Citation authors:', metadata.citations.authors);
+              console.log('📝 Citation abstract:', metadata.citations.abstract);
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ Failed to enhance PDF metadata with content-based citations:', error);
+        }
+      }
+      
+      // ✅ FIX: Use enhanced title from metadata for content structure
+      const finalTitle = metadata.title || 'PDF Document';
+      
       return {
         success: true,
         extractionMethod: 'chrome-extension-pdfjs',
         content: {
           url: cleanedUrl,
           text: content.trim() || 'No text content could be extracted from this PDF.',
-          html: `<div class="pdf-content"><h1>📄 ${metadata.title}</h1><pre>${content.trim()}</pre></div>`,
-          title: metadata.title || 'PDF Document',
+          html: `<div class="pdf-content"><h1>📄 ${finalTitle}</h1><pre>${content.trim()}</pre></div>`,
+          title: finalTitle,
           metadata: metadata,
           wordCount,
-          markdown: `# ${metadata.title}\n\n${content.trim()}`,
+          markdown: `# ${finalTitle}\n\n${content.trim()}`,
           extractedAt: Date.now()
         }
       };
@@ -574,17 +605,48 @@ export class PDFExtractionService {
       metadata.citations.isPDF = true;
       metadata.citations.format = 'PDF';
       
+      // Enhance metadata with PDF content-based citations if content is available
+      // Only run in background context (not content script) to avoid API access issues
+      if (content.trim() && typeof chrome !== 'undefined' && chrome.runtime && !window.location.protocol.startsWith('http')) {
+        try {
+          // Dynamically import PDF citation service to avoid issues in content script context
+          const { PDFCitationService } = await import('./pdfCitationService.svelte');
+          if (PDFCitationService.hasAcademicCitationInfo(content)) {
+            console.log('📄📚 Enhancing PDF metadata with content-based citations');
+            metadata = await PDFCitationService.enhanceMetadataWithPDFCitations(content, url, metadata);
+            console.log('✅ PDF metadata enhanced with content-based citations');
+            
+            // ✅ FIX: Log the enhanced metadata to verify it's working
+            console.log('📊 Enhanced metadata fields:', Object.keys(metadata));
+            console.log('📄 Enhanced title:', metadata.title);
+            console.log('👥 Enhanced author:', metadata.author);
+            console.log('📝 Enhanced description:', metadata.description);
+            if (metadata.citations) {
+              console.log('📚 Enhanced citations fields:', Object.keys(metadata.citations));
+              console.log('📄 Citation title:', metadata.citations.title);
+              console.log('👥 Citation authors:', metadata.citations.authors);
+              console.log('📝 Citation abstract:', metadata.citations.abstract);
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ Failed to enhance PDF metadata with content-based citations:', error);
+        }
+      }
+      
+      // ✅ FIX: Use enhanced title from metadata for content structure
+      const finalTitle = metadata.title || 'PDF Document';
+      
       return {
         success: true,
         extractionMethod: 'fetch-pdfjs',
         content: {
           url: cleanedUrl,
           text: content.trim() || 'No text content could be extracted from this PDF.',
-          html: `<div class="pdf-content"><h1>📄 ${metadata.title}</h1><pre>${content.trim()}</pre></div>`,
-          title: metadata.title || 'PDF Document',
+          html: `<div class="pdf-content"><h1>📄 ${finalTitle}</h1><pre>${content.trim()}</pre></div>`,
+          title: finalTitle,
           metadata: metadata,
           wordCount,
-          markdown: `# ${metadata.title}\n\n${content.trim()}`,
+          markdown: `# ${finalTitle}\n\n${content.trim()}`,
           extractedAt: Date.now()
         }
       };

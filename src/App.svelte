@@ -138,13 +138,22 @@
     {:else if panelManager.error}
       <div class="p-4 text-center">
         <div class="text-red-600 mb-2">❌ Error</div>
-        <p class="text-sm text-gray-600 mb-4">{panelManager.error}</p>
+        <p class="text-sm text-gray-600 mb-2">{panelManager.error}</p>
+        <p class="text-sm text-gray-600 mb-8">Try refreshing the page if the issue persists</p>
         <button 
           class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
           onclick={() => panelManager.refresh()}
         >
           Retry
         </button>
+      </div>
+    {:else if panelManager.isLoading}
+      <div class="p-4 text-center text-gray-500">
+        <div class="flex items-center justify-center gap-2 mb-2">
+          <div class="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <p>Loading content...</p>
+        </div>
+        <p class="text-sm text-gray-400">Please wait while we extract the page content</p>
       </div>
     {:else if panelManager.content}
       <div class="">
@@ -153,6 +162,15 @@
           {#if panelManager.contentMetadata.description}
             <p class="text-gray-700 mb-3">{panelManager.contentMetadata.description}</p>
           {/if}
+          
+          <!-- Show author information if available -->
+          {#if panelManager.contentMetadata.author}
+            <p class="text-gray-700 mb-3">
+              <strong>Author{panelManager.authors.length > 1 ? 's' : ''}:</strong> 
+              {panelManager.contentMetadata.author}
+            </p>
+          {/if}
+          
           <div class="text-gray-600 space-y-1">
           <p><strong>URL:</strong> {panelManager.url}</p>
             <p><strong>Tab ID:</strong> {panelManager.tabId}</p>
