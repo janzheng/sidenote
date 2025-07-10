@@ -1,4 +1,4 @@
-import { chromeStorage } from '../services/chromeStorage';
+import { chromeStorage } from '../services/chromeStorage.svelte';
 import type { Settings } from '../../types/settings';
 
 // Storage keys
@@ -71,7 +71,6 @@ const DEFAULT_SETTINGS: Settings = {
 };
 
 export class SettingsManager {
-  // Reactive state using $state
   settings = $state<Settings>({ ...DEFAULT_SETTINGS });
   isLoading = $state(false);
   isSaving = $state(false);

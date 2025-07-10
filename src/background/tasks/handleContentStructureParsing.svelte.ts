@@ -1,6 +1,6 @@
 import type { TabData } from '../../types/tabData';
 import { backgroundDataController } from '../index';
-import { parseContentFromMarkdown } from '../../lib/services/parseContent';
+import { parseContentFromMarkdown } from '../../lib/services/parseContent.svelte';
 
 /**
  * Handle content structure parsing request for a specific URL

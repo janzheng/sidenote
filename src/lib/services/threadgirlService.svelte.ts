@@ -260,5 +260,6 @@ ${sourceContents.join('\n\n')}
   /**
    * Default model constant
    */
-  static readonly DEFAULT_MODEL = 'claude-sonnet-4-20250514';
+  // static readonly DEFAULT_MODEL = 'claude-sonnet-4-20250514';
+  static readonly DEFAULT_MODEL = 'llama-3.1-8b-instant';
 } 

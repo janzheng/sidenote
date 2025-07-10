@@ -223,7 +223,12 @@
                 <div class="text-sm font-mono text-gray-900 dark:text-white bg-white dark:bg-gray-800 px-2 py-1 rounded border flex-1 break-all">
                   {debugData.url}
                 </div>
-                <CopyButton content={debugData.url} buttonClass="px-2 py-1 text-xs" />
+                <CopyButton 
+                  content={debugData.url} 
+                  buttonClass="px-2 py-1 text-xs"
+                  defaultIcon="mdi:content-copy"
+                  successIcon="mdi:check"
+                />
               </div>
             </div>
           </div>

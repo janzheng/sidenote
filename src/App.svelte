@@ -11,6 +11,7 @@
   import Threadgirl from './lib/components/Threadgirl.svelte';
   import Citations from './lib/components/Citations.svelte';
   import AiChat from './lib/components/AiChat.svelte';
+  import TwitterThread from './lib/components/TwitterThread.svelte';
   import PageAssets from './lib/components/PageAssets.svelte';
   import PageScreenshots from './lib/components/PageScreenshots.svelte';
   
@@ -146,9 +147,12 @@
     {:else if panelManager.content}
       <div class="">
         <div class="mb-4">
-          <h2 class="text-xl font-bold mb-2">{panelManager.title}</h2>
-          <div class="text-sm text-gray-600 space-y-1">
-            <p><strong>URL:</strong> {panelManager.url}</p>
+          <h2 class="text-xl font-bold pt-4 mb-2">{panelManager.title}</h2>
+          {#if panelManager.contentMetadata.description}
+            <p class="text-gray-700 mb-3">{panelManager.contentMetadata.description}</p>
+          {/if}
+          <div class="text-gray-600 space-y-1">
+          <p><strong>URL:</strong> {panelManager.url}</p>
             <p><strong>Tab ID:</strong> {panelManager.tabId}</p>
             <p><strong>Word count:</strong> {panelManager.wordCount}</p>
           </div>
@@ -221,6 +225,19 @@
         </div>
       {/if}
 
+      <!-- Twitter Thread Component -->
+      {#if currentTab === 'content' && panelManager.content}
+        <div class="">
+          <TwitterThread 
+            url={panelManager.url}
+            content={panelManager.content.content}
+            twitterThread={panelManager.content.analysis?.socialMediaThread}
+            isExtracting={panelManager.content.processing?.socialMediaThread?.isExtracting || false}
+            isExpanding={panelManager.content.processing?.socialMediaThread?.isExpanding || false}
+            onRefresh={() => panelManager.refreshDataOnly()}
+          />
+        </div>
+      {/if}
 
       <!-- AI Recipe Component -->
       {#if currentTab === 'content' && panelManager.content}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from "@iconify/svelte";
   import CopyButton from "./CopyButton.svelte";
   
   interface Props {
@@ -20,9 +21,11 @@
   const displayCount = $derived(typeof itemCount === 'number' ? itemCount : itemCount);
   const hasContent = $derived(content && content.length > 0);
 </script>
+
 <details class="bg-gray-50 dark:bg-gray-700 rounded border">
   <summary class="cursor-pointer px-2 py-1 font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded flex items-center justify-between min-h-[2rem]">
-    <span class="flex items-center">
+    <span class="flex items-center gap-2">
+      <Icon icon="mdi:chevron-right" class="w-4 h-4 transition-transform duration-200 arrow-icon" />
       {title}
       {#if displayCount}({displayCount}{typeof itemCount === 'number' && itemCount === 1 ? 'entry' : typeof itemCount === 'number' ? ' entries' : ''}{typeof itemCount === 'string' ? '' : ''}){/if}
     </span>
@@ -31,6 +34,8 @@
         <CopyButton 
           {content} 
           buttonClass="ml-2 p-1 hover:bg-gray-200 dark:hover:bg-gray-500 rounded transition-colors"
+          defaultIcon="mdi:content-copy"
+          successIcon="mdi:check"
         />
       {/if}
     </div>
@@ -44,4 +49,10 @@
       <div class="text-gray-500 italic text-sm">{emptyMessage}</div>
     {/if}
   </div>
-</details> 
+</details>
+
+<style>
+  details[open] .arrow-icon {
+    transform: rotate(180deg);
+  }
+</style> 

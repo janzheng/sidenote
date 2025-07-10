@@ -188,8 +188,8 @@ export class CitationService {
       };
 
     } catch (error) {
-      console.warn(`⚠️ Citation-js URL parsing failed: ${error instanceof Error ? error.message : error}. Citation-js is most likely not supported for this URL.`);
-      console.log('🔄 Falling back to manual URL citation formatting...');
+      // console.warn(`⚠️ Citation-js URL parsing failed: ${error instanceof Error ? error.message : error}. Citation-js is most likely not supported for this URL.`);
+      // console.log('🔄 Falling back to manual URL citation formatting...');
 
       // Fallback: Create manual URL citations when citation-js fails
       // Pass metadata to improve the manual citation quality
@@ -687,7 +687,7 @@ export class CitationService {
 
     try {
       // Import the groqService functions
-      const { generateText } = await import('./groqService');
+      const { generateText } = await import('./groqService.svelte');
 
       // Prepare the content for AI analysis
       let htmlContent = '';

@@ -1,6 +1,6 @@
 import type { TabData } from '../../types/tabData';
 import { backgroundDataController } from '../index';
-import { SummaryService } from '../../lib/services/summaryService';
+import { SummaryService } from '../../lib/services/summaryService.svelte';
 
 /**
  * Handle summary generation request for a specific URL
@@ -24,39 +24,25 @@ export async function handleSummaryGeneration(url: string, sendResponse: (respon
     console.log('🤖 Current summary status:', tabData.processing?.summary);
     
     // Update processing status to indicate we're generating
+    // ✅ NEW: Only specify the fields we want to update!
     await backgroundDataController.saveData(url, {
       processing: { 
-        summary: { isStreaming: true, error: null },
-        citations: tabData.processing?.citations || { isGenerating: false, error: null },
-        researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-        chat: tabData.processing?.chat || { isGenerating: false, error: null },
-        threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null },
-        pageAssets: tabData.processing?.pageAssets || { isExtracting: false, error: null }
+        summary: { isStreaming: true, error: null }
       }
-    });
+    }); 
 
     // Use the SummaryService to generate summary
     const summaryResult = await SummaryService.generateSummary(tabData);
     
     if (summaryResult.success && summaryResult.summary) {
       // Update with successful summary
+      // ✅ NEW: Only specify the fields we want to update!
       const saveResult = await backgroundDataController.saveData(url, {
         analysis: { 
-          summary: summaryResult.summary,
-          citations: tabData.analysis?.citations || null,
-          researchPaper: tabData.analysis?.researchPaper || null,
-          contentStructure: tabData.analysis?.contentStructure || null,
-          chatMessages: tabData.analysis?.chatMessages || null,
-          threadgirlResults: tabData.analysis?.threadgirlResults || null,
-          pageAssets: tabData.analysis?.pageAssets || null
+          summary: summaryResult.summary
         },
         processing: { 
-          summary: { isStreaming: false, error: null },
-          citations: tabData.processing?.citations || { isGenerating: false, error: null },
-          researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-          chat: tabData.processing?.chat || { isGenerating: false, error: null },
-          threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null },
-          pageAssets: tabData.processing?.pageAssets || { isExtracting: false, error: null }
+          summary: { isStreaming: false, error: null }
         }
       });
       
@@ -74,14 +60,10 @@ export async function handleSummaryGeneration(url: string, sendResponse: (respon
       });
     } else {
       // Update processing status to error
+      // ✅ NEW: Only specify the fields we want to update!
       await backgroundDataController.saveData(url, {
         processing: { 
-          summary: { isStreaming: false, error: summaryResult.error || 'Unknown error' },
-          citations: tabData.processing?.citations || { isGenerating: false, error: null },
-          researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-          chat: tabData.processing?.chat || { isGenerating: false, error: null },
-          threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null },
-          pageAssets: tabData.processing?.pageAssets || { isExtracting: false, error: null }
+          summary: { isStreaming: false, error: summaryResult.error || 'Unknown error' }
         }
       });
       
@@ -96,15 +78,11 @@ export async function handleSummaryGeneration(url: string, sendResponse: (respon
     console.error('❌ Error in summary generation process:', error);
     
     // Update processing status to error
+    // ✅ NEW: Only specify the fields we want to update!
     try {
       await backgroundDataController.saveData(url, {
         processing: { 
-          summary: { isStreaming: false, error: error instanceof Error ? error.message : 'Unknown error' },
-          citations: { isGenerating: false, error: null },
-          researchPaper: { isExtracting: false, progress: '', error: null },
-          chat: { isGenerating: false, error: null },
-          threadgirl: { isProcessing: false, error: null },
-          pageAssets: { isExtracting: false, error: null }
+          summary: { isStreaming: false, error: error instanceof Error ? error.message : 'Unknown error' }
         }
       });
     } catch (saveError) {

@@ -1,7 +1,7 @@
 import type { TabData } from '../../types/tabData';
 import type { SummaryResponse } from '../../types/summaryResponse';
 import type { SummaryValidationResult } from '../../types/summaryValidationResult';
-import { GroqService } from './groqService';
+import { GroqService } from './groqService.svelte';
 import { getCurrentSettings } from '../ui/settings.svelte';
 
 export class SummaryService {

@@ -1,5 +1,5 @@
-import { extractMetadata, cleanUrl } from './extractMetadata';
-import { contentDataController } from '../../lib/services/dataController';
+import { extractMetadata, cleanUrl } from './extractMetadata.svelte';
+import { contentDataController } from '../../lib/services/dataController.svelte';
 
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
@@ -117,7 +117,7 @@ export async function extractContent(): Promise<ContentExtractionResult> {
     let saveData: any = { content: baseContentData };
     
     try {
-      const { CitationService } = await import('../../lib/services/citationService');
+      const { CitationService } = await import('../../lib/services/citationService.svelte');
       const citationResult = await CitationService.generateCitations(metadata, cleanedUrl);
       
       if (citationResult.success && citationResult.citations) {

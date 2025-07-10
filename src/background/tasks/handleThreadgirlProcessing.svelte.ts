@@ -1,7 +1,7 @@
 import type { TabData } from '../../types/tabData';
 import type { ThreadgirlResult } from '../../types/threadgirlResult';
 import { backgroundDataController } from '../index';
-import { ThreadgirlService } from '../../lib/services/threadgirlService';
+import { ThreadgirlService } from '../../lib/services/threadgirlService.svelte';
 
 /**
  * Handle Threadgirl processing request for a specific URL
@@ -39,13 +39,8 @@ export async function handleThreadgirlProcessing(
     // Log current processing status before update
     console.log('🤖 Current Threadgirl status:', tabData.processing?.threadgirl);
     
-    // Update processing status to indicate we're processing
     await backgroundDataController.saveData(url, {
       processing: { 
-        summary: tabData.processing?.summary || { isStreaming: false, error: null },
-        citations: tabData.processing?.citations || { isGenerating: false, error: null },
-        researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-        chat: tabData.processing?.chat || { isGenerating: false, error: null },
         threadgirl: { isProcessing: true, error: null }
       }
     });
@@ -67,13 +62,8 @@ export async function handleThreadgirlProcessing(
     const localResult = await ThreadgirlService.processContent(tabData, prompt, model);
     
     if (!localResult.success || !localResult.result) {
-      // Update processing status to error
       await backgroundDataController.saveData(url, {
         processing: { 
-          summary: tabData.processing?.summary || { isStreaming: false, error: null },
-          citations: tabData.processing?.citations || { isGenerating: false, error: null },
-          researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-          chat: tabData.processing?.chat || { isGenerating: false, error: null },
           threadgirl: { isProcessing: false, error: localResult.error || 'Unknown error' }
         }
       });
@@ -92,21 +82,12 @@ export async function handleThreadgirlProcessing(
     const existingResults = tabData.analysis?.threadgirlResults || [];
     const updatedResults = [...existingResults, threadgirlResult];
     
-    // Update with successful result
+    // ✅ NEW: Only specify the fields we want to update!
     const saveResult = await backgroundDataController.saveData(url, {
       analysis: { 
-        summary: tabData.analysis?.summary || null,
-        citations: tabData.analysis?.citations || null,
-        researchPaper: tabData.analysis?.researchPaper || null,
-        contentStructure: tabData.analysis?.contentStructure || null,
-        chatMessages: tabData.analysis?.chatMessages || null,
         threadgirlResults: updatedResults
       },
       processing: { 
-        summary: tabData.processing?.summary || { isStreaming: false, error: null },
-        citations: tabData.processing?.citations || { isGenerating: false, error: null },
-        researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-        chat: tabData.processing?.chat || { isGenerating: false, error: null },
         threadgirl: { isProcessing: false, error: null }
       }
     });
@@ -129,14 +110,10 @@ export async function handleThreadgirlProcessing(
   } catch (error) {
     console.error('❌ Error in Threadgirl processing:', error);
     
-    // Update processing status to error
+    // ✅ NEW: Only specify the fields we want to update!
     try {
       await backgroundDataController.saveData(url, {
         processing: { 
-          summary: { isStreaming: false, error: null },
-          citations: { isGenerating: false, error: null },
-          researchPaper: { isExtracting: false, progress: '', error: null },
-          chat: { isGenerating: false, error: null },
           threadgirl: { isProcessing: false, error: error instanceof Error ? error.message : 'Unknown error' }
         }
       });

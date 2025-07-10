@@ -1,6 +1,15 @@
 
 import type { PageMetadata } from './pageMetadata';
 
+export interface ContentChunk {
+  id: string;
+  text: string;
+  startIndex: number;
+  endIndex: number;
+  type?: 'paragraph' | 'heading' | 'list' | 'table' | 'code' | 'quote' | 'other';
+  metadata?: Record<string, any>;
+}
+
 export interface PageContent {
   url: string;
   cleanUrl: string;

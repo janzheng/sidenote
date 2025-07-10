@@ -1,6 +1,6 @@
 import type { TabData } from '../../types/tabData';
 import { backgroundDataController } from '../index';
-import { BookmarkService } from '../../lib/services/bookmarkService';
+import { BookmarkService } from '../../lib/services/bookmarkService.svelte';
 
 /**
  * Handle bookmark request for a specific URL

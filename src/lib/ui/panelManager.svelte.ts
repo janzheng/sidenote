@@ -37,6 +37,7 @@ export class PanelManager {
   get tabId() { return this.state.tabId; }
   get url() { return this.state.url; }
   get title() { return this.state.title; }
+  get metadata() { return this.state.content?.content?.metadata || {}; }
   
   // Check if current content is bookmarked
   get isBookmarked() {

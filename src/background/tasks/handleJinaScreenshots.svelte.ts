@@ -1,7 +1,7 @@
 import type { TabData } from '../../types/tabData';
 import type { ScreenshotInfo } from '../../types/pageAssets';
 import { backgroundDataController } from '../index';
-import { JinaService } from '../../lib/services/jinaService';
+import { JinaService } from '../../lib/services/jinaService.svelte';
 
 /**
  * Handle Jina pageshot generation request for a specific URL
@@ -24,14 +24,9 @@ export async function handleJinaPageshot(url: string, sendResponse: (response: a
     // Log current pageAssets status before update
     console.log('📸 Current pageAssets status:', tabData.processing?.pageAssets);
     
-    // Update processing status to indicate we're generating pageshot
+    // ✅ NEW: Only specify the fields we want to update!
     await backgroundDataController.saveData(url, {
       processing: { 
-        summary: tabData.processing?.summary || { isStreaming: false, error: null },
-        citations: tabData.processing?.citations || { isGenerating: false, error: null },
-        researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-        chat: tabData.processing?.chat || { isGenerating: false, error: null },
-        threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null },
         pageAssets: { isExtracting: true, error: null }
       }
     });
@@ -53,23 +48,12 @@ export async function handleJinaPageshot(url: string, sendResponse: (response: a
         }
       };
 
-      // Update with successful pageshot
+      // ✅ NEW: Only specify the fields we want to update!
       const saveResult = await backgroundDataController.saveData(url, {
         analysis: { 
-          summary: tabData.analysis?.summary || null,
-          citations: tabData.analysis?.citations || null,
-          researchPaper: tabData.analysis?.researchPaper || null,
-          contentStructure: tabData.analysis?.contentStructure || null,
-          chatMessages: tabData.analysis?.chatMessages || null,
-          threadgirlResults: tabData.analysis?.threadgirlResults || null,
           pageAssets: updatedPageAssets
         },
         processing: { 
-          summary: tabData.processing?.summary || { isStreaming: false, error: null },
-          citations: tabData.processing?.citations || { isGenerating: false, error: null },
-          researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-          chat: tabData.processing?.chat || { isGenerating: false, error: null },
-          threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null },
           pageAssets: { isExtracting: false, error: null }
         }
       });
@@ -86,14 +70,9 @@ export async function handleJinaPageshot(url: string, sendResponse: (response: a
         screenshots: pageshotResult.screenshots
       });
     } else {
-      // Update processing status to error
+      // ✅ NEW: Only specify the fields we want to update!
       await backgroundDataController.saveData(url, {
         processing: { 
-          summary: tabData.processing?.summary || { isStreaming: false, error: null },
-          citations: tabData.processing?.citations || { isGenerating: false, error: null },
-          researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-          chat: tabData.processing?.chat || { isGenerating: false, error: null },
-          threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null },
           pageAssets: { isExtracting: false, error: pageshotResult.error || 'Unknown error' }
         }
       });
@@ -108,15 +87,10 @@ export async function handleJinaPageshot(url: string, sendResponse: (response: a
   } catch (error) {
     console.error('❌ Error in pageshot generation process:', error);
     
-    // Update processing status to error
+    // ✅ NEW: Only specify the fields we want to update!
     try {
       await backgroundDataController.saveData(url, {
         processing: { 
-          summary: { isStreaming: false, error: null },
-          citations: { isGenerating: false, error: null },
-          researchPaper: { isExtracting: false, progress: '', error: null },
-          chat: { isGenerating: false, error: null },
-          threadgirl: { isProcessing: false, error: null },
           pageAssets: { isExtracting: false, error: error instanceof Error ? error.message : 'Unknown error' }
         }
       });
@@ -150,14 +124,9 @@ export async function handleJinaScreenshot(url: string, sendResponse: (response:
     // Log current pageAssets status before update
     console.log('📷 Current pageAssets status:', tabData.processing?.pageAssets);
     
-    // Update processing status to indicate we're generating screenshot
+    // ✅ NEW: Only specify the fields we want to update!
     await backgroundDataController.saveData(url, {
       processing: { 
-        summary: tabData.processing?.summary || { isStreaming: false, error: null },
-        citations: tabData.processing?.citations || { isGenerating: false, error: null },
-        researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-        chat: tabData.processing?.chat || { isGenerating: false, error: null },
-        threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null },
         pageAssets: { isExtracting: true, error: null }
       }
     });
@@ -179,23 +148,12 @@ export async function handleJinaScreenshot(url: string, sendResponse: (response:
         }
       };
 
-      // Update with successful screenshot
+      // ✅ NEW: Only specify the fields we want to update!
       const saveResult = await backgroundDataController.saveData(url, {
         analysis: { 
-          summary: tabData.analysis?.summary || null,
-          citations: tabData.analysis?.citations || null,
-          researchPaper: tabData.analysis?.researchPaper || null,
-          contentStructure: tabData.analysis?.contentStructure || null,
-          chatMessages: tabData.analysis?.chatMessages || null,
-          threadgirlResults: tabData.analysis?.threadgirlResults || null,
           pageAssets: updatedPageAssets
         },
         processing: { 
-          summary: tabData.processing?.summary || { isStreaming: false, error: null },
-          citations: tabData.processing?.citations || { isGenerating: false, error: null },
-          researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-          chat: tabData.processing?.chat || { isGenerating: false, error: null },
-          threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null },
           pageAssets: { isExtracting: false, error: null }
         }
       });
@@ -203,7 +161,7 @@ export async function handleJinaScreenshot(url: string, sendResponse: (response:
       console.log('📷 Save result:', saveResult);
       
       // Verify the save by loading the data again
-      const verifyData = await backgroundDataController.loadData(url, true); // Force refresh
+      const verifyData = await backgroundDataController.loadData(url, true);
       console.log('📷 Verified screenshot after save:', verifyData?.analysis?.pageAssets?.screenshots?.screenshot?.substring(0, 50) + '...');
 
       console.log('✅ Screenshot generated successfully');
@@ -212,14 +170,9 @@ export async function handleJinaScreenshot(url: string, sendResponse: (response:
         screenshots: screenshotResult.screenshots
       });
     } else {
-      // Update processing status to error
+      // ✅ NEW: Only specify the fields we want to update!
       await backgroundDataController.saveData(url, {
         processing: { 
-          summary: tabData.processing?.summary || { isStreaming: false, error: null },
-          citations: tabData.processing?.citations || { isGenerating: false, error: null },
-          researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-          chat: tabData.processing?.chat || { isGenerating: false, error: null },
-          threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null },
           pageAssets: { isExtracting: false, error: screenshotResult.error || 'Unknown error' }
         }
       });
@@ -234,15 +187,10 @@ export async function handleJinaScreenshot(url: string, sendResponse: (response:
   } catch (error) {
     console.error('❌ Error in screenshot generation process:', error);
     
-    // Update processing status to error
+    // ✅ NEW: Only specify the fields we want to update!
     try {
       await backgroundDataController.saveData(url, {
         processing: { 
-          summary: { isStreaming: false, error: null },
-          citations: { isGenerating: false, error: null },
-          researchPaper: { isExtracting: false, progress: '', error: null },
-          chat: { isGenerating: false, error: null },
-          threadgirl: { isProcessing: false, error: null },
           pageAssets: { isExtracting: false, error: error instanceof Error ? error.message : 'Unknown error' }
         }
       });

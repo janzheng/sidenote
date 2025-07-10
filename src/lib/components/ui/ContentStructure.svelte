@@ -3,7 +3,6 @@
   import ToggleDrawer from './ToggleDrawer.svelte';
   import CopyButton from './CopyButton.svelte';
   import type { ContentNode } from '../../../types/contentNode';
-  import { parseContent } from '../../services/parseContent';
   import { contentStructureManager } from '../../ui/contentStructureManager.svelte';
 
   // Props from DebugPanel

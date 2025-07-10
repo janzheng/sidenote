@@ -1,6 +1,6 @@
 import type { TabData } from '../../types/tabData';
 import { backgroundDataController } from '../index';
-import { RecipeService } from '../../lib/services/recipeService';
+import { RecipeService } from '../../lib/services/recipeService.svelte';
 
 /**
  * Handle recipe extraction request for a specific URL
@@ -23,15 +23,9 @@ export async function handleRecipeExtraction(url: string, sendResponse: (respons
     // Log current recipe status before update
     console.log('🍳 Current recipe status:', tabData.processing?.recipe);
     
-    // Update processing status to indicate we're extracting
+    // ✅ NEW: Only specify the fields we want to update!
     await backgroundDataController.saveData(url, {
       processing: { 
-        summary: tabData.processing?.summary || { isStreaming: false, error: null },
-        citations: tabData.processing?.citations || { isGenerating: false, error: null },
-        researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-        chat: tabData.processing?.chat || { isGenerating: false, error: null },
-        threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null },
-        pageAssets: tabData.processing?.pageAssets || { isExtracting: false, error: null },
         recipe: { isExtracting: true, error: null }
       }
     });
@@ -40,25 +34,12 @@ export async function handleRecipeExtraction(url: string, sendResponse: (respons
     const recipeResult = await RecipeService.extractRecipe(tabData);
     
     if (recipeResult.success && recipeResult.recipe) {
-      // Update with successful recipe extraction
+      // ✅ NEW: Only specify the fields we want to update!
       const saveResult = await backgroundDataController.saveData(url, {
         analysis: { 
-          summary: tabData.analysis?.summary || null,
-          citations: tabData.analysis?.citations || null,
-          researchPaper: tabData.analysis?.researchPaper || null,
-          contentStructure: tabData.analysis?.contentStructure || null,
-          chatMessages: tabData.analysis?.chatMessages || null,
-          threadgirlResults: tabData.analysis?.threadgirlResults || null,
-          pageAssets: tabData.analysis?.pageAssets || null,
           recipe: recipeResult.recipe
         },
         processing: { 
-          summary: tabData.processing?.summary || { isStreaming: false, error: null },
-          citations: tabData.processing?.citations || { isGenerating: false, error: null },
-          researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-          chat: tabData.processing?.chat || { isGenerating: false, error: null },
-          threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null },
-          pageAssets: tabData.processing?.pageAssets || { isExtracting: false, error: null },
           recipe: { isExtracting: false, error: null }
         }
       });
@@ -76,15 +57,9 @@ export async function handleRecipeExtraction(url: string, sendResponse: (respons
         recipeId: recipeResult.recipeId 
       });
     } else {
-      // Update processing status to error
+      // ✅ NEW: Only specify the fields we want to update!
       await backgroundDataController.saveData(url, {
         processing: { 
-          summary: tabData.processing?.summary || { isStreaming: false, error: null },
-          citations: tabData.processing?.citations || { isGenerating: false, error: null },
-          researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-          chat: tabData.processing?.chat || { isGenerating: false, error: null },
-          threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null },
-          pageAssets: tabData.processing?.pageAssets || { isExtracting: false, error: null },
           recipe: { isExtracting: false, error: recipeResult.error || 'Unknown error' }
         }
       });
@@ -99,16 +74,10 @@ export async function handleRecipeExtraction(url: string, sendResponse: (respons
   } catch (error) {
     console.error('❌ Error in recipe extraction process:', error);
     
-    // Update processing status to error
+    // ✅ NEW: Only specify the fields we want to update!
     try {
       await backgroundDataController.saveData(url, {
         processing: { 
-          summary: { isStreaming: false, error: null },
-          citations: { isGenerating: false, error: null },
-          researchPaper: { isExtracting: false, progress: '', error: null },
-          chat: { isGenerating: false, error: null },
-          threadgirl: { isProcessing: false, error: null },
-          pageAssets: { isExtracting: false, error: null },
           recipe: { isExtracting: false, error: error instanceof Error ? error.message : 'Unknown error' }
         }
       });

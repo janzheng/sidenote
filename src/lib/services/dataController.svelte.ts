@@ -1,9 +1,16 @@
 import type { TabData } from '../../types/tabData';
 
+/**
+ * Deep partial type that makes all nested properties optional
+ */
+export type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
 export interface DataMessage {
   action: 'saveData' | 'loadData' | 'hasData' | 'clearData';
   url: string;
-  data?: Partial<TabData>;
+  data?: DeepPartial<TabData>;
   timestamp?: number;
 }
 
@@ -12,6 +19,40 @@ export interface DataResponse {
   data?: TabData | null;
   exists?: boolean;
   error?: string;
+}
+
+/**
+ * Deep merge utility function
+ * Recursively merges objects, with the second object taking precedence
+ */
+function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>): T {
+  const result = { ...target } as T;
+  
+  for (const key in source) {
+    if (source.hasOwnProperty(key)) {
+      const sourceValue = source[key];
+      const targetValue = result[key];
+      
+      if (sourceValue === null || sourceValue === undefined) {
+        // Explicitly set null/undefined values
+        (result as any)[key] = sourceValue;
+      } else if (
+        typeof sourceValue === 'object' && 
+        !Array.isArray(sourceValue) && 
+        typeof targetValue === 'object' && 
+        !Array.isArray(targetValue) &&
+        targetValue !== null
+      ) {
+        // Recursively merge objects (but not arrays)
+        (result as any)[key] = deepMerge(targetValue, sourceValue);
+      } else {
+        // Direct assignment for primitives, arrays, and when target is null
+        (result as any)[key] = sourceValue;
+      }
+    }
+  }
+  
+  return result;
 }
 
 /**
@@ -45,7 +86,7 @@ export class DataController {
   /**
    * Save data for a specific URL
    */
-  async saveData(url: string, data: Partial<TabData>): Promise<boolean> {
+  async saveData(url: string, data: DeepPartial<TabData>): Promise<boolean> {
     const normalizedUrl = this.normalizeUrl(url);
     
     try {
@@ -64,7 +105,7 @@ export class DataController {
         await this.persistToStorage(normalizedUrl, updated);
       } else {
         // If we're in content script, send to background for persistence
-        await this.sendToBackground('saveData', normalizedUrl, data);
+        await this.sendToBackground('saveData', normalizedUrl, data as any);
       }
       
       console.log(`💾 Data saved for ${normalizedUrl}`, { context: this.context });
@@ -183,7 +224,9 @@ export class DataController {
         contentStructure: null,
         chatMessages: null,
         threadgirlResults: null,
-        pageAssets: null
+        pageAssets: null,
+        recipe: null,
+        socialMediaThread: null
       },
       statuses: {
         bookmarkStatus: 'not-bookmarked'
@@ -194,7 +237,9 @@ export class DataController {
         researchPaper: { isExtracting: false, progress: '', error: null },
         chat: { isGenerating: false, error: null },
         threadgirl: { isProcessing: false, error: null },
-        pageAssets: { isExtracting: false, error: null }
+        pageAssets: { isExtracting: false, error: null },
+        recipe: { isExtracting: false, error: null },
+        socialMediaThread: { isExtracting: false, isExpanding: false, error: null }
       },
       meta: {
         contentId: this.generateContentId(url),
@@ -206,16 +251,10 @@ export class DataController {
   }
 
   /**
-   * Deep merge TabData objects
+   * Deep merge TabData objects using the deep merge utility
    */
-  private mergeTabData(existing: TabData, update: Partial<TabData>): TabData {
-    return {
-      content: { ...existing.content, ...update.content },
-      analysis: { ...existing.analysis, ...update.analysis },
-      statuses: { ...existing.statuses, ...update.statuses },
-      processing: { ...existing.processing, ...update.processing },
-      meta: { ...existing.meta, ...update.meta }
-    };
+  private mergeTabData(existing: TabData, update: DeepPartial<TabData>): TabData {
+    return deepMerge(existing, update as any);
   }
 
   /**

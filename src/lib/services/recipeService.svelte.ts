@@ -1,7 +1,7 @@
 import type { TabData } from '../../types/tabData';
 import type { RecipeResponse } from '../../types/recipe';
 import type { RecipeValidationResult, Recipe } from '../../types/recipe';
-import { GroqService } from './groqService';
+import { GroqService } from './groqService.svelte';
 import { getCurrentSettings } from '../ui/settings.svelte';
 
 export class RecipeService {

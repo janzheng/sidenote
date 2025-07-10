@@ -32,14 +32,8 @@ export async function handlePageAssetsExtraction(url: string, sendResponse: (res
     // Log current page assets status before update
     console.log('🎨 Current page assets status:', tabData.processing?.pageAssets);
     
-    // Update processing status to indicate we're extracting
     await backgroundDataController.saveData(url, {
       processing: { 
-        summary: tabData.processing?.summary || { isStreaming: false, error: null },
-        citations: tabData.processing?.citations || { isGenerating: false, error: null },
-        researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-        chat: tabData.processing?.chat || { isGenerating: false, error: null },
-        threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null },
         pageAssets: { isExtracting: true, error: null }
       }
     });
@@ -49,14 +43,8 @@ export async function handlePageAssetsExtraction(url: string, sendResponse: (res
       if (tabs.length === 0) {
         console.error('❌ No tabs found for URL:', url);
         
-        // Update processing status to error
         await backgroundDataController.saveData(url, {
           processing: { 
-            summary: tabData.processing?.summary || { isStreaming: false, error: null },
-            citations: tabData.processing?.citations || { isGenerating: false, error: null },
-            researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-            chat: tabData.processing?.chat || { isGenerating: false, error: null },
-            threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null },
             pageAssets: { isExtracting: false, error: 'No active tab found for this URL' }
           }
         });
@@ -72,14 +60,9 @@ export async function handlePageAssetsExtraction(url: string, sendResponse: (res
       if (!tab.id) {
         console.error('❌ Tab ID not found');
         
-        // Update processing status to error
+        // ✅ NEW: Only specify the fields we want to update!
         await backgroundDataController.saveData(url, {
           processing: { 
-            summary: tabData.processing?.summary || { isStreaming: false, error: null },
-            citations: tabData.processing?.citations || { isGenerating: false, error: null },
-            researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-            chat: tabData.processing?.chat || { isGenerating: false, error: null },
-            threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null },
             pageAssets: { isExtracting: false, error: 'Tab ID not found' }
           }
         });
@@ -96,14 +79,9 @@ export async function handlePageAssetsExtraction(url: string, sendResponse: (res
         if (chrome.runtime.lastError) {
           console.error('❌ Content script not available:', chrome.runtime.lastError.message);
           
-          // Update processing status to error
+          // ✅ NEW: Only specify the fields we want to update!
           await backgroundDataController.saveData(url, {
             processing: { 
-              summary: tabData.processing?.summary || { isStreaming: false, error: null },
-              citations: tabData.processing?.citations || { isGenerating: false, error: null },
-              researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-              chat: tabData.processing?.chat || { isGenerating: false, error: null },
-              threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null },
               pageAssets: { isExtracting: false, error: 'Content script not available' }
             }
           });
@@ -116,23 +94,12 @@ export async function handlePageAssetsExtraction(url: string, sendResponse: (res
         }
 
         if (response?.success && response?.assets) {
-          // Update with successful extraction
+          // ✅ NEW: Only specify the fields we want to update!
           const saveResult = await backgroundDataController.saveData(url, {
             analysis: { 
-              summary: tabData.analysis?.summary || null,
-              citations: tabData.analysis?.citations || null,
-              researchPaper: tabData.analysis?.researchPaper || null,
-              contentStructure: tabData.analysis?.contentStructure || null,
-              chatMessages: tabData.analysis?.chatMessages || null,
-              threadgirlResults: tabData.analysis?.threadgirlResults || null,
               pageAssets: response.assets
             },
             processing: { 
-              summary: tabData.processing?.summary || { isStreaming: false, error: null },
-              citations: tabData.processing?.citations || { isGenerating: false, error: null },
-              researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-              chat: tabData.processing?.chat || { isGenerating: false, error: null },
-              threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null },
               pageAssets: { isExtracting: false, error: null }
             }
           });
@@ -156,14 +123,9 @@ export async function handlePageAssetsExtraction(url: string, sendResponse: (res
         } else {
           console.error('❌ Page assets extraction failed:', response?.error);
           
-          // Update processing status to error
+          // ✅ NEW: Only specify the fields we want to update!
           await backgroundDataController.saveData(url, {
             processing: { 
-              summary: tabData.processing?.summary || { isStreaming: false, error: null },
-              citations: tabData.processing?.citations || { isGenerating: false, error: null },
-              researchPaper: tabData.processing?.researchPaper || { isExtracting: false, progress: '', error: null },
-              chat: tabData.processing?.chat || { isGenerating: false, error: null },
-              threadgirl: tabData.processing?.threadgirl || { isProcessing: false, error: null },
               pageAssets: { isExtracting: false, error: response?.error || 'Unknown error' }
             }
           });
@@ -179,15 +141,10 @@ export async function handlePageAssetsExtraction(url: string, sendResponse: (res
   } catch (error) {
     console.error('❌ Error in page assets extraction process:', error);
     
-    // Update processing status to error
+    // ✅ NEW: Only specify the fields we want to update!
     try {
       await backgroundDataController.saveData(url, {
         processing: { 
-          summary: { isStreaming: false, error: null },
-          citations: { isGenerating: false, error: null },
-          researchPaper: { isExtracting: false, progress: '', error: null },
-          chat: { isGenerating: false, error: null },
-          threadgirl: { isProcessing: false, error: null },
           pageAssets: { isExtracting: false, error: error instanceof Error ? error.message : 'Unknown error' }
         }
       });

@@ -3,17 +3,18 @@
 
 const PANEL_PATH = 'index.html';
 
-import { handleContentExtraction } from './tasks/handleContentExtraction';
-import { handleManualContentSetting } from './tasks/handleManualContentSetting';
-import { handleBookmarking, getBookmarkStatus } from './tasks/handleBookmarking';
-import { handleSummaryGeneration, getSummaryStatus } from './tasks/handleSummaryGeneration';
-import { handleContentStructureParsing, getContentStructureStatus } from './tasks/handleContentStructureParsing';
-import { handleChatMessage, handleClearChatHistory, getChatStatus } from './tasks/handleChatMessage';
-import { handleThreadgirlProcessing, getThreadgirlStatus } from './tasks/handleThreadgirlProcessing';
-import { handlePageAssetsExtraction, getPageAssetsStatus } from './tasks/handlePageAssetsExtraction';
-import { handleJinaPageshot, handleJinaScreenshot, getScreenshotStatus } from './tasks/handleJinaScreenshots';
-import { handleRecipeExtraction, getRecipeStatus } from './tasks/handleRecipeExtraction';
-import { DataController } from '../lib/services/dataController';
+import { handleContentExtraction } from './tasks/handleContentExtraction.svelte';
+import { handleManualContentSetting } from './tasks/handleManualContentSetting.svelte';
+import { handleBookmarking, getBookmarkStatus } from './tasks/handleBookmarking.svelte';
+import { handleSummaryGeneration, getSummaryStatus } from './tasks/handleSummaryGeneration.svelte';
+import { handleContentStructureParsing, getContentStructureStatus } from './tasks/handleContentStructureParsing.svelte';
+import { handleChatMessage, handleClearChatHistory, getChatStatus } from './tasks/handleChatMessage.svelte';
+import { handleThreadgirlProcessing, getThreadgirlStatus } from './tasks/handleThreadgirlProcessing.svelte';
+import { handlePageAssetsExtraction, getPageAssetsStatus } from './tasks/handlePageAssetsExtraction.svelte';
+import { handleJinaPageshot, handleJinaScreenshot, getScreenshotStatus } from './tasks/handleJinaScreenshots.svelte';
+import { handleRecipeExtraction, getRecipeStatus } from './tasks/handleRecipeExtraction.svelte';
+import { handleTwitterThreadExtraction, handleTwitterThreadExtractionWithScroll, handleTwitterThreadExpansion, getTwitterThreadStatus } from './tasks/handleTwitterThreadExtraction.svelte';
+import { DataController } from '../lib/services/dataController.svelte';
 
 // Shared data controller instance for background context
 export const backgroundDataController = new DataController('background');
@@ -192,6 +193,48 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }).catch(error => {
       sendResponse({ success: false, error: error.message });
     });
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle Twitter thread extraction requests
+  if (message.action === 'extractTwitterThread') {
+    const { url } = message;
+    handleTwitterThreadExtraction(url, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle Twitter thread extraction with automatic scrolling
+  if (message.action === 'extractTwitterThreadWithScroll') {
+    const { url, maxScrolls, scrollDelay } = message;
+    handleTwitterThreadExtractionWithScroll(url, maxScrolls, scrollDelay, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle Twitter thread expansion requests
+  if (message.action === 'expandTwitterThread') {
+    const { url, currentThreadId, maxPosts } = message;
+    handleTwitterThreadExpansion(url, currentThreadId, maxPosts, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle Twitter thread status requests
+  if (message.action === 'getTwitterThreadStatus') {
+    const { url } = message;
+    getTwitterThreadStatus(url).then(status => {
+      sendResponse({ success: true, status });
+    }).catch(error => {
+      sendResponse({ success: false, error: error.message });
+    });
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle extraction progress updates (from content scripts)
+  if (message.action === 'updateExtractionProgress') {
+    const { progress } = message;
+    console.log('📊 Extraction progress update:', progress);
+    // For now, just log the progress. In the future, this could be used to 
+    // update UI elements or send to specific side panels
+    sendResponse({ success: true });
     return true; // Keep message channel open for async response
   }
 

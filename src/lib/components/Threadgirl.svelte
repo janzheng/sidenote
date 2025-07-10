@@ -3,7 +3,7 @@
   import { onMount } from 'svelte';
   import Icon from "@iconify/svelte";
   import { threadgirlManager } from '../ui/threadgirlManager.svelte';
-  import { THREADGIRL_MODELS } from '../services/threadgirlService';
+  import { THREADGIRL_MODELS } from '../services/threadgirlService.svelte';
   import type { ThreadgirlResult } from '../../types/threadgirlResult';
   import ToggleDrawer from './ui/ToggleDrawer.svelte';
   import CopyButton from './ui/CopyButton.svelte';

@@ -29,6 +29,8 @@
       title={copyTitle}
       buttonClass="p-2 hover:bg-gray-200 rounded transition-colors"
       iconClass="w-4 h-4"
+      defaultIcon="mdi:content-copy"
+      successIcon="mdi:check"
     />
   </div>
   

@@ -1,7 +1,7 @@
 import { PageAssetsService } from '../../lib/services/pageAssetsService';
 import type { PageAssetsExtractionResult } from '../../types/pageAssets';
-import { contentDataController } from '../../lib/services/dataController';
-import { cleanUrl } from './extractMetadata';
+import { contentDataController } from '../../lib/services/dataController.svelte';
+import { cleanUrl } from './extractMetadata.svelte';
 
 /**
  * Extract page assets from the current page and save to data controller

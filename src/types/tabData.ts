@@ -6,6 +6,7 @@ import type { ChatMessage } from './chatMessage';
 import type { ThreadgirlResult } from './threadgirlResult';
 import type { PageAssets } from './pageAssets';
 import type { Recipe } from './recipe';
+import type { SocialMediaThread } from './socialMedia';
 
 export interface TabData {
   content: {
@@ -28,6 +29,7 @@ export interface TabData {
     threadgirlResults: ThreadgirlResult[] | null;
     pageAssets: PageAssets | null;
     recipe: Recipe | null;
+    socialMediaThread: SocialMediaThread | null;
   };
 
   statuses: {
@@ -42,6 +44,7 @@ export interface TabData {
     threadgirl: { isProcessing: boolean; error: string | null };
     pageAssets: { isExtracting: boolean; error: string | null };
     recipe: { isExtracting: boolean; error: string | null };
+    socialMediaThread: { isExtracting: boolean; isExpanding: boolean; error: string | null };
   };
   
   meta: {

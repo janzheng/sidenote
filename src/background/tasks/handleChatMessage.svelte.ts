@@ -1,7 +1,7 @@
 import type { TabData } from '../../types/tabData';
 import type { ChatMessage } from '../../types/chatMessage';
 import { backgroundDataController } from '../index';
-import { ChatService } from '../../lib/services/chatService';
+import { ChatService } from '../../lib/services/chatService.svelte';
 
 /**
  * Handle chat message request for a specific URL
@@ -31,10 +31,9 @@ export async function handleChatMessage(url: string, message: string, chatHistor
       return;
     }
 
-    // Update processing status to indicate chat is generating
+    // ✅ NEW: Only specify the fields we want to update!
     await backgroundDataController.saveData(url, {
       processing: {
-        ...tabData.processing,
         chat: { isGenerating: true, error: null }
       }
     });
@@ -47,14 +46,12 @@ export async function handleChatMessage(url: string, message: string, chatHistor
     if (chatResult.success && chatResult.messages) {
       console.log('✅ Chat response generated successfully');
       
-      // Save the updated chat messages to tab data
+      // ✅ NEW: Only specify the fields we want to update!
       await backgroundDataController.saveData(url, {
         analysis: {
-          ...tabData.analysis,
           chatMessages: chatResult.messages
         },
         processing: {
-          ...tabData.processing,
           chat: { isGenerating: false, error: null }
         }
       });
@@ -67,10 +64,9 @@ export async function handleChatMessage(url: string, message: string, chatHistor
     } else {
       console.error('❌ Chat message generation failed:', chatResult.error);
       
-      // Update processing status with error
+      // ✅ NEW: Only specify the fields we want to update!
       await backgroundDataController.saveData(url, {
         processing: {
-          ...tabData.processing,
           chat: { isGenerating: false, error: chatResult.error || 'Unknown error' }
         }
       });
@@ -85,17 +81,13 @@ export async function handleChatMessage(url: string, message: string, chatHistor
     console.error('❌ Handle chat message error:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     
-    // Try to update processing status with error if we have the URL
+    // ✅ NEW: Only specify the fields we want to update!
     try {
-      const tabData = await backgroundDataController.loadData(url);
-      if (tabData) {
-        await backgroundDataController.saveData(url, {
-          processing: {
-            ...tabData.processing,
-            chat: { isGenerating: false, error: errorMessage }
-          }
-        });
-      }
+      await backgroundDataController.saveData(url, {
+        processing: {
+          chat: { isGenerating: false, error: errorMessage }
+        }
+      });
     } catch (updateError) {
       console.error('Failed to update error status:', updateError);
     }
@@ -122,14 +114,12 @@ export async function handleClearChatHistory(url: string, sendResponse: (respons
       return;
     }
 
-    // Clear chat messages
+    // ✅ NEW: Only specify the fields we want to update!
     await backgroundDataController.saveData(url, {
       analysis: {
-        ...tabData.analysis,
         chatMessages: []
       },
       processing: {
-        ...tabData.processing,
         chat: { isGenerating: false, error: null }
       }
     });

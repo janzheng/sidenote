@@ -1,4 +1,4 @@
-import { ThreadgirlService, type ThreadGirlSavePromptRequest } from '../services/threadgirlService';
+import { ThreadgirlService, type ThreadGirlSavePromptRequest } from '../services/threadgirlService.svelte';
 import type { ThreadgirlPrompt } from '../../types/threadgirlPrompt';
 
 interface ThreadgirlState {

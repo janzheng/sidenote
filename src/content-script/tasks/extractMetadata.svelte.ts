@@ -335,7 +335,12 @@ function extractJsonLdMetadata(metadata: PageMetadata) {
             
             // Extract breadcrumbs
             if (obj.breadcrumb && obj.breadcrumb['@type'] === 'BreadcrumbList' && obj.breadcrumb.itemListElement) {
-              const breadcrumbs = obj.breadcrumb.itemListElement
+              // Ensure itemListElement is treated as an array
+              const itemListElement = Array.isArray(obj.breadcrumb.itemListElement) 
+                ? obj.breadcrumb.itemListElement 
+                : [obj.breadcrumb.itemListElement];
+              
+              const breadcrumbs = itemListElement
                 .map((item: any) => item.name || (item.item && typeof item.item === 'string' ? item.item : ''))
                 .filter((name: string) => name);
               if (breadcrumbs.length > 0) {

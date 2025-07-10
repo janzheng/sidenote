@@ -3,7 +3,7 @@
   import Icon from "@iconify/svelte";
   import { recipeManager } from '../ui/recipeManager.svelte';
   import ToggleDrawer from './ui/ToggleDrawer.svelte';
-  import { RecipeService } from '../services/recipeService';
+  import { RecipeService } from '../services/recipeService.svelte';
   import type { Recipe, RecipeIngredient, RecipeInstruction } from '../../types/recipe';
 
   interface Props {
