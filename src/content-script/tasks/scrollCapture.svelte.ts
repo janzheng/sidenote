@@ -113,8 +113,8 @@ export class ScrollCapture {
       // STEP 3: Progressive scrolling
       await this.performScrolling();
       
-      // STEP 4: Final scroll to top for extraction
-      await this.scrollToTop();
+      // STEP 4: Skip final scroll to top to avoid double scrolling
+      // The extraction will happen at the current position
       
       const finalContentCount = this.getContentCount();
       this.log(`🔄 Scroll capture complete. Final content count: ${finalContentCount}, total scrolls: ${this.progress.scrollCount}`);
