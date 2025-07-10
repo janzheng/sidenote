@@ -7,6 +7,7 @@ import { handleContentExtraction } from './tasks/handleContentExtraction.svelte'
 import { handleManualContentSetting } from './tasks/handleManualContentSetting.svelte';
 import { handleBookmarking, getBookmarkStatus } from './tasks/handleBookmarking.svelte';
 import { handleSummaryGeneration, getSummaryStatus } from './tasks/handleSummaryGeneration.svelte';
+import { handleResearchPaperExtraction, handleQuickResearchPaperExtraction, getResearchPaperStatus } from './tasks/handleResearchPaperExtraction.svelte';
 import { handleContentStructureParsing, getContentStructureStatus } from './tasks/handleContentStructureParsing.svelte';
 import { handleChatMessage, handleClearChatHistory, getChatStatus } from './tasks/handleChatMessage.svelte';
 import { handleThreadgirlProcessing, getThreadgirlStatus } from './tasks/handleThreadgirlProcessing.svelte';
@@ -69,6 +70,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'getSummaryStatus') {
     const { url } = message;
     getSummaryStatus(url).then(status => {
+      sendResponse({ success: true, status });
+    }).catch(error => {
+      sendResponse({ success: false, error: error.message });
+    });
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle research paper extraction requests
+  if (message.action === 'extractResearchPaper') {
+    const { url, userBackground } = message;
+    handleResearchPaperExtraction(url, userBackground, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle quick research paper extraction requests
+  if (message.action === 'extractResearchPaperQuick') {
+    const { url, userBackground } = message;
+    handleQuickResearchPaperExtraction(url, userBackground, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle research paper status requests
+  if (message.action === 'getResearchPaperStatus') {
+    const { url } = message;
+    getResearchPaperStatus(url).then(status => {
       sendResponse({ success: true, status });
     }).catch(error => {
       sendResponse({ success: false, error: error.message });

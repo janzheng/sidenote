@@ -11,6 +11,7 @@
   import Threadgirl from './lib/components/Threadgirl.svelte';
   import Citations from './lib/components/Citations.svelte';
   import AiChat from './lib/components/AiChat.svelte';
+  import AiResearchPaper from './lib/components/AiResearchPaper.svelte';
   import TwitterThread from './lib/components/TwitterThread.svelte';
   import LinkedInThread from './lib/components/LinkedInThread.svelte';
   import PageAssets from './lib/components/PageAssets.svelte';
@@ -325,6 +326,16 @@
             content={panelManager.content.content}
             screenshots={panelManager.content.analysis?.pageAssets?.screenshots}
             isExtracting={panelManager.content.processing?.pageAssets?.isExtracting || false}
+            onRefresh={() => panelManager.refreshDataOnly()}
+          />
+        </div>
+      {/if}
+
+      <!-- AI Research Paper Component -->
+      {#if currentTab === 'content' && panelManager.content}
+        <div class="">
+          <AiResearchPaper 
+            tabData={panelManager.content}
             onRefresh={() => panelManager.refreshDataOnly()}
           />
         </div>
