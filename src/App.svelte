@@ -15,6 +15,7 @@
   import LinkedInThread from './lib/components/LinkedInThread.svelte';
   import PageAssets from './lib/components/PageAssets.svelte';
   import PageScreenshots from './lib/components/PageScreenshots.svelte';
+  import PDFDownloadButton from './lib/components/ui/PDFDownloadButton.svelte';
   
   import Icon from "@iconify/svelte";
   
@@ -157,6 +158,24 @@
             <p><strong>Tab ID:</strong> {panelManager.tabId}</p>
             <p><strong>Word count:</strong> {panelManager.wordCount}</p>
           </div>
+          
+          <!-- PDF Download Button -->
+          {#if panelManager.url && (panelManager.url.toLowerCase().includes('.pdf') || 
+                                   panelManager.url.toLowerCase().includes('arxiv.org/pdf/') ||
+                                   (panelManager.url.toLowerCase().includes('biorxiv.org') && panelManager.url.toLowerCase().includes('.full.pdf')) ||
+                                   (panelManager.url.toLowerCase().includes('medrxiv.org') && panelManager.url.toLowerCase().includes('.full.pdf')))}
+                         <div class="mt-3 pt-3 border-t border-gray-200">
+               <PDFDownloadButton 
+                 url={panelManager.url}
+                 title={panelManager.title || 'PDF Document'}
+                 filename={panelManager.content?.content?.metadata?.filename}
+                 tabData={panelManager.content}
+                 variant="primary"
+                 size="md"
+                 showFilename={true}
+               />
+             </div>
+          {/if}
         </div>
         
       </div>

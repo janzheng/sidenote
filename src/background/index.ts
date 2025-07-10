@@ -15,6 +15,7 @@ import { handleJinaPageshot, handleJinaScreenshot, getScreenshotStatus } from '.
 import { handleRecipeExtraction, getRecipeStatus } from './tasks/handleRecipeExtraction.svelte';
 import { handleTwitterThreadExtraction, handleTwitterThreadExtractionWithScroll, handleTwitterThreadExpansion, getTwitterThreadStatus } from './tasks/handleTwitterThreadExtraction.svelte';
 import { handleLinkedInThreadExtraction, handleLinkedInThreadExtractionWithScroll, handleLinkedInThreadExpansion, getLinkedInThreadStatus } from './tasks/handleLinkedInThreadExtraction.svelte';
+import { handlePDFExtraction, getPDFExtractionStatus } from './tasks/handlePDFExtraction.svelte';
 import { DataController } from '../lib/services/dataController.svelte';
 
 // Shared data controller instance for background context
@@ -254,6 +255,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'getLinkedInThreadStatus') {
     const { url } = message;
     getLinkedInThreadStatus(url).then(status => {
+      sendResponse({ success: true, status });
+    }).catch(error => {
+      sendResponse({ success: false, error: error.message });
+    });
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle PDF extraction requests
+  if (message.action === 'extractPDF') {
+    const { url } = message;
+    handlePDFExtraction(url, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle PDF extraction status requests
+  if (message.action === 'getPDFExtractionStatus') {
+    const { url } = message;
+    getPDFExtractionStatus(url).then(status => {
       sendResponse({ success: true, status });
     }).catch(error => {
       sendResponse({ success: false, error: error.message });

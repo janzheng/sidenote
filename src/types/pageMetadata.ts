@@ -49,6 +49,9 @@ export interface PageMetadata {
   charset?: string;
   robots?: string;
   canonical?: string;
+  contentType?: string;
+  domain?: string;
+  filename?: string; // Canonical filename for downloads/references
 
   // Additional extracted metadata
   headings?: {
