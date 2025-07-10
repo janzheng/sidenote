@@ -17,6 +17,28 @@ export interface SocialMediaUser {
   website?: string;
   joinDate?: string;
   platform: SocialMediaPlatform;
+  
+  // Platform-specific user data
+  platformSpecific?: {
+    twitter?: {
+      isBlueVerified?: boolean;
+      isBusinessAccount?: boolean;
+      tweetCount?: number;
+    };
+    linkedin?: {
+      title?: string;
+      company?: string;
+      connectionDegree?: '1st' | '2nd' | '3rd' | 'Out of network';
+      industry?: string;
+      location?: string;
+      isPremium?: boolean;
+    };
+    reddit?: {
+      karma?: number;
+      cakeDay?: string;
+      isGold?: boolean;
+    };
+  };
 }
 
 export interface SocialMediaEngagement {
@@ -139,6 +161,22 @@ export interface LinkedInThread extends SocialMediaThread {
     articleUrl?: string;
     industryTags?: string[];
     professionalLevel?: string;
+  };
+  
+  // Platform-specific thread data
+  platformSpecific?: {
+    linkedin?: {
+      postType: 'feed' | 'article' | 'video' | 'document' | 'poll';
+      isSponsored: boolean;
+      targetAudience: string[];
+      industryContext: string[];
+      companyPages: string[];
+      connectionInsights?: {
+        mutualConnections: number;
+        industryOverlap: number;
+        companyOverlap: number;
+      };
+    };
   };
 }
 

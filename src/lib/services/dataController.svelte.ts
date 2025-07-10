@@ -73,13 +73,34 @@ export class DataController {
    */
   private normalizeUrl(url: string): string {
     try {
+      // Handle chrome-extension URLs specially
+      if (url.startsWith('chrome-extension://')) {
+        // If it's an invalid chrome-extension URL, return a safe fallback
+        if (url.includes('invalid')) {
+          console.warn('⚠️ Invalid chrome-extension URL detected, using fallback:', url);
+          return 'chrome-extension://fallback/';
+        }
+        // Otherwise return as-is for valid chrome-extension URLs
+        return url;
+      }
+      
+      // Handle other protocols
       const urlObj = new URL(url);
+      
       // Remove fragment and some query params that don't affect content
       urlObj.hash = '';
-      // You could add more normalization logic here if needed
+      
+      // Remove common tracking parameters
+      const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'gclid'];
+      trackingParams.forEach(param => {
+        urlObj.searchParams.delete(param);
+      });
+      
       return urlObj.href;
-    } catch {
-      return url; // Fallback to original if URL parsing fails
+    } catch (error) {
+      console.warn('⚠️ URL normalization failed for:', url, error);
+      // Return original URL if normalization fails
+      return url;
     }
   }
 

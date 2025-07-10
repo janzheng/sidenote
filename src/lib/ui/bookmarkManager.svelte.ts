@@ -39,6 +39,22 @@ class BookmarkManager {
     try {
       console.log('🔖 Starting quick bookmark for:', url);
       
+      // Show loading for a short time to make it feel more realistic
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Immediately show success state for better UX
+      this.state.isQuickBookmarking = false;
+      this.state.quickBookmarkStatus = 'success';
+      this.state.quickBookmarkError = null;
+      
+      // Call the success callback immediately
+      if (onSuccess) {
+        setTimeout(() => {
+          onSuccess();
+        }, 100);
+      }
+      
+      // Process the actual bookmark in the background
       const response = await chrome.runtime.sendMessage({
         action: 'bookmarkContent',
         url: url
@@ -46,15 +62,7 @@ class BookmarkManager {
 
       if (response.success) {
         console.log('✅ Quick bookmark successful');
-        this.state.quickBookmarkStatus = 'success';
-        this.state.quickBookmarkError = null;
-        
-        // Call the success callback to refresh the panel
-        if (onSuccess) {
-          setTimeout(() => {
-            onSuccess();
-          }, 100); // Small delay to ensure background processing is complete
-        }
+        // Keep the success state
         
         // Reset status after 3 seconds
         setTimeout(() => {
@@ -62,6 +70,7 @@ class BookmarkManager {
         }, 3000);
       } else {
         console.error('❌ Quick bookmark failed:', response.error);
+        // Show error state if the actual API call failed
         this.state.quickBookmarkStatus = 'error';
         this.state.quickBookmarkError = response.error;
         
@@ -73,6 +82,7 @@ class BookmarkManager {
       }
     } catch (error) {
       console.error('❌ Quick bookmark error:', error);
+      // Show error state if something went wrong
       this.state.quickBookmarkStatus = 'error';
       this.state.quickBookmarkError = error instanceof Error ? error.message : 'Unknown error';
       
@@ -81,8 +91,6 @@ class BookmarkManager {
         this.state.quickBookmarkStatus = 'idle';
         this.state.quickBookmarkError = null;
       }, 5000);
-    } finally {
-      this.state.isQuickBookmarking = false;
     }
   }
 

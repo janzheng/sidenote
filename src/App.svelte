@@ -12,6 +12,7 @@
   import Citations from './lib/components/Citations.svelte';
   import AiChat from './lib/components/AiChat.svelte';
   import TwitterThread from './lib/components/TwitterThread.svelte';
+  import LinkedInThread from './lib/components/LinkedInThread.svelte';
   import PageAssets from './lib/components/PageAssets.svelte';
   import PageScreenshots from './lib/components/PageScreenshots.svelte';
   
@@ -232,6 +233,20 @@
             url={panelManager.url}
             content={panelManager.content.content}
             twitterThread={panelManager.content.analysis?.socialMediaThread}
+            isExtracting={panelManager.content.processing?.socialMediaThread?.isExtracting || false}
+            isExpanding={panelManager.content.processing?.socialMediaThread?.isExpanding || false}
+            onRefresh={() => panelManager.refreshDataOnly()}
+          />
+        </div>
+      {/if}
+
+      <!-- LinkedIn Thread Component -->
+      {#if currentTab === 'content' && panelManager.content}
+        <div class="">
+          <LinkedInThread 
+            url={panelManager.url}
+            content={panelManager.content.content}
+            linkedInThread={panelManager.content.analysis?.socialMediaThread}
             isExtracting={panelManager.content.processing?.socialMediaThread?.isExtracting || false}
             isExpanding={panelManager.content.processing?.socialMediaThread?.isExpanding || false}
             onRefresh={() => panelManager.refreshDataOnly()}

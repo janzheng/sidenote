@@ -14,6 +14,7 @@ import { handlePageAssetsExtraction, getPageAssetsStatus } from './tasks/handleP
 import { handleJinaPageshot, handleJinaScreenshot, getScreenshotStatus } from './tasks/handleJinaScreenshots.svelte';
 import { handleRecipeExtraction, getRecipeStatus } from './tasks/handleRecipeExtraction.svelte';
 import { handleTwitterThreadExtraction, handleTwitterThreadExtractionWithScroll, handleTwitterThreadExpansion, getTwitterThreadStatus } from './tasks/handleTwitterThreadExtraction.svelte';
+import { handleLinkedInThreadExtraction, handleLinkedInThreadExtractionWithScroll, handleLinkedInThreadExpansion, getLinkedInThreadStatus } from './tasks/handleLinkedInThreadExtraction.svelte';
 import { DataController } from '../lib/services/dataController.svelte';
 
 // Shared data controller instance for background context
@@ -221,6 +222,38 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'getTwitterThreadStatus') {
     const { url } = message;
     getTwitterThreadStatus(url).then(status => {
+      sendResponse({ success: true, status });
+    }).catch(error => {
+      sendResponse({ success: false, error: error.message });
+    });
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle LinkedIn thread extraction requests
+  if (message.action === 'extractLinkedInThread') {
+    const { url } = message;
+    handleLinkedInThreadExtraction(url, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle LinkedIn thread extraction with automatic scrolling and expansion
+  if (message.action === 'extractLinkedInThreadWithScroll') {
+    const { url, maxScrolls, scrollDelay, maxExpansions } = message;
+    handleLinkedInThreadExtractionWithScroll(url, maxScrolls, scrollDelay, maxExpansions, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle LinkedIn thread expansion requests
+  if (message.action === 'expandLinkedInThread') {
+    const { url, currentThreadId, maxPosts } = message;
+    handleLinkedInThreadExpansion(url, currentThreadId, maxPosts, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle LinkedIn thread status requests
+  if (message.action === 'getLinkedInThreadStatus') {
+    const { url } = message;
+    getLinkedInThreadStatus(url).then(status => {
       sendResponse({ success: true, status });
     }).catch(error => {
       sendResponse({ success: false, error: error.message });

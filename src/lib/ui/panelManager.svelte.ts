@@ -387,6 +387,20 @@ export class PanelManager {
         const tab = tabs[0];
         console.log('🎯 Current active tab:', tab.id, tab.url);
         
+        // Validate tab URL
+        if (!tab.url || tab.url.includes('chrome-extension://invalid')) {
+          console.warn('⚠️ Invalid or missing tab URL detected:', tab.url);
+          this.state.error = 'Invalid tab URL detected. Please refresh the page.';
+          return;
+        }
+        
+        // Skip chrome:// URLs and other non-web URLs
+        if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('moz-extension://')) {
+          console.log('🔄 Skipping system URL:', tab.url);
+          this.state.error = 'Cannot extract content from system pages.';
+          return;
+        }
+        
         // Check if URL actually changed
         if (tab.url === this.state.url && tab.url === this.lastExtractedUrl) {
           console.log('🔄 URL unchanged, skipping extraction');
@@ -395,8 +409,8 @@ export class PanelManager {
         
         // Update tab info
         this.state.tabId = tab.id!;
-        this.state.url = tab.url!;
-        this.state.title = tab.title!;
+        this.state.url = tab.url;
+        this.state.title = tab.title || 'Untitled';
         
         // Extract content for this specific tab (with deduplication)
         await this.extractContent();

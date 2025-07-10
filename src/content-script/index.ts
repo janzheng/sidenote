@@ -3,6 +3,8 @@ import { extractContent } from './tasks/extractContent.svelte';
 import { extractPageAssets } from './tasks/extractPageAssets.svelte';
 import { extractTwitterThread, expandTwitterThread } from './tasks/extractTwitterThread.svelte';
 import { extractTwitterThreadWithScroll } from './tasks/extractTwitterThreadWithScroll.svelte';
+import { extractLinkedInThread, expandLinkedInThread } from './tasks/extractLinkedInThread.svelte';
+import { extractLinkedInThreadWithScroll } from './tasks/extractLinkedInThreadWithScroll.svelte';
 
 // Import debug functions for testing
 import './tasks/debugScrollCapture.svelte';
@@ -86,6 +88,59 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ 
         success: false, 
         error: error instanceof Error ? error.message : 'Twitter thread expansion failed' 
+      });
+    });
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle LinkedIn thread extraction requests
+  if (message.action === 'extractLinkedInThread') {
+    extractLinkedInThread().then(result => {
+      sendResponse(result);
+    }).catch(error => {
+      console.error('🔗 LinkedIn thread extraction failed:', error);
+      sendResponse({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'LinkedIn thread extraction failed' 
+      });
+    });
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle LinkedIn thread extraction with automatic scrolling and expansion
+  if (message.action === 'extractLinkedInThreadWithScroll') {
+    const { maxScrolls = 50, scrollDelay = 400, maxExpansions = 100 } = message;
+    
+    console.log('🔗 Starting LinkedIn thread extraction with scrolling and expansion...');
+    
+    extractLinkedInThreadWithScroll(maxScrolls, scrollDelay, maxExpansions).then(result => {
+      sendResponse(result);
+    }).catch((error: any) => {
+      console.error('🔗 LinkedIn thread extraction with scrolling failed:', error);
+      sendResponse({ 
+        success: false, 
+        progress: {
+          expandedCount: 0,
+          totalFound: 0,
+          currentStep: 'Extraction failed'
+        },
+        error: error instanceof Error ? error.message : 'LinkedIn thread extraction failed' 
+      });
+    });
+    
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle LinkedIn thread expansion requests
+  if (message.action === 'expandLinkedInThread') {
+    const { currentThreadId, maxPosts } = message;
+    expandLinkedInThread(currentThreadId, maxPosts).then(result => {
+      sendResponse(result);
+    }).catch(error => {
+      console.error('🔗 LinkedIn thread expansion failed:', error);
+      sendResponse({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'LinkedIn thread expansion failed' 
       });
     });
     return true; // Keep message channel open for async response

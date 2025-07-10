@@ -11,6 +11,22 @@ export async function handleContentExtraction(tabId: number, sendResponse: (resp
       return;
     }
     
+    // Validate tab URL
+    if (tab.url.includes('chrome-extension://invalid') || tab.url === 'chrome-extension://invalid/') {
+      console.warn('⚠️ Invalid chrome-extension URL detected in tab:', tab.url);
+      sendResponse({ success: false, error: 'Invalid tab URL detected' });
+      return;
+    }
+    
+    // Skip system URLs
+    if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('moz-extension://')) {
+      console.log('🔄 Skipping system URL:', tab.url);
+      sendResponse({ success: false, error: 'Cannot extract content from system pages' });
+      return;
+    }
+    
+    console.log('🔧 Processing URL:', tab.url);
+    
     // Try to extract content directly
     chrome.tabs.sendMessage(tabId, { action: 'extractContent' }, async (response) => {
       if (chrome.runtime.lastError) {

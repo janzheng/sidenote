@@ -148,16 +148,6 @@
           {/if}
         </div>
       </div>
-    {:else if !canGenerate}
-      <div class="text-gray-500 italic text-center py-8 flex flex-col items-center gap-2">
-        <Icon icon="mdi:file-document-outline" class="w-8 h-8 opacity-50" />
-        <div>No page content available to summarize</div>
-        {#if !url}
-          <div class="text-xs">Waiting for page URL...</div>
-        {:else if !content?.text}
-          <div class="text-xs">No extracted content found</div>
-        {/if}
-      </div>
     {/if}
   {/snippet}
 </ToggleDrawer>
