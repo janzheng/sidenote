@@ -1,8 +1,0 @@
-
-### bookmarking
-- ok so I have a very simple bookmarking button on App.svelte; I like it there, but I want to create a more full featured bookmarking component. It'll work more similarly to @AiSummary.svelte — there's an intro text, a button to extract content for bookmarking / do some stuff, then another button below that to actually send it over to the bookmarking db using whatever service has been added
-- for this bookmark processing service, could you help me make it very pluggable and extensible and modular?
-it would be nice if it was modular to plug in:
-- separate what goes into a "bookmark schema" vs what the actual bookmarkservice requires; eventually we'll want to save to different kind of backends and APIs and dbs; they'll have diff schemas, but it'd be nice to have our own, and a way to translate to their schema
-- modular processing functions for all kinds of use cases, and we should be able to add more easily; these might be in the background eg using groq to clean stuff up, or combining stuff from the tab data model; this might be using an llm to process extracted twitter thread data into something coherent like json; it might be using an llm to extract recipes into json or text, etc. there will be a bunch of them
-- some pages might want us to use functionality from other components like @ScrollExtraction.svelte scroll extraction or @linked, eg twitter and reddit will probably have that
