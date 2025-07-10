@@ -315,6 +315,81 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Keep message channel open for async response
   }
 
+  // Handle get all tab data requests (for copying all storage data)
+  if (message.action === 'getAllTabData') {
+    (async () => {
+      console.log('🔧 Entering getAllTabData handler');
+      try {
+        console.log('🔧 Fetching all storage data...');
+        // Get all data from chrome.storage.local
+        const allStorageData = await chrome.storage.local.get(null);
+        console.log('🔧 Received storage data:', Object.keys(allStorageData).length, 'items');
+        
+        // Separate tab data from settings
+        const tabData: Record<string, any> = {};
+        const settingsData: Record<string, any> = {};
+        
+        for (const [key, value] of Object.entries(allStorageData)) {
+          if (key.startsWith('tabdata_')) {
+            // Extract the URL from the key and use it as the key
+            const url = key.replace('tabdata_', '');
+            tabData[url] = value;
+          } else if (key.startsWith('sidenote_')) {
+            // Keep settings data
+            settingsData[key] = value;
+          } else {
+            // Other data (might be from other extensions or legacy data)
+            settingsData[key] = value;
+          }
+        }
+        
+        console.log('🔧 Processed data:', {
+          totalTabs: Object.keys(tabData).length,
+          totalSettings: Object.keys(settingsData).length
+        });
+        
+        console.log('🔧 Sending response...');
+        sendResponse({ 
+          success: true, 
+          data: {
+            tabData,
+            settingsData,
+            totalTabs: Object.keys(tabData).length,
+            totalSettings: Object.keys(settingsData).length
+          }
+        });
+      } catch (error) {
+        console.error('🔧 Error in getAllTabData:', error);
+        sendResponse({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
+      }
+    })();
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle raw storage data requests (for debugging/raw export)
+  if (message.action === 'getRawStorageData') {
+    (async () => {
+      console.log('🔧 Entering getRawStorageData handler');
+      try {
+        console.log('🔧 Fetching raw storage data...');
+        // Get all data from chrome.storage.local - no processing
+        const allStorageData = await chrome.storage.local.get(null);
+        console.log('🔧 Raw storage data:', Object.keys(allStorageData).length, 'items');
+        
+        console.log('🔧 Sending raw response...');
+        sendResponse({ 
+          success: true, 
+          data: allStorageData,
+          totalItems: Object.keys(allStorageData).length
+        });
+      } catch (error) {
+        console.error('🔧 Error in getRawStorageData:', error);
+        sendResponse({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
+      }
+    })();
+    return true; // Keep message channel open for async response
+  }
+
   // Data controller messages are handled automatically by the controller instance
   // No need to handle them explicitly here
 

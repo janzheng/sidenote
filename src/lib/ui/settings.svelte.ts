@@ -79,6 +79,9 @@ export class SettingsManager {
   copyStatus = $state<'idle' | 'success' | 'error'>('idle');
   clearStatus = $state<'idle' | 'cleared' | 'error'>('idle');
   isCopyingStorage = $state(false);
+  isCopyingRawStorage = $state(false);
+  isCopyingSingleTab = $state(false);
+  copiedMetadata: { totalTabs: number; totalSettings: number } | null = null;
 
   // Derived state using $derived
   isSaved = $derived(this.saveStatus === 'saved');
@@ -192,23 +195,121 @@ export class SettingsManager {
       this.isCopyingStorage = true;
       this.copyStatus = 'idle';
 
-      // Get all storage data
-      const allData = await chromeStorage.getAll();
-      const formattedData = JSON.stringify(allData, null, 2);
+      // Get all data directly from chrome.storage.local
+      const allStorageData = await chrome.storage.local.get(null);
 
-      // Copy to clipboard
-      await navigator.clipboard.writeText(formattedData);
+      // Separate tab data from settings
+      const tabData: Record<string, any> = {};
+      const settingsData: Record<string, any> = {};
 
-      this.copyStatus = 'success';
-      console.log('📋 Storage data copied to clipboard');
+      for (const [key, value] of Object.entries(allStorageData)) {
+        if (key.startsWith('tabdata_')) {
+          // Extract the URL from the key and use it as the key
+          const url = key.replace('tabdata_', '');
+          tabData[url] = value;
+        } else if (key.startsWith('sidenote_')) {
+          // Keep settings data
+          settingsData[key] = value;
+        } else {
+          // Other data (might be from other extensions or legacy data)
+          settingsData[key] = value;
+        }
+      }
 
-      // Reset status after 3 seconds
+      const totalTabs = Object.keys(tabData).length;
+      const totalSettings = Object.keys(settingsData).length;
+
+      // If we have too much data, create a summary instead of full export
+      if (totalTabs > 100) {
+        // Create a summary export with metadata and settings only
+        const summaryData = {
+          exportedAt: new Date().toISOString(),
+          version: '1.0',
+          type: 'summary',
+          settingsData,
+          tabSummary: Object.entries(tabData).map(([url, data]) => ({
+            url,
+            hasContent: !!(data as any)?.content?.extractedContent,
+            hasSummary: !!(data as any)?.summary?.content,
+            hasBookmark: !!(data as any)?.bookmark,
+                         hasChat: !!((data as any)?.chat?.messages?.length > 0),
+            lastUpdated: (data as any)?.lastUpdated || null
+          })),
+          metadata: {
+            totalTabs,
+            totalSettings,
+            note: `Full data export skipped due to size (${totalTabs} tabs). This is a summary export. Contact support for full data export options.`
+          }
+        };
+
+        const formattedData = JSON.stringify(summaryData, null, 2);
+        await navigator.clipboard.writeText(formattedData);
+        
+        this.copyStatus = 'success';
+        this.copiedMetadata = { totalTabs, totalSettings };
+        console.log('📋 Summary data copied to clipboard (full data too large):', this.copiedMetadata);
+      } else {
+        // Small enough dataset - export everything
+        const exportData = {
+          exportedAt: new Date().toISOString(),
+          version: '1.0',
+          type: 'full',
+          tabData,
+          settingsData,
+          metadata: {
+            totalTabs,
+            totalSettings
+          }
+        };
+
+        // Try to stringify - if it fails, fall back to summary
+        try {
+          const formattedData = JSON.stringify(exportData, null, 2);
+          await navigator.clipboard.writeText(formattedData);
+          
+          this.copyStatus = 'success';
+          this.copiedMetadata = { totalTabs, totalSettings };
+          console.log('📋 Full data copied to clipboard:', this.copiedMetadata);
+        } catch (stringifyError) {
+          console.warn('Full export failed, creating summary instead:', stringifyError);
+          // Fall back to summary approach
+          const summaryData = {
+            exportedAt: new Date().toISOString(),
+            version: '1.0',
+            type: 'summary_fallback',
+            settingsData,
+            tabSummary: Object.entries(tabData).map(([url, data]) => ({
+              url,
+              hasContent: !!(data as any)?.content?.extractedContent,
+              hasSummary: !!(data as any)?.summary?.content,
+              hasBookmark: !!(data as any)?.bookmark,
+              hasChat: !!((data as any)?.chat?.messages?.length > 0),
+              lastUpdated: (data as any)?.lastUpdated || null
+            })),
+            metadata: {
+              totalTabs,
+              totalSettings,
+              note: 'Full data export failed due to size. This is a summary export.'
+            }
+          };
+
+          const summaryFormatted = JSON.stringify(summaryData, null, 2);
+          await navigator.clipboard.writeText(summaryFormatted);
+          
+          this.copyStatus = 'success';
+          this.copiedMetadata = { totalTabs, totalSettings };
+          console.log('📋 Summary data copied to clipboard (fallback):', this.copiedMetadata);
+        }
+      }
+
+      // Reset status after 5 seconds
       setTimeout(() => {
         this.copyStatus = 'idle';
-      }, 3000);
+        this.copiedMetadata = null;
+      }, 5000);
 
     } catch (error) {
-      console.error('Failed to copy storage data:', error);
+      console.error('Failed to copy all data:', error);
       this.copyStatus = 'error';
       
       // Reset status after 3 seconds
@@ -217,6 +318,161 @@ export class SettingsManager {
       }, 3000);
     } finally {
       this.isCopyingStorage = false;
+    }
+  }
+
+  async copyRawStorageData() {
+    try {
+      this.isCopyingRawStorage = true;
+      this.copyStatus = 'idle';
+
+      // Get ALL data directly from chrome.storage.local - no processing
+      const allStorageData = await chrome.storage.local.get(null);
+      const allKeys = Object.keys(allStorageData);
+      const totalItems = allKeys.length;
+
+      console.log(`📋 Raw dump: ${totalItems} items found`);
+
+      // If dataset is too large, create a sample + summary approach
+      if (totalItems > 50) {
+        // Take a sample of the first 10 items for structure inspection
+        const sampleKeys = allKeys.slice(0, 10);
+        const sampleData: Record<string, any> = {};
+        
+        sampleKeys.forEach(key => {
+          sampleData[key] = allStorageData[key];
+        });
+
+        // Create summary of all keys
+        const keysSummary = allKeys.map(key => ({
+          key,
+          type: key.startsWith('tabdata_') ? 'tab' : 
+                key.startsWith('sidenote_') ? 'setting' : 'other',
+          hasData: allStorageData[key] !== null && allStorageData[key] !== undefined,
+          dataSize: JSON.stringify(allStorageData[key] || {}).length
+        }));
+
+        const exportData = {
+          exportedAt: new Date().toISOString(),
+          version: '1.0',
+          type: 'raw_sample',
+          totalItems,
+          note: `Dataset too large (${totalItems} items). Showing first 10 items as sample + summary of all keys.`,
+          sampleData,
+          keysSummary,
+          statistics: {
+            totalTabs: allKeys.filter(k => k.startsWith('tabdata_')).length,
+            totalSettings: allKeys.filter(k => k.startsWith('sidenote_')).length,
+            totalOther: allKeys.filter(k => !k.startsWith('tabdata_') && !k.startsWith('sidenote_')).length
+          }
+        };
+
+        const formattedData = JSON.stringify(exportData, null, 2);
+        await navigator.clipboard.writeText(formattedData);
+        
+        this.copyStatus = 'success';
+        this.copiedMetadata = { 
+          totalTabs: exportData.statistics.totalTabs,
+          totalSettings: exportData.statistics.totalSettings
+        };
+        console.log('📋 Raw sample data copied to clipboard:', this.copiedMetadata);
+      } else {
+        // Small dataset - export everything
+        const rawExport = {
+          exportedAt: new Date().toISOString(),
+          version: '1.0',
+          type: 'raw_dump_full',
+          totalItems,
+          data: allStorageData
+        };
+
+        const formattedData = JSON.stringify(rawExport, null, 2);
+        await navigator.clipboard.writeText(formattedData);
+        
+        this.copyStatus = 'success';
+        this.copiedMetadata = { 
+          totalTabs: allKeys.filter(k => k.startsWith('tabdata_')).length,
+          totalSettings: allKeys.filter(k => k.startsWith('sidenote_')).length
+        };
+        console.log('📋 Raw full data copied to clipboard:', this.copiedMetadata);
+      }
+
+      // Reset status after 5 seconds
+      setTimeout(() => {
+        this.copyStatus = 'idle';
+        this.copiedMetadata = null;
+      }, 5000);
+
+    } catch (error) {
+      console.error('Failed to copy raw storage data:', error);
+      this.copyStatus = 'error';
+      
+      // Reset status after 3 seconds
+      setTimeout(() => {
+        this.copyStatus = 'idle';
+      }, 3000);
+    } finally {
+      this.isCopyingRawStorage = false;
+    }
+  }
+
+  async copySingleTabData(tabUrl?: string) {
+    try {
+      this.isCopyingSingleTab = true;
+      this.copyStatus = 'idle';
+
+      // Get all data to find available tabs
+      const allStorageData = await chrome.storage.local.get(null);
+      const tabKeys = Object.keys(allStorageData).filter(k => k.startsWith('tabdata_'));
+      
+      if (tabKeys.length === 0) {
+        throw new Error('No tab data found');
+      }
+
+      // If no specific URL provided, get the first tab
+      const targetKey = tabUrl ? `tabdata_${tabUrl}` : tabKeys[0];
+      const tabData = allStorageData[targetKey];
+      
+      if (!tabData) {
+        throw new Error(`No data found for tab: ${tabUrl || 'first available tab'}`);
+      }
+
+      const exportData = {
+        exportedAt: new Date().toISOString(),
+        version: '1.0',
+        type: 'single_tab',
+        tabUrl: targetKey.replace('tabdata_', ''),
+        tabData,
+        availableTabs: tabKeys.map(k => k.replace('tabdata_', '')).slice(0, 20), // Show first 20 available tabs
+        totalAvailableTabs: tabKeys.length
+      };
+
+      const formattedData = JSON.stringify(exportData, null, 2);
+      await navigator.clipboard.writeText(formattedData);
+      
+      this.copyStatus = 'success';
+      this.copiedMetadata = { 
+        totalTabs: 1,
+        totalSettings: 0
+      };
+      console.log('📋 Single tab data copied to clipboard:', exportData.tabUrl);
+
+      // Reset status after 5 seconds
+      setTimeout(() => {
+        this.copyStatus = 'idle';
+        this.copiedMetadata = null;
+      }, 5000);
+
+    } catch (error) {
+      console.error('Failed to copy single tab data:', error);
+      this.copyStatus = 'error';
+      
+      // Reset status after 3 seconds
+      setTimeout(() => {
+        this.copyStatus = 'idle';
+      }, 3000);
+    } finally {
+      this.isCopyingSingleTab = false;
     }
   }
 
