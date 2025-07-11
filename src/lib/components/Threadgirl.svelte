@@ -7,6 +7,8 @@
   import type { ThreadgirlResult } from '../../types/threadgirlResult';
   import ToggleDrawer from './ui/ToggleDrawer.svelte';
   import CopyButton from './ui/CopyButton.svelte';
+  import { settingsManager } from '../ui/settings.svelte';
+  import ThreadgirlSettings from './ui/ThreadgirlSettings.svelte';
 
   interface Props {
     url: string | null;
@@ -201,7 +203,7 @@
   {#snippet children()}
     <!-- Model Selection -->
     <div class="space-y-2">
-      <label for="threadgirl-model-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+      <label for="threadgirl-model-select" class="block font-medium text-gray-700 dark:text-gray-300">
         Model
       </label>
       <div class="relative">
@@ -222,15 +224,18 @@
       </div>
     </div>
 
+    <!-- Threadgirl Configuration -->
+    <ThreadgirlSettings />
+
     <!-- Template Selection -->
     <div class="space-y-2">
       <div class="flex items-center justify-between">
-        <label for="threadgirl-template-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label for="threadgirl-template-select" class="block font-medium text-gray-700 dark:text-gray-300">
           Template Instructions
         </label>
         <button 
           onclick={refreshPrompts}
-          class="px-2 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-1"
+          class="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-1"
           disabled={threadgirlManager.isLoadingPrompts}
         >
           {#if threadgirlManager.isLoadingPrompts}
@@ -265,7 +270,7 @@
       </div>
       
       {#if threadgirlManager.promptsError}
-        <div class="text-sm text-red-600 dark:text-red-400">
+        <div class="text-red-600 dark:text-red-400">
           Error loading prompts: {threadgirlManager.promptsError}
         </div>
       {/if}
@@ -273,7 +278,7 @@
 
     <!-- Instructions Text Area -->
     <div class="space-y-2">
-      <label for="threadgirl-instructions" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+      <label for="threadgirl-instructions" class="block font-medium text-gray-700 dark:text-gray-300">
         Instructions
       </label>
       <textarea 
@@ -287,10 +292,10 @@
       ></textarea>
     </div>
 
-    <!-- Save Prompt Section -->
+    <!-- Save Template Section -->
     <div class="space-y-2 py-2 px-2 bg-gray-50 dark:bg-gray-700 rounded">
-      <div class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-        Save as New Prompt
+      <div class="block font-medium text-gray-700 dark:text-gray-300">
+        Save as New Template
       </div>
       <div class="grid grid-cols-2 gap-2">
         <input 
@@ -298,7 +303,7 @@
           id="threadgirl-prompt-hash"
           bind:value={newPromptHash}
           placeholder="hash"
-          class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 dark:text-white text-sm outline-none"
+          class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 dark:text-white outline-none"
           disabled={threadgirlManager.isSavingPrompt}
         />
         <input 
@@ -306,7 +311,7 @@
           id="threadgirl-prompt-name"
           bind:value={newPromptName}
           placeholder="name"
-          class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 dark:text-white text-sm outline-none"
+          class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 dark:text-white outline-none"
           disabled={threadgirlManager.isSavingPrompt}
         />
       </div>
@@ -328,12 +333,12 @@
           Error
         {:else}
           <Icon icon="mdi:content-save" class="w-6 h-6" />
-          Save as Prompt
+          Save as Template
         {/if}
       </button>
       
       {#if threadgirlManager.promptSaveError}
-        <div class="text-sm text-red-600 dark:text-red-400">
+        <div class="text-red-600 dark:text-red-400">
           {threadgirlManager.promptSaveError}
         </div>
       {/if}
@@ -355,7 +360,7 @@
       </button>
       
       {#if !content?.text}
-        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400 text-center">
+        <p class="mt-2 text-gray-500 dark:text-gray-400 text-center">
           No page content available to process
         </p>
       {/if}
@@ -365,13 +370,13 @@
     {#if hasResults}
       <div class="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
         <div class="flex items-center justify-between">
-          <div class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <div class="block font-medium text-gray-700 dark:text-gray-300">
             Results ({results.length})
           </div>
           <div class="flex gap-2">
             <CopyButton 
               copyFn={() => copyResult()}
-              buttonClass="px-2 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              buttonClass="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               iconClass="w-3 h-3"
               title="Copy latest result"
             />
@@ -379,7 +384,7 @@
               onclick={() => {
                 if (!threadgirlManager.isProcessing && !isProcessing) clearAllResults();
               }}
-              class="px-2 py-1 text-sm bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-800 transition-colors flex items-center gap-1 cursor-pointer {threadgirlManager.isProcessing || isProcessing ? 'opacity-50 cursor-not-allowed' : ''}"
+              class="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-800 transition-colors flex items-center gap-1 cursor-pointer {threadgirlManager.isProcessing || isProcessing ? 'opacity-50 cursor-not-allowed' : ''}"
               disabled={threadgirlManager.isProcessing || isProcessing}
               title="Clear all results"
             >
@@ -393,13 +398,13 @@
           {#each results as result (result.id)}
             <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded border group">
               <div class="flex items-center justify-between mb-2">
-                <div class="text-xs text-gray-500 dark:text-gray-400">
+                <div class="text-sm text-gray-500 dark:text-gray-400">
                   {formatTime(result.createdAt)} • {result.model || 'Unknown model'}
                 </div>
                 <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <CopyButton 
                     copyFn={() => copyResult(result.result)}
-                    buttonClass="flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors cursor-pointer {copyStates.get(`copy-${result.id}`) ? 'bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300' : 'bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-500'}"
+                    buttonClass="flex items-center gap-1 px-2 py-1 text-sm rounded transition-colors cursor-pointer {copyStates.get(`copy-${result.id}`) ? 'bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300' : 'bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-500'}"
                     iconClass="w-3 h-3"
                     title="Copy result"
                     onSuccess={(success) => handleCopySuccess(`copy-${result.id}`, success)}
@@ -409,7 +414,7 @@
                   
                   <CopyButton 
                     copyFn={() => copyForCT(result.result)}
-                    buttonClass="flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors cursor-pointer {copyStates.get(`ct-${result.id}`) ? 'bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300' : 'bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-700'}"
+                    buttonClass="flex items-center gap-1 px-2 py-1 text-sm rounded transition-colors cursor-pointer {copyStates.get(`ct-${result.id}`) ? 'bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300' : 'bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-700'}"
                     iconClass="w-3 h-3"
                     title="Copy for C&T"
                     onSuccess={(success) => handleCopySuccess(`ct-${result.id}`, success)}
@@ -419,7 +424,7 @@
                   
                   <button 
                     onclick={() => removeResult(result.id)}
-                    class="px-2 py-1 text-xs bg-red-100 dark:bg-red-800 text-red-600 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-700 transition-colors"
+                    class="px-2 py-1 text-sm bg-red-100 dark:bg-red-800 text-red-600 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-700 transition-colors"
                     title="Delete this result"
                   >
                     <Icon icon="mdi:trash-can" class="w-3 h-3" />
@@ -427,12 +432,12 @@
                 </div>
               </div>
               
-              <div class="mb-2 p-2 bg-gray-100 dark:bg-gray-600 rounded text-xs">
+              <div class="mb-2 p-2 bg-gray-100 dark:bg-gray-600 rounded text-sm">
                 <strong>Prompt:</strong> {result.prompt}
               </div>
               
               <div class="overflow-y-auto">
-                <pre class="text-sm whitespace-pre-wrap text-gray-700 dark:text-gray-300">{result.result}</pre>
+                <pre class="whitespace-pre-wrap text-gray-700 dark:text-gray-300">{result.result}</pre>
               </div>
             </div>
           {/each}
@@ -446,8 +451,8 @@
         <div class="flex items-center gap-2">
           <Icon icon="mdi:alert" class="w-5 h-5 text-red-600 dark:text-red-400" />
           <div class="flex-1">
-            <p class="text-sm font-medium text-red-800 dark:text-red-200">Error</p>
-            <p class="text-sm text-red-700 dark:text-red-300">{threadgirlManager.error}</p>
+            <p class="font-medium text-red-800 dark:text-red-200">Error</p>
+            <p class="text-red-700 dark:text-red-300">{threadgirlManager.error}</p>
           </div>
         </div>
       </div>

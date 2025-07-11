@@ -39,9 +39,16 @@ export class SummaryService {
       }
 
       const { title, wordCount, text } = tabData.content;
+      const settings = getCurrentSettings();
+      
+      // Build user background context
+      let userBackgroundContext = '';
+      if (settings.userBackground && settings.userBackground.trim()) {
+        userBackgroundContext = `\n\n**User Background:** The user has a background in ${settings.userBackground.trim()}. Please tailor your summary to be relevant and accessible to someone with this expertise. Use language and examples they would understand, highlight aspects that would be most interesting or useful for their field, and explain technical concepts from other fields in simpler terms when necessary.`;
+      }
       
       // Create system prompt for summarization
-      const systemPrompt = `You are an expert content summarizer. Create concise, informative summaries that capture the key points and insights from the provided content.
+      const systemPrompt = `You are an expert content summarizer. Create concise, informative summaries that capture the key points and insights from the provided content.${userBackgroundContext}
 
 Your summary should:
 1. Start with a brief overview of the main topic

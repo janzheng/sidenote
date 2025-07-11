@@ -7,6 +7,7 @@
   import { researchPaperManager } from '../ui/researchPaperManager.svelte';
   import { settingsManager } from '../ui/settings.svelte';
   import type { TabData } from '../../types/tabData';
+  import ApiSettings from './ui/ApiSettings.svelte';
 
   interface Props {
     tabData: TabData;
@@ -213,28 +214,12 @@
   bind:isExpanded
 >
 
+  <!-- API Configuration -->
+  <ApiSettings />
+
   <!-- About Section -->
   <div class="py-2">
     Extract and analyze academic papers like nature, arxiv, etc. Uses AI to provide comprehensive analysis with sections.
-  </div>
-
-  <!-- Background Input -->
-  <div class="mb-4">
-    <label for="userBackground" class="block font-medium text-gray-700 mb-1">
-      Your Background (Optional)
-    </label>
-    <textarea
-      id="userBackground"
-      bind:value={settingsManager.settings.userBackground}
-      placeholder="e.g., computer science, biology, economics..."
-      rows="3"
-      class="w-full px-3 py-2 border border-gray-300 rounded-md resize-vertical"
-      disabled={isLoading}
-      oninput={() => settingsManager.updateSetting('userBackground', settingsManager.settings.userBackground)}
-    ></textarea>
-    <p class="text-gray-500 mt-1">
-      Help the AI tailor explanations to your field of expertise
-    </p>
   </div>
 
   <!-- Control Buttons -->

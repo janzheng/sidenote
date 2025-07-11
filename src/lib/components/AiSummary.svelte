@@ -3,6 +3,7 @@
   import Icon from "@iconify/svelte";
   import { summaryManager } from '../ui/summaryManager.svelte';
   import ToggleDrawer from './ui/ToggleDrawer.svelte';
+  import ApiSettings from './ui/ApiSettings.svelte';
 
   interface Props {
     url: string | null;
@@ -91,6 +92,9 @@
   bind:isExpanded
 >
   {#snippet children()}
+    <!-- API Configuration -->
+    <ApiSettings />
+
     <!-- About Section -->
     <div class="py-2">
       Generate an intelligent summary of the page content using AI. Perfect for quickly understanding long articles, papers, or web pages.

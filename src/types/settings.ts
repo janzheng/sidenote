@@ -6,4 +6,7 @@ export interface Settings {
   sheetUrl: string;
   sheetName: string;
   userBackground: string;
+  threadgirlPipelineUrl: string;
+  threadgirlSheetUrl: string;
+  threadgirlSheetName: string;
 }

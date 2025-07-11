@@ -9,7 +9,10 @@ const STORAGE_KEYS = {
   debugMode: 'sidenote_debug_mode',
   sheetUrl: 'sidenote_sheet_url',
   sheetName: 'sidenote_sheet_name',
-  userBackground: 'sidenote_user_background'
+  userBackground: 'sidenote_user_background',
+  threadgirlPipelineUrl: 'sidenote_threadgirl_pipeline_url',
+  threadgirlSheetUrl: 'sidenote_threadgirl_sheet_url',
+  threadgirlSheetName: 'sidenote_threadgirl_sheet_name'
 } as const;
 
 // Models
@@ -67,7 +70,10 @@ const DEFAULT_SETTINGS: Settings = {
   debugMode: true,
   sheetUrl: '',
   sheetName: '',
-  userBackground: ''
+  userBackground: '',
+  threadgirlPipelineUrl: '',
+  threadgirlSheetUrl: '',
+  threadgirlSheetName: 'Capsid Toolbox Prompts'
 };
 
 export class SettingsManager {

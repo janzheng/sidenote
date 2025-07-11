@@ -12,7 +12,7 @@
     <p class="text-gray-600 text-center">AI-powered webpage analysis and research assistant</p>
   </div>
 
-  <div class="bg-white rounded-lg border border-gray-200 p-6 flex-1 flex flex-col overflow-y-auto mx-4">
+  <div class="bg-white rounded-lg border border-gray-200 p-2 flex-1 flex flex-col overflow-y-auto">
     <div class="space-y-6">
       <!-- Top Save Button -->
       <div class="flex justify-end">
@@ -132,6 +132,57 @@
             />
             <p class="mt-1 text-gray-500 text-sm">
               Name of the sheet tab where bookmarks will be added
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Threadgirl Configuration -->
+      <div class="bg-gray-50 p-4 rounded border border-gray-200">
+        <h3 class="text-md font-medium mb-3 text-gray-700">Threadgirl Configuration</h3>
+        <div class="space-y-4">
+          <div>
+            <label for="threadgirl-pipeline-url" class="block font-medium text-gray-700 mb-1">Pipeline URL</label>
+            <input 
+              type="url" 
+              id="threadgirl-pipeline-url"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              placeholder=""
+              bind:value={settingsManager.settings.threadgirlPipelineUrl}
+              oninput={() => settingsManager.updateSetting('threadgirlPipelineUrl', settingsManager.settings.threadgirlPipelineUrl)}
+            />
+            <p class="mt-1 text-gray-500 text-sm">
+              External API URL for Threadgirl processing pipeline
+            </p>
+          </div>
+          
+          <div>
+            <label for="threadgirl-sheet-url" class="block font-medium text-gray-700 mb-1">Prompts Sheet URL</label>
+            <input 
+              type="url" 
+              id="threadgirl-sheet-url"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              placeholder="https://script.google.com/macros/s/..."
+              bind:value={settingsManager.settings.threadgirlSheetUrl}
+              oninput={() => settingsManager.updateSetting('threadgirlSheetUrl', settingsManager.settings.threadgirlSheetUrl)}
+            />
+            <p class="mt-1 text-gray-500 text-sm">
+              Google Apps Script URL for Threadgirl prompts management
+            </p>
+          </div>
+          
+          <div>
+            <label for="threadgirl-sheet-name" class="block font-medium text-gray-700 mb-1">Prompts Sheet Name</label>
+            <input 
+              type="text" 
+              id="threadgirl-sheet-name"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              placeholder="Capsid Toolbox Prompts"
+              bind:value={settingsManager.settings.threadgirlSheetName}
+              oninput={() => settingsManager.updateSetting('threadgirlSheetName', settingsManager.settings.threadgirlSheetName)}
+            />
+            <p class="mt-1 text-gray-500 text-sm">
+              Name of the sheet tab containing Threadgirl prompts
             </p>
           </div>
         </div>

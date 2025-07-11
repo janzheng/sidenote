@@ -5,6 +5,7 @@
   import ToggleDrawer from './ui/ToggleDrawer.svelte';
   import { RecipeService } from '../services/recipeService.svelte';
   import type { Recipe, RecipeIngredient, RecipeInstruction } from '../../types/recipe';
+  import ApiSettings from './ui/ApiSettings.svelte';
 
   interface Props {
     url: string | null;
@@ -130,6 +131,9 @@
   bind:isExpanded
 >
   {#snippet children()}
+    <!-- API Configuration -->
+    <ApiSettings />
+
     <!-- About Section -->
     <div class="py-2">
       Extract structured recipe data from cooking websites using AI. Automatically identifies ingredients, instructions, cooking times, and nutritional information.

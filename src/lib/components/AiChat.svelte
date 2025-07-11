@@ -5,6 +5,7 @@
   import ToggleDrawer from './ui/ToggleDrawer.svelte';
   import CopyButton from './ui/CopyButton.svelte';
   import type { ChatMessage } from '../../types/chatMessage';
+  import ApiSettings from './ui/ApiSettings.svelte';
 
   interface Props {
     url: string | null;
@@ -165,6 +166,9 @@
     onToggle={handleToggle}
   >
   {#snippet children()}
+    <!-- API Configuration -->
+    <ApiSettings compact={true} />
+
     <!-- Clear and Copy All Buttons -->
     {#if hasMessages}
       <div class="flex justify-end gap-2 mb-2">

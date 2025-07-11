@@ -4,11 +4,7 @@ import type { ThreadgirlValidationResult } from '../../types/threadgirlValidatio
 import type { ThreadgirlModel } from '../../types/threadgirlModel';
 import type { ThreadgirlResult } from '../../types/threadgirlResult';
 import type { ThreadgirlPrompt } from '../../types/threadgirlPrompt';
-
-// External API URLs
-const PIPELINE_URL = "https://yawnxyz-executeproxy.web.val.run/execute";
-const SHEET_URL = "https://script.google.com/macros/s/AKfycbxcRuTKTnvisvI-MIS_Rd_EJ7z3B3rYD_ohfMp1VUgrz2E6N72HIYye_hvLn8-Pj_M/exec";
-const SHEET_NAME = "Capsid Toolbox Prompts";
+import { getCurrentSettings } from '../ui/settings.svelte';
 
 // Service interfaces
 export interface ThreadGirlSource {
@@ -55,16 +51,18 @@ export class ThreadgirlService {
     try {
       console.log('🤖 Loading ThreadGirl prompts...');
       
+      const settings = getCurrentSettings();
+      
       const pipeline = [{
         name: "sheetlog",
         settings: {
-          sheetUrl: SHEET_URL,
-          sheet: SHEET_NAME,
+          sheetUrl: settings.threadgirlSheetUrl,
+          sheet: settings.threadgirlSheetName,
           method: "GET"
         }
       }];
 
-      const response = await fetch(PIPELINE_URL, {
+      const response = await fetch(settings.threadgirlPipelineUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -100,11 +98,13 @@ export class ThreadgirlService {
     try {
       console.log('🤖 Saving ThreadGirl prompt...');
       
+      const settings = getCurrentSettings();
+      
       const pipeline = [{
         name: "sheetlog",
         settings: {
-          sheetUrl: SHEET_URL,
-          sheet: SHEET_NAME,
+          sheetUrl: settings.threadgirlSheetUrl,
+          sheet: settings.threadgirlSheetName,
           action: "add",
           payload: {
             hash: request.hash,
@@ -114,7 +114,7 @@ export class ThreadgirlService {
         }
       }];
 
-      const response = await fetch(PIPELINE_URL, {
+      const response = await fetch(settings.threadgirlPipelineUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -175,6 +175,8 @@ export class ThreadgirlService {
       console.log(`🤖 Model config found:`, modelConfig);
       
       // Process with external AI service
+      const settings = getCurrentSettings();
+      
       const pipeline = [{
         name: "ai",
         settings: {
@@ -184,7 +186,7 @@ export class ThreadgirlService {
         }
       }];
 
-      const response = await fetch(PIPELINE_URL, {
+      const response = await fetch(settings.threadgirlPipelineUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 

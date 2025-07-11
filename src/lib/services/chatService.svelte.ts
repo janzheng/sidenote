@@ -46,6 +46,13 @@ export class ChatService {
       }
 
       const { title, wordCount, text } = tabData.content;
+      const settings = getCurrentSettings();
+      
+      // Build user background context
+      let userBackgroundContext = '';
+      if (settings.userBackground && settings.userBackground.trim()) {
+        userBackgroundContext = `\n\n**User Background:** The user has a background in ${settings.userBackground.trim()}. Please tailor your responses to be relevant and accessible to someone with this expertise. Use language and examples they would understand, and focus on aspects that would be most interesting or useful for their field.`;
+      }
       
       // Create system prompt for chat
       const systemPrompt = `You are an AI assistant helping users understand and discuss content from web pages. You have access to the following content:
@@ -54,7 +61,7 @@ export class ChatService {
 **Word Count:** ${wordCount}
 
 **Content:**
-${text.substring(0, 10000)}${text.length > 10000 ? '...\n\n[Content truncated for length]' : ''}
+${text.substring(0, 10000)}${text.length > 10000 ? '...\n\n[Content truncated for length]' : ''}${userBackgroundContext}
 
 Your role is to:
 1. Answer questions about the content accurately
