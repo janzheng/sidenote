@@ -173,10 +173,11 @@
 
   // Handle Enter key in input
   function handleKeydown(event: KeyboardEvent) {
-    if (event.key === 'Enter' && !event.shiftKey) {
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
       handleSendMessage();
     }
+    // Let Enter create new lines normally (remove the old preventDefault)
   }
 
   // Scroll chat to bottom
@@ -217,6 +218,48 @@
     const messagesJson = JSON.stringify(displayMessages, null, 2);
     await navigator.clipboard.writeText(messagesJson);
   }
+
+  // Auto-resize textarea function
+  function autoResizeTextarea(textarea: HTMLTextAreaElement) {
+    if (!textarea) return;
+    
+    // Reset height to auto to get the correct scrollHeight
+    textarea.style.height = 'auto';
+    
+    // Set height to scrollHeight + padding to avoid any scrolling
+    const newHeight = Math.max(40, textarea.scrollHeight + 10); // Minimum 40px + 10px padding
+    textarea.style.height = newHeight + 'px';
+  }
+
+  // Handle textarea input for auto-resize
+  function handleTextareaInput(event: Event) {
+    const textarea = event.target as HTMLTextAreaElement;
+    autoResizeTextarea(textarea);
+  }
+
+  // Auto-resize when input content changes or textarea becomes available
+  $effect(() => {
+    if (inputElement) {
+      // Use requestAnimationFrame to ensure DOM is updated
+      requestAnimationFrame(() => {
+        if (inputElement) {
+          autoResizeTextarea(inputElement);
+        }
+      });
+    }
+  });
+
+  // Auto-resize when drawer is opened and textarea becomes visible
+  $effect(() => {
+    if (isExpanded && inputElement) {
+      // Small delay to ensure the drawer animation is complete
+      setTimeout(() => {
+        if (inputElement) {
+          autoResizeTextarea(inputElement);
+        }
+      }, 100);
+    }
+  });
 </script>
 
 <ToggleDrawer
@@ -362,27 +405,30 @@
       {/if}
 
       <!-- Chat Input -->
-      <div class="flex gap-2">
+      <div>
         <textarea
           bind:this={inputElement}
           bind:value={messageInput}
           onkeydown={handleKeydown}
+          oninput={handleTextareaInput}
           placeholder={chatPlaceholder()}
-          class="flex-1 px-2 py-1 border border-gray-300 rounded resize-none bg-white text-gray-700 placeholder-gray-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-          rows="1"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md resize-none bg-white text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          style="min-height: 40px;"
           disabled={isGenerating || chatManager.isGenerating || summaryManager.isGenerating || !hasContent}
         ></textarea>
-        <button 
-          onclick={handleSendMessage}
-          class="bg-gray-100 hover:bg-gray-200 rounded border border-gray-300 text-blue-600 hover:text-blue-700 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-gray-500 disabled:bg-gray-100 px-2 py-1"
-          disabled={isGenerating || chatManager.isGenerating || summaryManager.isGenerating || !messageInput.trim() || !hasContent}
-        >
-          {#if isGenerating || chatManager.isGenerating}
-            <Icon icon="mdi:loading" class="animate-spin w-6 h-6" />
-          {:else}
-            <Icon icon="mdi:arrow-top-right-bold-box" class="w-6 h-6"/>
-          {/if}
-        </button>
+        <div class="flex justify-end mt-2">
+          <button 
+            onclick={handleSendMessage}
+            class="bg-gray-100 hover:bg-gray-200 rounded border border-gray-300 text-blue-600 hover:text-blue-700 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-gray-500 disabled:bg-gray-100 px-2 py-1"
+            disabled={isGenerating || chatManager.isGenerating || summaryManager.isGenerating || !messageInput.trim() || !hasContent}
+          >
+            {#if isGenerating || chatManager.isGenerating}
+              <Icon icon="mdi:loading" class="animate-spin w-6 h-6" />
+            {:else}
+              <Icon icon="mdi:arrow-top-right-bold-box" class="w-6 h-6"/>
+            {/if}
+          </button>
+        </div>
       </div>
     </div>
   {/snippet}

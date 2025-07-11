@@ -25,7 +25,7 @@ export class TextToSpeechService {
   /**
    * Rewrite text to be TTS-friendly using the specified model
    */
-  static async rewriteTextForTTS(text: string, title?: string): Promise<TtsRewriteResponse> {
+  static async rewriteTextForTTS(text: string, title?: string, customSystemPrompt?: string): Promise<TtsRewriteResponse> {
     try {
       console.log('🔊 Starting text rewriting for TTS, length:', text.length);
 
@@ -38,24 +38,37 @@ export class TextToSpeechService {
         };
       }
 
-      // Create system prompt for TTS rewriting
-      const systemPrompt = `You are an expert text editor specializing in preparing content for text-to-speech conversion. Your task is to rewrite text to be natural and pleasant when spoken aloud.
+      // Use custom system prompt if provided, otherwise use default
+      const systemPrompt = customSystemPrompt || `You are a university lecturer preparing academic content for spoken delivery. Your task is to make MINIMAL changes to preserve the original author's voice and phrasing while making the text suitable for lecture-style presentation.
 
-Your rewriting should:
-1. Convert lists, bullet points, and fragmented text into complete, flowing sentences
-2. Remove or simplify citations (e.g., "[1]", "(Smith et al., 2023)") - either remove them entirely or convert to natural speech like "according to Smith and colleagues"
-3. Simplify complex tables by converting them to narrative descriptions
-4. Remove URLs, email addresses, and other hard-to-pronounce elements
-5. Convert abbreviations to full words (e.g., "etc." to "and so on", "e.g." to "for example")
-6. Add natural transitions between sections to improve flow
-7. Ensure numbers are written in a way that sounds natural when spoken
-8. Remove excessive technical jargon or explain it in simpler terms
-9. Break up very long sentences into shorter, more digestible ones
-10. Maintain the core meaning and important information while making it speech-friendly
+CRITICAL: PRESERVE THE ORIGINAL PHRASING AND LANGUAGE AS MUCH AS POSSIBLE. Only make changes that are absolutely necessary for speech conversion.
 
-IMPORTANT: Return ONLY the rewritten content. Do not include any preamble, introduction, or explanation like "Here's a rewritten version..." or "The following is optimized for..." - just return the rewritten text directly.
+Your minimal editing should ONLY:
+1. Remove or simplify citations that are hard to pronounce (e.g., "[1]", "(Smith et al., 2023)") - either remove them entirely or convert to natural speech like "according to Smith and colleagues"
+2. Remove URLs, email addresses, and other hard-to-pronounce technical elements
+3. Convert common abbreviations to full words ONLY when they would be unclear when spoken (e.g., "etc." to "and so on", "e.g." to "for example")
+4. Fix obvious formatting artifacts from web scraping (extra spaces, broken words)
+5. Convert bullet points or numbered lists to flowing text by adding minimal connecting words like "First," "Second," "Additionally," etc.
+6. **HANDLE LONG NUMBER SEQUENCES**: When you encounter long lists of numbers, token IDs, coordinates, or similar data sequences, replace them with a brief summary and direct the listener to the original text. For example: "The token IDs are 33, 13969, 4123... and several others - please refer to the original document for the complete sequence."
 
-The goal is to create text that sounds natural, engaging, and easy to understand when converted to audio, while preserving the essential content and meaning.`;
+DO NOT:
+- Change the author's word choices, tone, or writing style
+- Rewrite sentences for "better flow" unless they are genuinely broken
+- Simplify technical language or jargon - keep the original terminology
+- Add explanations or interpretations
+- Break up long sentences unless they are genuinely problematic for speech
+- Add transitions beyond simple list connectors
+- Read out every number in long sequences (this makes audio tedious)
+
+LECTURER APPROACH:
+- Speak as if presenting to students in a lecture hall
+- Maintain the academic tone and precision of the original
+- When encountering complex data or long number sequences, guide students to reference the source material
+- Use phrases like "as shown in the original text" or "refer to the document for complete details" when appropriate
+
+IMPORTANT: Return ONLY the minimally edited content. Do not include any preamble, introduction, or explanation. Preserve the original text as much as possible - your job is cleanup for spoken delivery, not rewriting.
+
+The goal is to create speech-ready text that sounds like the original author giving a university lecture, with appropriate handling of complex data sequences.`;
 
       // Create user prompt with the content
       const userPrompt = `${title ? `Title: ${title}\n\n` : ''}Content to rewrite for text-to-speech:
@@ -98,32 +111,114 @@ ${text.substring(0, 120000)}${text.length > 120000 ? '...\n\n[Content truncated 
   }
 
   /**
-   * Split text into chunks that fit within Groq's character limit
+   * Split text into chunks that fit within Groq's token limit
+   * Groq TTS API has a 2000 token limit, so we use ~1800 characters to be safe
+   * (real-world estimate: 1 token ≈ 1.3 characters, so 1800 chars ≈ 1400 tokens)
    */
-  static splitTextIntoChunks(text: string, maxChars: number = 9500): string[] {
+  static splitTextIntoChunks(text: string, maxChars: number = 1800): string[] {
     if (text.length <= maxChars) {
       return [text];
     }
 
     const chunks: string[] = [];
-    const sentences = text.split(/[.!?]+\s+/);
+    
+    // First try to split by paragraphs (double newlines)
+    const paragraphs = text.split(/\n\s*\n/);
     let currentChunk = '';
 
-    for (const sentence of sentences) {
-      const sentenceWithPunctuation = sentence + '. ';
+    for (const paragraph of paragraphs) {
+      const paragraphWithSpacing = currentChunk ? '\n\n' + paragraph : paragraph;
       
-      // If adding this sentence would exceed the limit, save current chunk and start new one
-      if (currentChunk.length + sentenceWithPunctuation.length > maxChars) {
+      // If adding this paragraph would exceed the limit
+      if (currentChunk.length + paragraphWithSpacing.length > maxChars) {
+        // Save current chunk if it has content
         if (currentChunk.trim()) {
           chunks.push(currentChunk.trim());
         }
-        currentChunk = sentenceWithPunctuation;
+        
+        // If the paragraph itself is too long, split by sentences
+        if (paragraph.length > maxChars) {
+          const sentenceChunks = this.splitParagraphBySentences(paragraph, maxChars);
+          chunks.push(...sentenceChunks);
+          currentChunk = '';
+        } else {
+          currentChunk = paragraph;
+        }
+      } else {
+        currentChunk += paragraphWithSpacing;
+      }
+    }
+
+    // Add the last chunk if it has content
+    if (currentChunk.trim()) {
+      chunks.push(currentChunk.trim());
+    }
+
+    return chunks;
+  }
+
+  /**
+   * Helper method to split a long paragraph by sentences
+   */
+  private static splitParagraphBySentences(paragraph: string, maxChars: number): string[] {
+    const chunks: string[] = [];
+    const sentences = paragraph.split(/[.!?]+\s+/);
+    let currentChunk = '';
+
+    for (let i = 0; i < sentences.length; i++) {
+      const sentence = sentences[i];
+      const isLastSentence = i === sentences.length - 1;
+      const sentenceWithPunctuation = isLastSentence ? sentence : sentence + '. ';
+      
+      // If adding this sentence would exceed the limit
+      if (currentChunk.length + sentenceWithPunctuation.length > maxChars) {
+        // Save current chunk if it has content
+        if (currentChunk.trim()) {
+          chunks.push(currentChunk.trim());
+        }
+        
+        // If the sentence itself is too long, split by words (last resort)
+        if (sentenceWithPunctuation.length > maxChars) {
+          const wordChunks = this.splitSentenceByWords(sentenceWithPunctuation, maxChars);
+          chunks.push(...wordChunks);
+          currentChunk = '';
+        } else {
+          currentChunk = sentenceWithPunctuation;
+        }
       } else {
         currentChunk += sentenceWithPunctuation;
       }
     }
 
     // Add the last chunk if it has content
+    if (currentChunk.trim()) {
+      chunks.push(currentChunk.trim());
+    }
+
+    return chunks;
+  }
+
+  /**
+   * Helper method to split a very long sentence by words (last resort)
+   */
+  private static splitSentenceByWords(sentence: string, maxChars: number): string[] {
+    const chunks: string[] = [];
+    const words = sentence.split(/\s+/);
+    let currentChunk = '';
+
+    for (const word of words) {
+      const wordWithSpace = currentChunk ? ' ' + word : word;
+      
+      if (currentChunk.length + wordWithSpace.length > maxChars) {
+        if (currentChunk.trim()) {
+          chunks.push(currentChunk.trim());
+        }
+        currentChunk = word;
+      } else {
+        currentChunk += wordWithSpace;
+      }
+    }
+
     if (currentChunk.trim()) {
       chunks.push(currentChunk.trim());
     }

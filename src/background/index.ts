@@ -309,8 +309,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Handle TTS text generation requests (Step 1)
   if (message.action === 'generateTtsText') {
-    const { url } = message;
-    handleTtsTextGeneration(url, sendResponse);
+    const { url, customSystemPrompt } = message;
+    handleTtsTextGeneration(url, customSystemPrompt, sendResponse);
     return true; // Keep message channel open for async response
   }
 

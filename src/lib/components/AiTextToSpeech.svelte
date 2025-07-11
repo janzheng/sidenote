@@ -4,6 +4,7 @@
   import { textToSpeechManager } from '../ui/textToSpeechManager.svelte';
   import ToggleDrawer from './ui/ToggleDrawer.svelte';
   import ApiSettings from './ui/ApiSettings.svelte';
+  import CopyButton from './ui/CopyButton.svelte';
   import type { TextToSpeech } from '../../types/textToSpeech';
 
   interface Props {
@@ -18,12 +19,15 @@
 
   // Component UI state
   let isExpanded = $state(false);
-  let isCopied = $state(false);
   let editableText = $state('');
   let isEditingText = $state(false);
   let isGeneratingText = $state(false);
   let isGeneratingAudio = $state(false);
   let currentAudioUrl = $state<string | null>(null);
+  let editableFilename = $state('');
+  let customSystemPrompt = $state('');
+  let isPromptExpanded = $state(false);
+  let promptTextarea: HTMLTextAreaElement | undefined;
 
   // Derived states
   const hasTts = $derived(textToSpeech && textToSpeech.rewrittenText && textToSpeech.rewrittenText.length > 0);
@@ -36,6 +40,96 @@
   $effect(() => {
     if (textToSpeech?.rewrittenText && !isEditingText) {
       editableText = textToSpeech.rewrittenText;
+    }
+  });
+
+  // Generate filename when text is generated
+  $effect(() => {
+    if (hasEditableText && !editableFilename) {
+      editableFilename = generateFilename();
+    }
+  });
+
+  // Initialize custom system prompt with default
+  $effect(() => {
+    if (!customSystemPrompt) {
+      customSystemPrompt = getDefaultSystemPrompt();
+    }
+  });
+
+  // Get the default system prompt
+  function getDefaultSystemPrompt(): string {
+    return `You are a university lecturer preparing academic content for spoken delivery. Your task is to make MINIMAL changes to preserve the original author's voice and phrasing while making the text suitable for lecture-style presentation.
+
+CRITICAL: PRESERVE THE ORIGINAL PHRASING AND LANGUAGE AS MUCH AS POSSIBLE. Only make changes that are absolutely necessary for speech conversion.
+
+Your minimal editing should ONLY:
+1. Remove or simplify citations that are hard to pronounce (e.g., "[1]", "(Smith et al., 2023)") - either remove them entirely or convert to natural speech like "according to Smith and colleagues"
+2. Remove URLs, email addresses, and other hard-to-pronounce technical elements
+3. Convert common abbreviations to full words ONLY when they would be unclear when spoken (e.g., "etc." to "and so on", "e.g." to "for example")
+4. Fix obvious formatting artifacts from web scraping (extra spaces, broken words)
+5. Convert bullet points or numbered lists to flowing text by adding minimal connecting words like "First," "Second," "Additionally," etc.
+6. **HANDLE LONG NUMBER SEQUENCES**: When you encounter long lists of numbers, token IDs, coordinates, or similar data sequences, replace them with a brief summary and direct the listener to the original text. For example: "The token IDs are 33, 13969, 4123... and several others - please refer to the original document for the complete sequence."
+
+DO NOT:
+- Change the author's word choices, tone, or writing style
+- Rewrite sentences for "better flow" unless they are genuinely broken
+- Simplify technical language or jargon - keep the original terminology
+- Add explanations or interpretations
+- Break up long sentences unless they are genuinely problematic for speech
+- Add transitions beyond simple list connectors
+- Read out every number in long sequences (this makes audio tedious)
+
+LECTURER APPROACH:
+- Speak as if presenting to students in a lecture hall
+- Maintain the academic tone and precision of the original
+- When encountering complex data or long number sequences, guide students to reference the source material
+- Use phrases like "as shown in the original text" or "refer to the document for complete details" when appropriate
+
+IMPORTANT: Return ONLY the minimally edited content. Do not include any preamble, introduction, or explanation. Preserve the original text as much as possible - your job is cleanup for spoken delivery, not rewriting.
+
+The goal is to create speech-ready text that sounds like the original author giving a university lecture, with appropriate handling of complex data sequences.`;
+  }
+
+  // Auto-resize textarea function
+  function autoResizeTextarea(textarea: HTMLTextAreaElement) {
+    if (!textarea) return;
+    
+    // Reset height to auto to get the correct scrollHeight
+    textarea.style.height = 'auto';
+    
+    // Set height to scrollHeight + padding to avoid any scrolling
+    const newHeight = Math.max(200, textarea.scrollHeight + 10); // Minimum 200px + 10px padding
+    textarea.style.height = newHeight + 'px';
+  }
+
+  // Handle textarea input for auto-resize
+  function handlePromptInput(event: Event) {
+    const textarea = event.target as HTMLTextAreaElement;
+    autoResizeTextarea(textarea);
+  }
+
+  // Auto-resize when prompt content changes or textarea becomes available
+  $effect(() => {
+    if (promptTextarea) {
+      // Use requestAnimationFrame to ensure DOM is updated
+      requestAnimationFrame(() => {
+        if (promptTextarea) {
+          autoResizeTextarea(promptTextarea);
+        }
+      });
+    }
+  });
+
+  // Auto-resize when drawer is opened and textarea becomes visible
+  $effect(() => {
+    if (isPromptExpanded && promptTextarea) {
+      // Small delay to ensure the drawer animation is complete
+      setTimeout(() => {
+        if (promptTextarea) {
+          autoResizeTextarea(promptTextarea);
+        }
+      }, 100);
     }
   });
 
@@ -53,7 +147,8 @@
       
       const response = await chrome.runtime.sendMessage({
         action: 'generateTtsText',
-        url: url
+        url: url,
+        customSystemPrompt: customSystemPrompt.trim() || undefined
       });
 
       if (response.success && response.rewrittenText) {
@@ -155,10 +250,6 @@
     
     try {
       await navigator.clipboard.writeText(textToCopy);
-      isCopied = true;
-      setTimeout(() => {
-        isCopied = false;
-      }, 2000);
     } catch (error) {
       console.error('Failed to copy text:', error);
     }
@@ -188,14 +279,56 @@
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }
 
+  // Generate a clean filename from page metadata
+  function generateFilename(): string {
+    if (!content?.metadata) {
+      return `tts-audio-${Date.now()}.wav`;
+    }
+
+    // Try different title sources in order of preference
+    const title = content.metadata.title || 
+                 content.metadata.ogTitle || 
+                 content.metadata.twitterTitle ||
+                 content.metadata.citations?.title ||
+                 content.title ||
+                 'untitled';
+
+    // Clean the title for use as filename
+    const cleanTitle = title
+      .replace(/[<>:"/\\|?*]/g, '') // Remove invalid filename characters
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/--+/g, '-') // Replace multiple hyphens with single
+      .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
+      .toLowerCase()
+      .substring(0, 100); // Limit length
+
+    // Add domain for context if available
+    let domain = content.metadata.domain || 
+                (url ? new URL(url).hostname.replace('www.', '') : '');
+    
+    // Clean up domain to avoid redundancy
+    if (domain) {
+      // Extract main domain name (e.g., "example.com" -> "example")
+      const domainParts = domain.split('.');
+      const mainDomain = domainParts.length > 1 ? domainParts[0] : domain;
+      domain = mainDomain.toLowerCase();
+    }
+    
+    const domainPart = domain ? `-${domain}` : '';
+    
+    return `${cleanTitle}${domainPart}-tts.wav`;
+  }
+
   // Handle audio download
   function handleDownloadAudio() {
     const audioUrl = currentAudioUrl || textToSpeechManager.audioUrl;
     if (!audioUrl) return;
 
+    const filename = editableFilename || generateFilename();
+    
     const link = document.createElement('a');
     link.href = audioUrl;
-    link.download = `tts-audio-${Date.now()}.wav`;
+    link.download = filename;
     link.style.display = 'none';
     
     document.body.appendChild(link);
@@ -224,27 +357,57 @@
     <!-- API Configuration -->
     <ApiSettings />
 
+    <!-- Custom System Prompt Editor -->
+    <div class="mb-4">
+      <ToggleDrawer
+        title="Custom System Prompt"
+        subtitle="Edit the AI instructions for text rewriting"
+        bind:isExpanded={isPromptExpanded}
+      >
+        {#snippet children()}
+          <div class="space-y-3">
+            <div class="text-sm text-gray-600">
+              Customize how the AI rewrites your content for speech. The default prompt is optimized for academic content with a university lecturer approach.
+            </div>
+            
+            <div>
+              <label for="system-prompt" class="block text-sm font-medium text-gray-700 mb-2">
+                System Prompt:
+              </label>
+              <textarea 
+                id="system-prompt"
+                bind:this={promptTextarea}
+                bind:value={customSystemPrompt}
+                oninput={handlePromptInput}
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-vertical text-sm font-mono"
+                placeholder="Enter your custom system prompt here..."
+                style="min-height: 200px;"
+              ></textarea>
+              <div class="text-xs text-gray-500 mt-1">
+                This prompt will be used to instruct the AI on how to rewrite your content for text-to-speech conversion.
+              </div>
+            </div>
+
+            <div class="flex gap-2">
+              <button 
+                onclick={() => customSystemPrompt = getDefaultSystemPrompt()}
+                class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                title="Reset to default prompt"
+              >
+                Reset to Default
+              </button>
+              <div class="text-xs text-gray-500 flex items-center">
+                Changes take effect on the next text generation
+              </div>
+            </div>
+          </div>
+        {/snippet}
+      </ToggleDrawer>
+    </div>
+
     <!-- About Section -->
     <div class="py-2">
       Convert page content to natural-sounding speech. The AI first rewrites the text to be speech-friendly by removing citations, converting lists to sentences, and improving flow, then generates high-quality audio.
-    </div>
-
-    <!-- Voice Selection -->
-    <div class="mb-4">
-      <label for="voice-select" class="block text-sm font-medium text-gray-700 mb-2">
-        Voice Selection:
-      </label>
-      <select 
-        id="voice-select"
-        onchange={handleVoiceChange}
-        value={textToSpeechManager.selectedVoice}
-        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        disabled={isGenerating || textToSpeechManager.isGenerating}
-      >
-        {#each textToSpeechManager.getAvailableVoices() as voice}
-          <option value={voice}>{voice.replace('-PlayAI', '')}</option>
-        {/each}
-      </select>
     </div>
 
     <!-- Step 1: Generate Text Button -->
@@ -268,9 +431,19 @@
     <!-- Text Editor (Step 1.5) -->
     {#if hasEditableText}
       <div class="mb-4">
-        <label for="editable-text" class="block text-sm font-medium text-gray-700 mb-2">
-          Review and Edit Speech Text:
-        </label>
+        <div class="flex items-center justify-between mb-2">
+          <label for="editable-text" class="block text-sm font-medium text-gray-700">
+            Review and Edit Speech Text:
+          </label>
+          <CopyButton 
+            copyFn={handleCopyText}
+            buttonClass="px-2 py-1 text-xs text-gray-600 hover:text-blue-600 border border-gray-300 rounded transition-colors flex items-center gap-1"
+            iconClass="w-4 h-4"
+            title="Copy text"
+          >
+            <span class="ml-1 text-xs">Copy</span>
+          </CopyButton>
+        </div>
         <textarea 
           id="editable-text"
           bind:value={editableText}
@@ -284,11 +457,47 @@
         </div>
       </div>
 
+      <!-- Voice Selection -->
+      <div class="mb-4">
+        <label for="voice-select" class="block text-sm font-medium text-gray-700 mb-2">
+          Voice Selection:
+        </label>
+        <select 
+          id="voice-select"
+          onchange={handleVoiceChange}
+          value={textToSpeechManager.selectedVoice}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          disabled={isGenerating || textToSpeechManager.isGenerating}
+        >
+          {#each textToSpeechManager.getAvailableVoices() as voice}
+            <option value={voice}>{voice.replace('-PlayAI', '')}</option>
+          {/each}
+        </select>
+      </div>
+
+      <!-- Filename Input -->
+      <div class="mb-4">
+        <label for="filename-input" class="block text-sm font-medium text-gray-700 mb-2">
+          Audio Filename:
+        </label>
+        <input 
+          id="filename-input"
+          type="text"
+          bind:value={editableFilename}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          placeholder="Enter filename for the audio file..."
+          disabled={isGeneratingAudio}
+        />
+        <div class="text-xs text-gray-500 mt-1">
+          This will be the filename when you download the audio file.
+        </div>
+      </div>
+
       <!-- Step 2: Generate Audio Button -->
-      <div class="flex gap-2 mb-4">
+      <div class="mb-4">
         <button 
           onclick={handleGenerateAudio}
-          class="flex-1 px-3 py-2 bg-purple-100 text-purple-900 rounded hover:bg-purple-200 transition-colors font-semibold flex items-center gap-2 justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+          class="w-full px-3 py-2 bg-purple-100 text-purple-900 rounded hover:bg-purple-200 transition-colors font-semibold flex items-center gap-2 justify-center disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={!canGenerateAudio}
           title="Generate audio from the edited text"
         >
@@ -298,18 +507,6 @@
           {:else}
             <Icon icon="mdi:volume-high" class="w-6 h-6 text-purple-600" />
             <span class="font-semibold text-purple-600">Step 2: Generate Audio</span>
-          {/if}
-        </button>
-        
-        <button 
-          onclick={handleCopyText}
-          class="px-3 py-2 text-gray-600 hover:text-blue-600 border border-gray-300 rounded transition-colors text-sm flex items-center gap-1"
-          title="Copy text"
-        >
-          {#if isCopied}
-            <Icon icon="mdi:check" class="w-6 h-6 text-green-600" />
-          {:else}
-            <Icon icon="mdi:content-copy" class="w-6 h-6" />
           {/if}
         </button>
       </div>

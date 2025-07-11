@@ -7,6 +7,7 @@ import { TextToSpeechService } from '../../lib/services/textToSpeechService.svel
  */
 export async function handleTtsTextGeneration(
   url: string,
+  customSystemPrompt?: string,
   sendResponse?: (response: any) => void
 ) {
   try {
@@ -27,7 +28,8 @@ export async function handleTtsTextGeneration(
     // Use the TextToSpeechService to rewrite text only
     const rewriteResult = await TextToSpeechService.rewriteTextForTTS(
       tabData.content.text, 
-      tabData.content.title
+      tabData.content.title,
+      customSystemPrompt
     );
     
     if (rewriteResult.success && rewriteResult.rewrittenText) {

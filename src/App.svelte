@@ -264,19 +264,6 @@
         </div>
       {/if}
 
-      <!-- Citations Component -->
-      {#if currentTab === 'content' && panelManager.content}
-        <div class="">
-          <Citations 
-            url={panelManager.url}
-            content={panelManager.content.content}
-            citations={panelManager.content.analysis?.citations}
-            isGenerating={panelManager.content.processing?.citations?.isGenerating || false}
-            onRefresh={() => panelManager.refresh()}
-          />
-        </div>
-      {/if}
-
       <!-- AI Text-to-Speech Component -->
       {#if currentTab === 'content' && panelManager.content}
         <div class="">
@@ -286,6 +273,19 @@
             textToSpeech={panelManager.content.analysis?.textToSpeech}
             isGenerating={panelManager.content.processing?.textToSpeech?.isGenerating || false}
             onRefresh={() => panelManager.refreshDataOnly()}
+          />
+        </div>
+      {/if}
+      
+      <!-- Citations Component -->
+      {#if currentTab === 'content' && panelManager.content}
+        <div class="">
+          <Citations 
+            url={panelManager.url}
+            content={panelManager.content.content}
+            citations={panelManager.content.analysis?.citations}
+            isGenerating={panelManager.content.processing?.citations?.isGenerating || false}
+            onRefresh={() => panelManager.refresh()}
           />
         </div>
       {/if}
