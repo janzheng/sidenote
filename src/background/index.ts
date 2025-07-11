@@ -14,8 +14,8 @@ import { handleThreadgirlProcessing, getThreadgirlStatus } from './tasks/handleT
 import { handlePageAssetsExtraction, getPageAssetsStatus } from './tasks/handlePageAssetsExtraction.svelte';
 import { handleJinaPageshot, handleJinaScreenshot, getScreenshotStatus } from './tasks/handleJinaScreenshots.svelte';
 import { handleRecipeExtraction, getRecipeStatus } from './tasks/handleRecipeExtraction.svelte';
-import { handleTwitterThreadExtraction, handleTwitterThreadExtractionWithScroll, handleTwitterThreadExpansion, getTwitterThreadStatus } from './tasks/handleTwitterThreadExtraction.svelte';
-import { handleLinkedInThreadExtraction, handleLinkedInThreadExtractionWithScroll, handleLinkedInThreadExpansion, getLinkedInThreadStatus } from './tasks/handleLinkedInThreadExtraction.svelte';
+import { handleLinkedInThreadExtractionWithScroll, getLinkedInThreadStatus } from './tasks/handleLinkedInThreadExtraction.svelte';
+import { handleTwitterThreadExtractionWithScroll, getTwitterThreadStatus } from './tasks/handleTwitterThreadExtraction.svelte';
 import { handlePDFExtraction, getPDFExtractionStatus, generateCitations } from './tasks/handlePDFExtraction.svelte';
 import { DataController } from '../lib/services/dataController.svelte';
 
@@ -231,24 +231,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Keep message channel open for async response
   }
 
-  // Handle Twitter thread extraction requests
-  if (message.action === 'extractTwitterThread') {
-    const { url } = message;
-    handleTwitterThreadExtraction(url, sendResponse);
-    return true; // Keep message channel open for async response
-  }
-
   // Handle Twitter thread extraction with automatic scrolling
   if (message.action === 'extractTwitterThreadWithScroll') {
     const { url, maxScrolls, scrollDelay } = message;
     handleTwitterThreadExtractionWithScroll(url, maxScrolls, scrollDelay, sendResponse);
-    return true; // Keep message channel open for async response
-  }
-
-  // Handle Twitter thread expansion requests
-  if (message.action === 'expandTwitterThread') {
-    const { url, currentThreadId, maxPosts } = message;
-    handleTwitterThreadExpansion(url, currentThreadId, maxPosts, sendResponse);
     return true; // Keep message channel open for async response
   }
 
@@ -263,24 +249,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Keep message channel open for async response
   }
 
-  // Handle LinkedIn thread extraction requests
-  if (message.action === 'extractLinkedInThread') {
-    const { url } = message;
-    handleLinkedInThreadExtraction(url, sendResponse);
-    return true; // Keep message channel open for async response
-  }
-
   // Handle LinkedIn thread extraction with automatic scrolling and expansion
   if (message.action === 'extractLinkedInThreadWithScroll') {
     const { url, maxScrolls, scrollDelay, maxExpansions } = message;
     handleLinkedInThreadExtractionWithScroll(url, maxScrolls, scrollDelay, maxExpansions, sendResponse);
-    return true; // Keep message channel open for async response
-  }
-
-  // Handle LinkedIn thread expansion requests
-  if (message.action === 'expandLinkedInThread') {
-    const { url, currentThreadId, maxPosts } = message;
-    handleLinkedInThreadExpansion(url, currentThreadId, maxPosts, sendResponse);
     return true; // Keep message channel open for async response
   }
 

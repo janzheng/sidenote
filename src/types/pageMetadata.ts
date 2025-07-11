@@ -96,6 +96,7 @@ export interface PageMetadata {
     authors?: string[];
     first_author?: string;
     last_author?: string;
+    correspondence?: string; // Author correspondence/contact information
 
     // Content
     title?: string;

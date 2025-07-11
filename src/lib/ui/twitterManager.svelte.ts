@@ -83,7 +83,7 @@ class TwitterManager {
     this.state.extractionProgress = {
       expandedCount: 0,
       totalFound: 0,
-      currentStep: 'Starting full thread extraction with auto-scroll...'
+      currentStep: 'Starting full thread extraction with scroll and text expansion...'
     };
 
     try {
@@ -180,7 +180,7 @@ class TwitterManager {
     const { expandedCount, totalFound, currentStep } = this.state.extractionProgress;
     
     if (expandedCount > 0 || totalFound > 0) {
-      return `${currentStep} (${expandedCount} scrolls, ${totalFound} tweets)`;
+      return `${currentStep} (${expandedCount} text expansions, ${totalFound} tweets)`;
     }
     
     return currentStep;

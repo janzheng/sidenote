@@ -2,6 +2,7 @@ import type { TabData } from '../../types/tabData';
 import type { ResearchPaperAnalysis } from '../../types/researchPaper';
 import { GroqService } from './groqService.svelte';
 import { getCurrentSettings } from '../ui/settings.svelte';
+import { cleanAndParseJson } from '../utils/cleanAndParseJson';
 
 interface ResearchPaperExtractionResult {
   success: boolean;
@@ -26,6 +27,17 @@ interface SectionExtractionResult {
 }
 
 export class ResearchPaperService {
+
+  // Define synthetic sections that get AI-generated content with background tailoring
+  private static readonly SYNTHETIC_SECTION_NAMES = [
+    'TL;DR', 
+    'Key Insights', 
+    'Practical Implications', 
+    'What\'s Next', 
+    'Future Work', 
+    'Conflict of Interest', 
+    'Limitations'
+  ];
 
   /**
    * Validate that required settings are configured for research paper extraction
@@ -168,8 +180,7 @@ export class ResearchPaperService {
       const { title, text } = tabData.content;
       
       // Define section based on name
-      const syntheticSectionNames = ['TL;DR', 'Key Insights', 'Practical Implications', 'What\'s Next', 'Future Work', 'Conflict of Interest', 'Limitations'];
-      const isSyntheticSection = syntheticSectionNames.includes(sectionName);
+      const isSyntheticSection = this.SYNTHETIC_SECTION_NAMES.includes(sectionName);
       
       let sectionDef: { name: string; description: string };
       
@@ -244,38 +255,23 @@ export class ResearchPaperService {
     const syntheticSectionDefinitions = [
       {
         name: 'TL;DR',
-        description: 'Create a concise, impactful summary that captures the core breakthrough or main finding. Focus on WHAT was discovered, HOW significant it is, and WHY it matters. Be specific and concrete.'
+        description: 'Create a SHORT, clear summary (2-3 sentences max) that explains what this research discovered and why it matters. Write in simple language that someone from the user\'s background can easily understand.'
       },
       {
         name: 'Key Insights',
-        description: `Extract 3-5 SPECIFIC, CONCRETE insights that represent genuine breakthroughs or discoveries. Each insight should:
-- Include specific numbers, percentages, measurements, or quantifiable results
-- Describe actual discoveries, not just that discoveries were made
-- Focus on surprising findings, breakthrough results, or significant advances
-- Be actionable and meaningful to researchers in the field
-- Avoid generic statements like "the study found" or "research shows"`
+        description: 'List 3-4 SHORT, concrete insights that would be most interesting to someone with the user\'s background. Each insight should be 1-2 sentences max. Focus on what\'s actually new or surprising, not generic findings. Use simple language and explain technical terms.'
       },
       {
         name: 'Practical Implications',
-        description: `Identify SPECIFIC, REAL-WORLD applications and impacts. Describe:
-- Exactly HOW this research can be applied in practice
-- WHAT specific problems it solves or addresses
-- WHO would benefit and in what contexts
-- WHEN and WHERE these applications might be implemented
-- Concrete examples of potential use cases or implementations`
+        description: 'Explain in 2-3 SHORT paragraphs how this research could actually be useful in the real world, especially for someone in the user\'s field. Use simple language and concrete examples they would understand. Avoid jargon.'
       },
       {
         name: 'What\'s Next',
-        description: `Outline SPECIFIC next steps and future research directions. Include:
-- Immediate follow-up studies that should be conducted
-- Specific technical challenges that need to be addressed
-- Concrete research questions that remain unanswered
-- Potential collaborations or interdisciplinary approaches needed
-- Timeline considerations for future work`
+        description: 'Briefly explain (2-3 sentences) what researchers should do next and what questions remain. Write for someone with the user\'s background - explain why these next steps matter to their field.'
       },
       {
         name: 'Conflict of Interest',
-        description: 'Look for and extract any conflict of interest statements, funding disclosures, or competing interests. If none are found, state this clearly.'
+        description: 'Look for any funding, conflicts, or competing interests mentioned in the paper. If none found, just say so clearly in 1-2 sentences.'
       }
     ];
 
@@ -284,20 +280,11 @@ export class ResearchPaperService {
       syntheticSectionDefinitions.push(
         {
           name: 'Future Work',
-          description: `Provide detailed future research recommendations including:
-- Specific experimental designs for follow-up studies
-- Technical improvements or optimizations needed
-- Scaling considerations and implementation challenges
-- Long-term research goals and milestones`
+          description: 'Briefly describe (2-3 sentences) what future research directions this opens up, especially ones that might be relevant to the user\'s field. Keep it simple and concrete.'
         },
         {
           name: 'Limitations',
-          description: `Identify and describe the study's limitations, including:
-- Methodological constraints and potential biases
-- Sample size or scope limitations
-- Technical or resource constraints
-- Generalizability concerns
-- Acknowledged weaknesses or areas for improvement`
+          description: 'Explain in simple terms (2-3 sentences) what this study couldn\'t do or what problems it has. Focus on limitations that someone in the user\'s field should know about.'
         }
       );
     }
@@ -468,12 +455,12 @@ export class ResearchPaperService {
     isQuickAnalysis: boolean = false
   ): Promise<{ summary: string; fullText: string } | null> {
     
-    const syntheticSectionNames = ['TL;DR', 'Key Insights', 'Practical Implications', 'What\'s Next', 'Future Work', 'Conflict of Interest', 'Limitations'];
-    const isSyntheticSection = syntheticSectionNames.includes(sectionDef.name);
+    const isSyntheticSection = this.SYNTHETIC_SECTION_NAMES.includes(sectionDef.name);
     
     const systemPrompt = this.createSingleSectionSystemPrompt(sectionDef, userBackground, isQuickAnalysis, isSyntheticSection);
     const userPrompt = this.createSingleSectionUserPrompt(content, title, sectionDef, userBackground, isSyntheticSection);
 
+    console.log('[extractSingleSection] systemPrompt:', userBackground, 'systemPrompt:', systemPrompt);
     const response = await GroqService.generateTextFromPrompt(
       userPrompt,
       systemPrompt,
@@ -502,13 +489,38 @@ export class ResearchPaperService {
     isQuickAnalysis: boolean = false,
     isSyntheticSection: boolean = false
   ): string {
-    const backgroundContext = userBackground ? 
-      `The user has a background in ${userBackground}. Tailor your explanations accordingly.` :
-      'The user has a general academic background.';
+    let backgroundContext = 'The user is an intelligent undergraduate/graduate student with general academic knowledge but may not be familiar with specialized terminology from this specific field.';
+    let backgroundInstructions = '';
+    
+    // Only apply background-specific tailoring to synthetic sections
+    if (userBackground && isSyntheticSection) {
+      backgroundContext = `The user has a background in ${userBackground}.`;
+      
+      backgroundInstructions = `
+**BACKGROUND-SPECIFIC TAILORING:**
+Since the user works in ${userBackground}, you should:
+- Write in language and terms they would understand (avoid jargon from other fields)
+- Use analogies and examples from their field when possible
+- Explain technical concepts in simple terms if they're outside their expertise
+- Focus on what would actually matter to someone in ${userBackground}
+- If the paper is highly technical and the user's field is different, simplify significantly`;
+    } else if (userBackground && !isSyntheticSection) {
+      // For natural sections, just note the background but don't add special instructions
+      backgroundContext = `The user has a background in ${userBackground}.`;
+    } else if (!userBackground && isSyntheticSection) {
+      // Default instructions for when no background is provided
+      backgroundInstructions = `
+**DEFAULT AUDIENCE TAILORING:**
+Since no specific background was provided, write for an intelligent student/researcher who:
+- Has general academic knowledge but may not know specialized terminology
+- Needs technical concepts explained clearly without being condescending
+- Would benefit from concrete examples and practical applications
+- Wants to understand why this research matters in the broader context`;
+    }
 
     const basePrompt = `You are an expert research paper analyst specializing in extracting and analyzing the "${sectionDef.name}" section. ${backgroundContext}
 
-Your task is to provide the highest quality analysis possible for this specific section.`;
+Your task is to provide the highest quality analysis possible for this specific section.${backgroundInstructions}`;
 
     if (isSyntheticSection) {
       return `${basePrompt}
@@ -517,12 +529,13 @@ Your task is to provide the highest quality analysis possible for this specific 
 ${sectionDef.description}
 
 **CRITICAL QUALITY REQUIREMENTS:**
-- Be extremely specific and concrete - include actual numbers, measurements, and quantifiable results
-- Focus on genuine breakthroughs and discoveries, not generic findings
-- Provide substantial, detailed content that adds real value
-- Avoid any generic phrases like "the paper discusses" or "research shows"
-- Every statement should be specific to THIS paper's actual findings
-- Include concrete examples and specific applications where relevant
+- KEEP IT SHORT - follow the length guidelines in the section description (4-6 sentences max)
+- Write in simple, clear language appropriate for the user's background
+- Avoid jargon unless it's from the user's field
+- Focus on what's genuinely new or important, not everything
+- Include specific numbers when they matter, but don't overwhelm with data
+- Make it readable and useful for someone in the user's field
+- CRITICAL: Ensure all content can be properly formatted as JSON - avoid unescaped quotes, newlines, and control characters
 
 Return your analysis in JSON format with "summary" and "fullText" fields.`;
     } else {
@@ -553,9 +566,14 @@ Return your analysis in JSON format with "summary" and "fullText" fields.`;
     userBackground?: string,
     isSyntheticSection: boolean = false
   ): string {
-    const backgroundNote = userBackground ? 
-      `\n**User Background:** ${userBackground} - Please adapt your explanations accordingly.` :
-      '';
+    let backgroundNote = '';
+    
+    // Only add background-specific instructions for synthetic sections
+    if (userBackground && isSyntheticSection) {
+      backgroundNote = `\n**User Background:** ${userBackground} - Please explain how this research could be relevant to their field and make explicit connections to potential applications in their area of expertise.`;
+    } else if (!userBackground && isSyntheticSection) {
+      backgroundNote = `\n**Target Audience:** Intelligent student/researcher with general academic knowledge - Please explain technical concepts clearly and focus on why this research matters in the broader context.`;
+    }
 
     if (isSyntheticSection) {
       return `Analyze this research paper and create a high-quality "${sectionDef.name}" section.
@@ -578,15 +596,18 @@ ${sectionDef.description}
 }
 
 **Quality Requirements:**
-- Be extremely specific and include actual numbers, measurements, and quantifiable results
-- Focus on concrete discoveries and breakthroughs specific to this paper
-- Avoid generic statements - every insight should be unique to this research
-- Provide substantial, detailed content that adds real value to readers
-- Include specific applications, use cases, or next steps where relevant`;
+- KEEP IT SHORT - follow the length limits in the section description above
+- Write for someone with the user's background - use language they understand
+- Avoid jargon from other fields unless you explain it simply
+- Focus on what's genuinely new or surprising in this specific paper
+- Include numbers when they're important, but don't list everything
+- Make it actually useful and readable for the user
+- CRITICAL: When possible, explicitly connect insights to the user's background and explain relevance to their field
+- IMPORTANT: Format as valid JSON - escape quotes as \\" and newlines as \\n`;
     } else {
       return `Extract the "${sectionDef.name}" section from this research paper.
 
-**Title:** ${title}${backgroundNote}
+**Title:** ${title}
 
 **Full Paper Content:**
 ${content}
@@ -606,7 +627,8 @@ ${sectionDef.description}
 - Clean up OCR artifacts and formatting issues
 - Preserve all technical details, numbers, and specific information
 - Maintain the original structure and logical flow
-- If the section is not found, return empty strings for both fields`;
+- If the section is not found, return empty strings for both fields
+- IMPORTANT: Format as valid JSON - escape quotes as \\" and newlines as \\n`;
     }
   }
 
@@ -618,33 +640,42 @@ ${sectionDef.description}
     sectionName: string
   ): { summary: string; fullText: string } | null {
     try {
+      console.log(`🔍 [${sectionName}] Raw response content:`, content);
+      
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        console.error(`No JSON found in response for section ${sectionName}`);
+        console.error(`❌ [${sectionName}] No JSON found in response. Full content:`, content);
         return null;
       }
 
-      const parsed = JSON.parse(jsonMatch[0]);
+      console.log(`🔍 [${sectionName}] Extracted JSON match:`, jsonMatch[0]);
+
+      // Use the existing cleanAndParseJson utility
+      const parsed = cleanAndParseJson(jsonMatch[0]);
+      console.log(`✅ [${sectionName}] Successfully parsed JSON:`, parsed);
       
       const summary = typeof parsed.summary === 'string' ? parsed.summary.trim() : '';
       const fullText = typeof parsed.fullText === 'string' ? parsed.fullText.trim() : '';
       
       // Validate content quality
       if (!summary || !fullText) {
-        console.error(`Missing content for section ${sectionName}`);
+        console.error(`❌ [${sectionName}] Missing content - summary:`, summary?.length || 0, 'chars, fullText:', fullText?.length || 0, 'chars');
         return null;
       }
       
       // Check for minimum quality thresholds
       if (fullText.length < 50) {
-        console.error(`Section ${sectionName} content too short: ${fullText.length} chars`);
+        console.error(`❌ [${sectionName}] Content too short: ${fullText.length} chars`);
         return null;
       }
       
+      console.log(`✅ [${sectionName}] Validation passed - summary: ${summary.length} chars, fullText: ${fullText.length} chars`);
       return { summary, fullText };
       
     } catch (error) {
-      console.error(`Failed to parse section ${sectionName} response:`, error);
+      console.error(`❌ [${sectionName}] Failed to parse response:`, error);
+      console.error(`❌ [${sectionName}] Error details:`, error instanceof Error ? error.message : String(error));
+      console.error(`❌ [${sectionName}] Raw content that failed:`, content);
       return null;
     }
   }
@@ -753,72 +784,68 @@ Return a JSON object with the sections array in the order they appear in the pap
     return foundIndicators.length >= 3 || hasAcademicMetadata;
   }
 
-  
-
-
-
-   /**
-    * Validate the completeness and quality of the analysis
-    */
-   private static validateAnalysis(analysis: ResearchPaperAnalysis): ResearchPaperValidationResult {
-     const issues: string[] = [];
-     
-     // Check for required fields
-     if (!analysis.title || analysis.title.trim().length === 0) {
-       issues.push('Missing title');
-     }
-     
-     if (!analysis.tldr || analysis.tldr.trim().length < 20) {
-       issues.push('TL;DR is too short or missing');
-     }
-     
-     if (!analysis.keyInsights || analysis.keyInsights.length === 0) {
-       issues.push('Missing key insights');
-     }
-     
-     if (!analysis.sections || Object.keys(analysis.sections).length === 0) {
-       issues.push('No sections extracted');
-     }
-     
-     // Check for quality indicators
-     if (analysis.keyFindings && analysis.keyFindings.length === 0) {
-       issues.push('No key findings identified');
-     }
-     
-     if (analysis.methodology && analysis.methodology.length < 50) {
-       issues.push('Methodology description is too brief');
-     }
-     
-     // Check for generic/placeholder content
-     const genericPhrases = [
-       'described in the paper',
-       'discussed in the paper',
-       'outlined in the paper',
-       'not clearly specified',
-       'not clearly described'
-     ];
-     
-     const hasGenericContent = [
-       analysis.significance,
-       analysis.limitations,
-       analysis.practicalImplications,
-       analysis.futureWork
-     ].some(field => 
-       field && genericPhrases.some(phrase => field.toLowerCase().includes(phrase.toLowerCase()))
-     );
-     
-     if (hasGenericContent) {
-       issues.push('Analysis contains generic placeholder content');
-     }
-     
-     // Return validation result
-     if (issues.length === 0) {
-       return { isValid: true };
-     } else {
-       return { 
-         isValid: false, 
-         message: `Analysis validation issues: ${issues.join(', ')}` 
-       };
-     }
-   }
- } 
+  /**
+   * Validate the completeness and quality of the analysis
+   */
+  private static validateAnalysis(analysis: ResearchPaperAnalysis): ResearchPaperValidationResult {
+    const issues: string[] = [];
+    
+    // Check for required fields
+    if (!analysis.title || analysis.title.trim().length === 0) {
+      issues.push('Missing title');
+    }
+    
+    if (!analysis.tldr || analysis.tldr.trim().length < 20) {
+      issues.push('TL;DR is too short or missing');
+    }
+    
+    if (!analysis.keyInsights || analysis.keyInsights.length === 0) {
+      issues.push('Missing key insights');
+    }
+    
+    if (!analysis.sections || Object.keys(analysis.sections).length === 0) {
+      issues.push('No sections extracted');
+    }
+    
+    // Check for quality indicators
+    if (analysis.keyFindings && analysis.keyFindings.length === 0) {
+      issues.push('No key findings identified');
+    }
+    
+    if (analysis.methodology && analysis.methodology.length < 50) {
+      issues.push('Methodology description is too brief');
+    }
+    
+    // Check for generic/placeholder content
+    const genericPhrases = [
+      'described in the paper',
+      'discussed in the paper',
+      'outlined in the paper',
+      'not clearly specified',
+      'not clearly described'
+    ];
+    
+    const hasGenericContent = [
+      analysis.significance,
+      analysis.limitations,
+      analysis.practicalImplications,
+      analysis.futureWork
+    ].some(field => 
+      field && genericPhrases.some(phrase => field.toLowerCase().includes(phrase.toLowerCase()))
+    );
+    
+    if (hasGenericContent) {
+      issues.push('Analysis contains generic placeholder content');
+    }
+    
+    // Return validation result
+    if (issues.length === 0) {
+      return { isValid: true };
+    } else {
+      return { 
+        isValid: false, 
+        message: `Analysis validation issues: ${issues.join(', ')}` 
+      };
+    }
+  }
+}

@@ -22,7 +22,6 @@ export interface LinkedInExtractionResult {
 }
 
 export interface LinkedInExtractionOptions {
-  includeScrolling?: boolean;
   maxScrolls?: number;
   scrollDelay?: number;
   maxExpansions?: number;
@@ -32,14 +31,13 @@ export interface LinkedInExtractionOptions {
 export class LinkedInExtractionService {
   
   /**
-   * Main extraction method that handles both basic and scroll-enhanced extraction
+   * Main extraction method that always uses scroll-enhanced extraction for maximum content
    */
   static async extractLinkedInThread(
     tabData: TabData, 
     options: LinkedInExtractionOptions = {}
   ): Promise<LinkedInExtractionResult> {
     const {
-      includeScrolling = true,
       maxScrolls = 50,
       scrollDelay = 400,
       maxExpansions = 100,
@@ -47,7 +45,7 @@ export class LinkedInExtractionService {
     } = options;
 
     try {
-      console.log('🔗 Starting unified LinkedIn thread extraction', { options });
+      console.log('🔗 Starting LinkedIn thread extraction with scrolling', { options });
 
       // Validate URL
       if (!this.isLinkedInUrl(tabData.content?.url)) {
@@ -57,15 +55,8 @@ export class LinkedInExtractionService {
         };
       }
 
-      let extractionResult: LinkedInExtractionResult;
-
-      if (includeScrolling) {
-        // Use scroll-enhanced extraction for maximum content
-        extractionResult = await this.extractWithScrolling(tabData, maxScrolls, scrollDelay, maxExpansions);
-      } else {
-        // Use basic extraction from current content
-        extractionResult = await this.extractBasic(tabData);
-      }
+      // Always use scroll-enhanced extraction for maximum content
+      const extractionResult = await this.extractWithScrolling(tabData, maxScrolls, scrollDelay, maxExpansions);
 
       // Generate markdown if requested and extraction was successful
       if (generateMarkdown && extractionResult.success && extractionResult.thread) {
@@ -75,7 +66,7 @@ export class LinkedInExtractionService {
       return extractionResult;
 
     } catch (error) {
-      console.error('❌ Unified LinkedIn extraction failed:', error);
+      console.error('❌ LinkedIn extraction failed:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -123,43 +114,6 @@ export class LinkedInExtractionService {
           resolve({
             success: false,
             error: response?.error || 'Failed to extract LinkedIn thread with scrolling'
-          });
-        }
-      });
-    });
-  }
-
-  /**
-   * Basic extraction from current page content
-   */
-  private static async extractBasic(tabData: TabData): Promise<LinkedInExtractionResult> {
-    return new Promise((resolve) => {
-      // Get tab ID from active tabs
-      const tabIds = Array.from(tabData.meta.activeTabIds);
-      const tabId = tabIds.length > 0 ? tabIds[0] : 0;
-      
-      // Send message to content script to perform basic extraction
-      chrome.tabs.sendMessage(tabId, {
-        action: 'extractLinkedInThread'
-      }, (response) => {
-        if (chrome.runtime.lastError) {
-          console.error('Content script communication error:', chrome.runtime.lastError);
-          resolve({
-            success: false,
-            error: 'Failed to communicate with content script. Please refresh the page.'
-          });
-          return;
-        }
-
-        if (response?.success) {
-          resolve({
-            success: true,
-            thread: response.thread
-          });
-        } else {
-          resolve({
-            success: false,
-            error: response?.error || 'Failed to extract LinkedIn thread'
           });
         }
       });
@@ -231,14 +185,7 @@ export class LinkedInExtractionService {
     markdown += `\n---\n\n## Statistics\n\n`;
     markdown += `- **Posts:** ${thread.posts.length}\n`;
     markdown += `- **Unique Authors:** ${new Set(thread.posts.map(p => p.author.id)).size}\n`;
-    markdown += `- **Thread Depth:** ${Math.max(...thread.posts.map(p => p.threadPosition || 0))} levels\n`;
     
-    if (thread.expansionPotential && !thread.expansionPotential.canExpand) {
-      markdown += `- **Thread Status:** Complete\n`;
-    } else if (thread.expansionPotential?.canExpand) {
-      markdown += `- **Thread Status:** May have more content available\n`;
-    }
-
     return markdown.trim();
   }
 
@@ -420,7 +367,6 @@ export class LinkedInExtractionService {
    */
   static async extractThread(tabData: TabData): Promise<SocialMediaExtractionResponse> {
     const result = await this.extractLinkedInThread(tabData, {
-      includeScrolling: true,
       generateMarkdown: true
     });
 
@@ -440,24 +386,5 @@ export class LinkedInExtractionService {
         error: result.error || 'Unknown error'
       };
     }
-  }
-
-  /**
-   * Expand existing thread (placeholder for future implementation)
-   */
-  static async expandThread(url: string, currentThread: LinkedInThread): Promise<SocialMediaExpansionResponse> {
-    // For now, return the current thread as-is
-    // TODO: Implement actual expansion logic
-    return {
-      success: true,
-      additionalPosts: [],
-      updatedThread: currentThread,
-      progress: {
-        expandedCount: 0,
-        totalFound: currentThread.posts.length,
-        currentStep: 'No additional expansion performed',
-        isComplete: true
-      }
-    };
   }
 } 

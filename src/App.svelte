@@ -172,6 +172,16 @@
             </p>
           {/if}
           
+          <!-- Show correspondence information if available -->
+          {#if panelManager.contentMetadata.citations?.correspondence}
+            <p class="text-gray-700 mb-3">
+              <strong>Correspondence:</strong> 
+              <span class="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
+                {panelManager.contentMetadata.citations.correspondence}
+              </span>
+            </p>
+          {/if}
+          
           <div class="text-gray-600 space-y-1">
           <p><strong>URL:</strong> {panelManager.url}</p>
             <p><strong>Tab ID:</strong> {panelManager.tabId}</p>

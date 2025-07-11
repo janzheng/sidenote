@@ -1,9 +1,7 @@
 // Simplified content script - only handles content extraction when requested
 import { extractContent } from './tasks/extractContent.svelte';
 import { extractPageAssets } from './tasks/extractPageAssets.svelte';
-import { extractTwitterThread, expandTwitterThread } from './tasks/extractTwitterThread.svelte';
 import { extractTwitterThreadWithScroll } from './tasks/extractTwitterThreadWithScroll.svelte';
-import { extractLinkedInThread, expandLinkedInThread } from './tasks/extractLinkedInThread.svelte';
 import { extractLinkedInThreadWithScroll } from './tasks/extractLinkedInThreadWithScroll.svelte';
 
 // Import debug functions for testing
@@ -40,20 +38,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Keep message channel open for async response
   }
 
-  // Handle Twitter thread extraction requests
-  if (message.action === 'extractTwitterThread') {
-    extractTwitterThread().then(result => {
-      sendResponse(result);
-    }).catch(error => {
-      console.error('🐦 Twitter thread extraction failed:', error);
-      sendResponse({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Twitter thread extraction failed' 
-      });
-    });
-    return true; // Keep message channel open for async response
-  }
-
   // Handle Twitter thread extraction with automatic scrolling
   if (message.action === 'extractTwitterThreadWithScroll') {
     const { maxScrolls = 100, scrollDelay = 300 } = message;
@@ -78,35 +62,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Keep message channel open for async response
   }
 
-  // Handle Twitter thread expansion requests
-  if (message.action === 'expandTwitterThread') {
-    const { currentThreadId, maxPosts } = message;
-    expandTwitterThread(currentThreadId, maxPosts).then(result => {
-      sendResponse(result);
-    }).catch(error => {
-      console.error('🐦 Twitter thread expansion failed:', error);
-      sendResponse({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Twitter thread expansion failed' 
-      });
-    });
-    return true; // Keep message channel open for async response
-  }
-
-  // Handle LinkedIn thread extraction requests
-  if (message.action === 'extractLinkedInThread') {
-    extractLinkedInThread().then(result => {
-      sendResponse(result);
-    }).catch(error => {
-      console.error('🔗 LinkedIn thread extraction failed:', error);
-      sendResponse({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'LinkedIn thread extraction failed' 
-      });
-    });
-    return true; // Keep message channel open for async response
-  }
-
   // Handle LinkedIn thread extraction with automatic scrolling and expansion
   if (message.action === 'extractLinkedInThreadWithScroll') {
     const { maxScrolls = 50, scrollDelay = 400, maxExpansions = 100 } = message;
@@ -128,21 +83,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
     });
     
-    return true; // Keep message channel open for async response
-  }
-
-  // Handle LinkedIn thread expansion requests
-  if (message.action === 'expandLinkedInThread') {
-    const { currentThreadId, maxPosts } = message;
-    expandLinkedInThread(currentThreadId, maxPosts).then(result => {
-      sendResponse(result);
-    }).catch(error => {
-      console.error('🔗 LinkedIn thread expansion failed:', error);
-      sendResponse({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'LinkedIn thread expansion failed' 
-      });
-    });
     return true; // Keep message channel open for async response
   }
   

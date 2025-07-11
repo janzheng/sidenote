@@ -1,6 +1,5 @@
 import { ScrollCapture, createTwitterScrollConfig, type ScrollCaptureProgress } from './scrollCapture.svelte';
-import { extractTwitterThread } from './extractTwitterThread.svelte';
-import type { TwitterThread, SocialMediaPost } from '../../types/socialMedia';
+import type { TwitterThread, SocialMediaPost, SocialMediaUser } from '../../types/socialMedia';
 
 interface TweetIdentifier {
   id: string;
@@ -18,6 +17,20 @@ interface ExtractedTweetData {
   extractedAt: number;
 }
 
+// Twitter-specific selectors for better content detection
+const TWITTER_SELECTORS = {
+  TWEETS: 'article[data-testid="tweet"]',
+  TWEET_TEXT: '[data-testid="tweetText"]',
+  MAIN_THREAD_CONTAINER: '[data-testid="primaryColumn"]',
+  TIMELINE_CONTAINER: '[aria-label*="Timeline"]',
+  USER_NAME: '[data-testid="User-Name"]',
+  ENGAGEMENT_GROUP: '[role="group"]',
+  // Sections to exclude
+  DISCOVER_MORE_SECTION: '[data-testid="cellInnerDiv"]',
+  SIDEBAR_CONTENT: '[data-testid="sidebarColumn"]',
+  WHO_TO_FOLLOW: '[aria-label*="Who to follow"]'
+};
+
 export async function extractTwitterThreadWithScroll(
   maxScrolls: number = 100, 
   scrollDelay: number = 300
@@ -28,13 +41,17 @@ export async function extractTwitterThreadWithScroll(
   error?: string;
 }> {
   try {
-    console.log('🐦 Starting enhanced Twitter thread extraction with scrolling...');
+    console.log('🐦 Starting clean Twitter thread extraction with scroll-only approach...');
     console.log('🐦 Parameters:', { maxScrolls, scrollDelay });
     console.log('🐦 Current URL:', window.location.href);
 
-    // PHASE 1: Click "Show more" and "Show replies" buttons
-    console.log('🐦 Phase 1: Expanding truncated content...');
-    await expandTruncatedContent();
+    // PHASE 1: Scroll to top and analyze page structure
+    console.log('🐦 Phase 1: Scrolling to top and analyzing page structure...');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Analyze page structure to identify boundaries
+    const structureAnalysis = analyzePageStructure();
 
     // PHASE 2: Extract initial tweets and set up deduplication
     console.log('🐦 Phase 2: Initial tweet extraction...');
@@ -42,43 +59,55 @@ export async function extractTwitterThreadWithScroll(
     let domOrderCounter = 0;
     
     // Extract initial tweets
-    await extractAndStoreTweets(tweetDatabase, domOrderCounter);
+    await extractAndStoreTweets(tweetDatabase, domOrderCounter, structureAnalysis);
     const initialCount = tweetDatabase.size;
     console.log(`🐦 Initial extraction: ${initialCount} unique tweets`);
 
-    // PHASE 3: Scroll and extract with improved deduplication
-    console.log('🐦 Phase 3: Scrolling and extracting...');
+    // PHASE 3: Scroll-only expansion (no button clicking)
+    console.log('🐦 Phase 3: Scroll-only expansion...');
     
     const scrollConfig = createTwitterScrollConfig(maxScrolls, scrollDelay);
     const scrollCapture = new ScrollCapture(scrollConfig);
     
     let lastExtractedCount = initialCount;
     let stableExtractionCount = 0;
-    const maxStableExtractions = 5; // Stop if no new tweets for 5 scroll cycles
+    const maxStableExtractions = 8; // More conservative
+    let totalScrolls = 0;
+    let totalTextExpansions = 0;
     
-    // Set up progress callback with continuous extraction
+    // Set up progress callback with scroll-only extraction
     const progressCallback = async (progress: ScrollCaptureProgress) => {
       try {
-        // Click any new "Show more" buttons that appeared
-        await expandTruncatedContent();
+        // Check if we've reached recommendation content
+        if (hasReachedDiscoverMoreSection()) {
+          console.log('🛑 Reached "Discover more" section, stopping scroll capture');
+          scrollCapture.stop();
+          return;
+        }
         
-        // Extract tweets at current position
+        // Expand truncated tweet text (but not navigation elements)
+        const textExpansions = await expandTruncatedTweetText();
+        totalTextExpansions += textExpansions;
+        
+        // Extract tweets at current position (no button clicking)
         const beforeCount = tweetDatabase.size;
-        domOrderCounter = await extractAndStoreTweets(tweetDatabase, domOrderCounter);
+        domOrderCounter = await extractAndStoreTweets(tweetDatabase, domOrderCounter, structureAnalysis);
         const afterCount = tweetDatabase.size;
         const newTweets = afterCount - beforeCount;
         
-        if (newTweets > 0) {
-          console.log(`🐦 Found ${newTweets} new tweets during scroll (total: ${afterCount})`);
+        totalScrolls = progress.scrollCount;
+        
+        if (newTweets > 0 || textExpansions > 0) {
+          console.log(`🐦 Found ${newTweets} new tweets and expanded ${textExpansions} text during scroll (total: ${afterCount} tweets, ${totalTextExpansions} expansions)`);
           stableExtractionCount = 0;
           lastExtractedCount = afterCount;
         } else {
           stableExtractionCount++;
         }
         
-        // Stop scrolling if we haven't found new tweets for several cycles
+        // Stop scrolling if we haven't found new content for several cycles
         if (stableExtractionCount >= maxStableExtractions) {
-          console.log('🐦 No new tweets found for several cycles, stopping scroll capture');
+          console.log('🐦 No new content found for several cycles, stopping scroll capture');
           scrollCapture.stop();
         }
         
@@ -86,9 +115,9 @@ export async function extractTwitterThreadWithScroll(
         chrome.runtime.sendMessage({
           action: 'updateExtractionProgress',
           progress: {
-            expandedCount: progress.scrollCount,
+            expandedCount: totalTextExpansions,
             totalFound: afterCount,
-            currentStep: `Scrolled ${progress.scrollCount} times, found ${afterCount} tweets (${newTweets} new)`
+            currentStep: `Scrolled ${progress.scrollCount} times, expanded ${totalTextExpansions} texts, found ${afterCount} tweets (${newTweets} new)`
           }
         }).catch(() => {
           // Ignore errors - background script might not be ready
@@ -112,19 +141,20 @@ export async function extractTwitterThreadWithScroll(
     // PHASE 4: Final extraction and cleanup
     console.log('🐦 Phase 4: Final extraction and thread building...');
     
-    // One final extraction to catch any remaining tweets
-    await expandTruncatedContent();
-    await extractAndStoreTweets(tweetDatabase, domOrderCounter);
+    // One final text expansion and extraction to catch any remaining content
+    const finalTextExpansions = await expandTruncatedTweetText();
+    totalTextExpansions += finalTextExpansions;
+    await extractAndStoreTweets(tweetDatabase, domOrderCounter, structureAnalysis);
     
     const finalTweetCount = tweetDatabase.size;
-    console.log(`🐦 Final tweet count: ${finalTweetCount}`);
+    console.log(`🐦 Final tweet count: ${finalTweetCount}, total text expansions: ${totalTextExpansions}`);
 
     if (finalTweetCount === 0) {
       return {
         success: false,
         error: 'No tweets were captured during extraction',
         progress: {
-          expandedCount: scrollResult.totalScrolls,
+          expandedCount: totalTextExpansions,
           totalFound: 0,
           currentStep: 'No tweets captured'
         }
@@ -134,7 +164,7 @@ export async function extractTwitterThreadWithScroll(
     // PHASE 5: Build thread preserving display order
     console.log('🐦 Phase 5: Building thread with preserved order...');
     
-    // Sort by DOM order to preserve Twitter's algorithmic ordering
+    // Sort by DOM order to preserve Twitter's display ordering
     const sortedTweets = Array.from(tweetDatabase.values())
       .sort((a, b) => a.domOrder - b.domOrder);
     
@@ -143,9 +173,8 @@ export async function extractTwitterThreadWithScroll(
     // Use the first tweet as root (top of timeline)
     const rootPost = allPosts[0];
     
-    // Get author from initial extraction or first post
-    const initialExtractionResult = await extractTwitterThread();
-    const author = initialExtractionResult.thread?.author || rootPost.author;
+    // Extract author from the page or use the first post's author
+    const author = extractAuthorFromDOM() || rootPost.author;
 
     // Calculate total engagement
     const totalEngagement = allPosts.reduce((total, post) => ({
@@ -187,7 +216,7 @@ export async function extractTwitterThreadWithScroll(
       }
     };
 
-    console.log('✅ Enhanced Twitter thread extraction completed:', {
+    console.log('✅ Clean Twitter thread extraction completed:', {
       id: completeThread.id,
       posts: completeThread.posts.length,
       author: completeThread.author.username,
@@ -200,39 +229,212 @@ export async function extractTwitterThreadWithScroll(
       success: true,
       thread: completeThread,
       progress: {
-        expandedCount: scrollResult.totalScrolls,
+        expandedCount: totalTextExpansions,
         totalFound: completeThread.posts.length,
-        currentStep: `Enhanced extraction completed - ${completeThread.posts.length} tweets captured in display order`
+        currentStep: `Clean extraction completed - ${completeThread.posts.length} tweets captured with ${totalTextExpansions} text expansions in display order`
       }
     };
 
   } catch (error) {
-    console.error('❌ Enhanced Twitter thread extraction failed:', error);
+    console.error('❌ Clean Twitter thread extraction failed:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error during enhanced extraction',
+      error: error instanceof Error ? error.message : 'Unknown error during clean extraction',
       progress: {
         expandedCount: 0,
         totalFound: 0,
-        currentStep: 'Enhanced extraction failed'
+        currentStep: 'Clean extraction failed'
       }
     };
   }
 }
 
 /**
- * Extract tweets from current DOM and store with bulletproof deduplication
+ * Analyze page structure to identify content boundaries
+ */
+function analyzePageStructure(): {
+  mainThreadContainer: Element | null;
+  discoverMoreBoundary: Element | null;
+  threadBoundaries: Element[];
+  recommendationSections: Element[];
+} {
+  console.log('🔍 Analyzing Twitter page structure');
+  
+  // Get the main content area
+  const mainColumn = document.querySelector(TWITTER_SELECTORS.MAIN_THREAD_CONTAINER);
+  const timelineContainer = document.querySelector(TWITTER_SELECTORS.TIMELINE_CONTAINER);
+  const mainThreadContainer = mainColumn || timelineContainer || document.body;
+  
+  console.log('📍 Main thread container:', mainThreadContainer?.tagName, mainThreadContainer?.getAttribute('data-testid'));
+  
+  // Find the "Discover more" boundary
+  let discoverMoreBoundary: Element | null = null;
+  
+  // Look for explicit "Discover more" text
+  const textElements = mainThreadContainer.querySelectorAll('*');
+  for (const element of textElements) {
+    const text = element.textContent || '';
+    if (text.includes('Discover more') || text.includes('Sourced from across X')) {
+      // Find the closest container that looks like a section boundary
+      let container = element;
+      while (container && container.parentElement) {
+        if (container.getAttribute('data-testid') === 'cellInnerDiv' || 
+            container.tagName === 'SECTION' ||
+            container.getAttribute('role') === 'region') {
+          discoverMoreBoundary = container;
+          break;
+        }
+        container = container.parentElement;
+      }
+      if (discoverMoreBoundary) break;
+    }
+  }
+  
+  console.log('🛑 Discover more boundary:', discoverMoreBoundary?.tagName, discoverMoreBoundary?.textContent?.substring(0, 50));
+  
+  // Find thread boundaries
+  const threadBoundaries: Element[] = [];
+  const conversationThreads = mainThreadContainer.querySelectorAll('[aria-labelledby*="accessible-list"], [role="region"]');
+  conversationThreads.forEach(thread => {
+    if (!discoverMoreBoundary || !discoverMoreBoundary.contains(thread)) {
+      threadBoundaries.push(thread);
+    }
+  });
+  
+  // Find recommendation sections to exclude
+  const recommendationSections: Element[] = [];
+  const sidebarContent = document.querySelectorAll(TWITTER_SELECTORS.SIDEBAR_CONTENT);
+  const whoToFollow = document.querySelectorAll(TWITTER_SELECTORS.WHO_TO_FOLLOW);
+  
+  sidebarContent.forEach(section => recommendationSections.push(section));
+  whoToFollow.forEach(section => recommendationSections.push(section));
+  
+  if (discoverMoreBoundary) {
+    recommendationSections.push(discoverMoreBoundary);
+  }
+  
+  console.log('📊 Structure analysis results:', {
+    mainThreadContainer: !!mainThreadContainer,
+    discoverMoreBoundary: !!discoverMoreBoundary,
+    threadBoundaries: threadBoundaries.length,
+    recommendationSections: recommendationSections.length
+  });
+  
+  return {
+    mainThreadContainer,
+    discoverMoreBoundary,
+    threadBoundaries,
+    recommendationSections
+  };
+}
+
+/**
+ * Check if tweet is valid thread content (not recommendations)
+ */
+function isValidThreadTweet(tweetElement: HTMLElement, structureAnalysis: ReturnType<typeof analyzePageStructure>): boolean {
+  // Check if tweet is in a recommendation section
+  for (const recSection of structureAnalysis.recommendationSections) {
+    if (recSection.contains(tweetElement)) {
+      // Double-check: is this actually promotional content?
+      const text = tweetElement.textContent || '';
+      if (text.includes('Who to follow') || text.includes('Trending') || text.includes('Promoted')) {
+        console.log('🚫 Tweet filtered: confirmed promotional content');
+        return false;
+      }
+    }
+  }
+  
+  // Check if tweet is after the discover more boundary
+  if (structureAnalysis.discoverMoreBoundary) {
+    const tweetRect = tweetElement.getBoundingClientRect();
+    const boundaryRect = structureAnalysis.discoverMoreBoundary.getBoundingClientRect();
+    
+    // Filter if significantly after the boundary
+    if (tweetRect.top > boundaryRect.bottom + 100) {
+      console.log('🚫 Tweet filtered: well after discover more boundary');
+      return false;
+    }
+  }
+  
+  // Filter out obvious promotional content
+  const tweetText = tweetElement.textContent || '';
+  const promotionalPatterns = [
+    'Promoted Tweet',
+    'Sponsored',
+    'Advertisement',
+    'Who to follow',
+    'Trending in',
+    'What\'s happening',
+    'You might like these',
+    'More Tweets'
+  ];
+  
+  for (const pattern of promotionalPatterns) {
+    if (tweetText.includes(pattern)) {
+      console.log(`🚫 Tweet filtered: promotional content (${pattern})`);
+      return false;
+    }
+  }
+  
+  // Basic content check: Must look like a tweet
+  const hasTweetText = !!tweetElement.querySelector(TWITTER_SELECTORS.TWEET_TEXT);
+  const hasUserName = !!tweetElement.querySelector(TWITTER_SELECTORS.USER_NAME);
+  const hasTime = !!tweetElement.querySelector('time');
+  
+  if (!hasTweetText && !hasUserName && !hasTime) {
+    console.log('🚫 Tweet filtered: no tweet-like content');
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Check if we've reached the "Discover more" section
+ */
+function hasReachedDiscoverMoreSection(): boolean {
+  // Look for text patterns that indicate we've reached recommendations
+  const discoverMoreElement = findElementByText(document.documentElement, 'Discover more');
+  const sourcedFromElement = findElementByText(document.documentElement, 'Sourced from across X');
+  
+  if (discoverMoreElement || sourcedFromElement) {
+    console.log('🛑 Detected "Discover more" section - recommendation content');
+    return true;
+  }
+  
+  // Check for cells with data-testid="cellInnerDiv" that contain "Discover more"
+  const cellInnerDivs = document.querySelectorAll('[data-testid="cellInnerDiv"]');
+  for (const cell of cellInnerDivs) {
+    if (cell.textContent?.includes('Discover more') || cell.textContent?.includes('Sourced from across X')) {
+      console.log('🛑 Detected "Discover more" cell via data-testid');
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Extract tweets from current DOM and store with deduplication
  */
 async function extractAndStoreTweets(
   tweetDatabase: Map<string, ExtractedTweetData>,
-  startingDomOrder: number
+  startingDomOrder: number,
+  structureAnalysis: ReturnType<typeof analyzePageStructure>
 ): Promise<number> {
-  const tweetElements = document.querySelectorAll('article[data-testid="tweet"]');
+  const tweetElements = document.querySelectorAll(TWITTER_SELECTORS.TWEETS);
   let domOrderCounter = startingDomOrder;
   
   for (const element of tweetElements) {
     try {
-      const tweetData = await extractSingleTweetWithIdentifier(element, domOrderCounter);
+      const tweetElement = element as HTMLElement;
+      
+      // Apply structural filtering
+      if (!isValidThreadTweet(tweetElement, structureAnalysis)) {
+        continue;
+      }
+      
+      const tweetData = await extractSingleTweetWithIdentifier(tweetElement, domOrderCounter);
       if (tweetData) {
         const uniqueKey = generateUniqueKey(tweetData.identifier);
         
@@ -253,6 +455,76 @@ async function extractAndStoreTweets(
   return domOrderCounter;
 }
 
+/**
+ * Expand only truncated tweet text (Show more buttons) - not navigation elements
+ */
+async function expandTruncatedTweetText(): Promise<number> {
+  let clickedCount = 0;
+  
+  // Target ONLY tweet text expansion buttons - very specific selectors
+  const textExpansionButtons = document.querySelectorAll([
+    '[data-testid="tweet-text-show-more-link"]',  // Primary selector for tweet text expansion
+    'button[data-testid="tweet-text-show-more-link"]',
+    '.tweet-text-show-more-link'
+  ].join(', '));
+  
+  console.log(`🐦 Found ${textExpansionButtons.length} tweet text expansion buttons`);
+  
+  for (const button of textExpansionButtons) {
+    try {
+      const buttonElement = button as HTMLElement;
+      
+      // Verify this is actually a "Show more" button for tweet text
+      const buttonText = buttonElement.textContent?.toLowerCase() || '';
+      if (!buttonText.includes('show more')) {
+        continue;
+      }
+      
+      // Check if button is visible and clickable
+      if (buttonElement.offsetParent === null) {
+        continue;
+      }
+      
+      const rect = buttonElement.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) {
+        continue;
+      }
+      
+      // Click the button
+      buttonElement.click();
+      clickedCount++;
+      
+      console.log(`🐦 Expanded tweet text ${clickedCount}: ${buttonText}`);
+      
+      // Small delay to allow content to expand
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+    } catch (error) {
+      console.warn('🐦 Failed to click tweet text expansion button:', error);
+    }
+  }
+  
+  if (clickedCount > 0) {
+    console.log(`🐦 Expanded ${clickedCount} tweet texts, waiting for content to load...`);
+    // Wait for all expansions to complete
+    await new Promise(resolve => setTimeout(resolve, 300));
+  }
+  
+  return clickedCount;
+}
+
+// Helper function to find elements by text content
+function findElementByText(container: Element, searchText: string): Element | null {
+  const elements = container.querySelectorAll('span, div, button');
+  for (const element of elements) {
+    if (element.textContent?.toLowerCase().includes(searchText.toLowerCase())) {
+      return element;
+    }
+  }
+  return null;
+}
+
+// Keep the existing helper functions for tweet extraction
 /**
  * Extract a single tweet with comprehensive identifier for deduplication
  */
@@ -396,13 +668,6 @@ function extractTweetId(element: Element): string | null {
   const dataId = element.getAttribute('data-tweet-id') ||
                 element.getAttribute('data-item-id');
   if (dataId) return dataId;
-
-  // Try to get from aria-labelledby or other attributes
-  const ariaLabel = element.getAttribute('aria-labelledby');
-  if (ariaLabel) {
-    const match = ariaLabel.match(/tweet-(\d+)/);
-    if (match) return match[1];
-  }
 
   // Generate from timestamp and position
   const timeElement = element.querySelector('time');
@@ -560,63 +825,62 @@ function extractAuthorFromTweetElement(element: Element): any {
     id: username,
     username,
     displayName,
-    avatarUrl: avatarElement?.src,
+    avatarUrl: (avatarElement as HTMLImageElement)?.src,
     verified: !!verifiedElement,
     platform: 'twitter'
   };
 }
 
 /**
- * Click "Show more" and "Show replies" buttons to expand truncated content
+ * Extract author information from the page
  */
-async function expandTruncatedContent(): Promise<void> {
-  const expandButtons: HTMLElement[] = [];
-  
-  // Find "Show more" buttons for truncated tweets
-  const showMoreButtons = document.querySelectorAll('[data-testid="tweet-text-show-more-link"]');
-  expandButtons.push(...Array.from(showMoreButtons) as HTMLElement[]);
-  
-  // Find "Show replies" buttons
-  const showRepliesButtons = document.querySelectorAll('[data-testid="showMore"]');
-  expandButtons.push(...Array.from(showRepliesButtons) as HTMLElement[]);
-  
-  // Find buttons with "Show more" or "Show replies" in aria-label
-  const ariaLabelButtons = document.querySelectorAll('[aria-label*="Show more"], [aria-label*="Show replies"]');
-  expandButtons.push(...Array.from(ariaLabelButtons) as HTMLElement[]);
-  
-  // Find buttons and spans with "Show" text content
-  const allButtons = document.querySelectorAll('button, span[role="button"], [role="button"]');
-  for (const button of allButtons) {
-    const text = button.textContent?.toLowerCase() || '';
-    if (text.includes('show more') || text.includes('show replies') || text.includes('show this thread')) {
-      expandButtons.push(button as HTMLElement);
-    }
-  }
+function extractAuthorFromDOM(): SocialMediaUser | null {
+  try {
+    // Look for author information in the page
+    const usernameElement = document.querySelector('[data-testid="UserName"]') ||
+                           document.querySelector('[data-testid="userInfo"]');
+    
+    const displayNameElement = usernameElement?.querySelector('[dir="ltr"]') ||
+                              usernameElement?.querySelector('span');
+    
+    const avatarElement = document.querySelector('[data-testid="UserAvatar"] img') as HTMLImageElement;
+    
+    // Extract username from URL or page content
+    const urlMatch = window.location.pathname.match(/^\/([^\/]+)/);
+    const username = urlMatch?.[1] || 'unknown';
+    
+    const displayName = displayNameElement?.textContent?.trim() || username;
+    
+    // Look for verification badge
+    const verifiedElement = document.querySelector('[data-testid="verifiedBadge"]') ||
+                           document.querySelector('[aria-label*="verified"]');
+    
+    const author: SocialMediaUser = {
+      id: username,
+      username,
+      displayName,
+      avatarUrl: avatarElement?.src,
+      verified: !!verifiedElement,
+      platform: 'twitter'
+    };
 
-  let clickedCount = 0;
-  
-  for (const button of expandButtons) {
-    try {
-      if (button && button.offsetParent !== null) {
-        // Check if button is visible and clickable
-        const rect = button.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          button.click();
-          clickedCount++;
-          
-          // Small delay between clicks to avoid overwhelming the page
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
+    // Try to extract follower/following counts if visible
+    const statsElements = document.querySelectorAll('a[href*="/followers"], a[href*="/following"]');
+    statsElements.forEach(element => {
+      const text = element.textContent || '';
+      const count = parseEngagementCount(text);
+      
+      if (element.getAttribute('href')?.includes('/followers')) {
+        author.followers = count;
+      } else if (element.getAttribute('href')?.includes('/following')) {
+        author.following = count;
       }
-    } catch (error) {
-      console.warn('🐦 Failed to click expand button:', error);
-    }
-  }
-  
-  if (clickedCount > 0) {
-    console.log(`🐦 Clicked ${clickedCount} expand buttons`);
-    // Wait for content to load after clicking
-    await new Promise(resolve => setTimeout(resolve, 500));
+    });
+
+    return author;
+  } catch (error) {
+    console.warn('Failed to extract author from DOM:', error);
+    return null;
   }
 }
 

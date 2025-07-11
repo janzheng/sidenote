@@ -43,6 +43,7 @@ export class PDFCitationService {
       const citationSchema = {
         title: "string - The paper/document title",
         authors: "array of strings - Author names (e.g., ['John Smith', 'Jane Doe'])",
+        correspondence: "string - Author correspondence/contact information (e.g., emails, addresses); can be multiple",
         year: "string - Publication year (YYYY format)",
         journal: "string - Journal name (if academic paper)",
         publisher: "string - Publisher name",
@@ -69,9 +70,18 @@ CRITICAL INSTRUCTIONS:
 3. For arXiv papers, extract the arXiv ID (format: 1234.5678 or 1234.5678v1)
 4. For journal articles, extract journal name, volume, issue, pages
 5. Extract ALL author names as separate array elements
-6. Return ONLY a clean JSON object with the citation metadata
-7. If information is not found, omit that field from the JSON
-8. Be precise with formatting - years as YYYY, pages as "start-end"
+6. Extract author correspondence information (emails, contact details)
+7. Return ONLY a clean JSON object with the citation metadata
+8. If information is not found, omit that field from the JSON
+9. Be precise with formatting - years as YYYY, pages as "start-end"
+
+CORRESPONDENCE EXTRACTION (NEW):
+- Look for author contact information like email addresses
+- Common patterns: "email@domain.com", "{author.name}@institution.edu"
+- Look for "Correspondence:", "Contact:", or email patterns near author names
+- Extract complete email addresses and any additional contact info
+- Example: "kou.misaki@sakana.ai, takiba@sakana.ai" or "Correspondence: john.doe@university.edu"
+- Include institutional affiliations if mentioned with contact info
 
 ARXIV YEAR EXTRACTION (ABSOLUTELY CRITICAL - READ CAREFULLY):
 - NEVER extract year from arXiv ID numbers like "2503.04412" - this gives wrong years like "2503"
@@ -134,6 +144,7 @@ CRITICAL REMINDERS FOR THIS EXTRACTION:
 - Convert ALL CAPS titles to proper Title Case
 - For arXiv papers: Find actual dates like "6 Mar 2025", NEVER use arXiv ID numbers for year
 - Extract clean, properly formatted author names
+- Extract author correspondence/contact info (emails, institutional contacts)
 - Extract the complete abstract - look for "Abstract", "Summary" sections
 - Remove any OCR artifacts or strange characters
 
@@ -143,6 +154,11 @@ EXAMPLE OF WHAT TO AVOID:
 - Make sure to capture THE ENTIRE TITLE, not just a part of it.
 - Bad year: "2503" (don't extract from the arXiv ID)
 - Good year: "2025" (from actual date; it'll look like "6 Mar 2025" or similar, but because of OCR might be intermingled with other text)
+
+CORRESPONDENCE EXAMPLES:
+- Good: "kou.misaki@sakana.ai, takiba@sakana.ai"
+- Good: "Correspondence: john.doe@university.edu"
+- Good: "Contact: jane.smith@company.com, Department of AI"
 
 Return only the clean, properly formatted JSON metadata object, no explanatory text.`;
 
@@ -214,7 +230,7 @@ Return only the clean, properly formatted JSON metadata object, no explanatory t
     if (!citations || typeof citations !== 'object') return 0;
 
     const keyFields = ['title', 'authors', 'year'];
-    const bonusFields = ['journal', 'doi', 'arxiv', 'abstract'];
+    const bonusFields = ['journal', 'doi', 'arxiv', 'abstract', 'correspondence'];
     const allFields = [...keyFields, ...bonusFields];
 
     let score = 0;
@@ -282,6 +298,7 @@ Return only the clean, properly formatted JSON metadata object, no explanatory t
           authors: pdfCitations.authors || existingMetadata.citations?.authors,
           first_author: pdfCitations.authors?.[0] || existingMetadata.citations?.first_author,
           last_author: pdfCitations.authors?.[pdfCitations.authors.length - 1] || existingMetadata.citations?.last_author,
+          correspondence: pdfCitations.correspondence || existingMetadata.citations?.correspondence,
           year: pdfCitations.year || existingMetadata.citations?.year,
           publication_date: pdfCitations.publication_date || existingMetadata.citations?.publication_date,
           journal: pdfCitations.journal || existingMetadata.citations?.journal,
@@ -314,6 +331,10 @@ Return only the clean, properly formatted JSON metadata object, no explanatory t
       // ✅ NEW: Log abstract extraction
       if (pdfCitations.abstract) {
         console.log('📄 Abstract extracted and set as description:', pdfCitations.abstract.substring(0, 100) + '...');
+      }
+      // ✅ NEW: Log correspondence extraction
+      if (pdfCitations.correspondence) {
+        console.log('📧 Correspondence extracted:', pdfCitations.correspondence);
       }
 
       // ✅ GENERATE FILENAME: Right here when we have all the enhanced citation data
@@ -443,6 +464,7 @@ Return only the clean, properly formatted JSON metadata object, no explanatory t
     year?: string;
     doi?: string;
     arxiv?: string;
+    correspondence?: string;
   }> {
     try {
       const truncatedContent = pdfContent.substring(0, 3000); // Shorter for quick extraction
@@ -454,13 +476,15 @@ Return only the clean, properly formatted JSON metadata object, no explanatory t
   "authors": ["array", "of", "author names (clean formatting)"],
   "year": "string - publication year (YYYY)",
   "doi": "string - DOI if found",
-  "arxiv": "string - arXiv ID if found"
+  "arxiv": "string - arXiv ID if found",
+  "correspondence": "string - author contact/email information if found"
 }
 
 FORMATTING REQUIREMENTS:
 - Convert ALL CAPS titles to proper Title Case
 - Fix OCR spacing artifacts (e.g., "W I D E R" → "Wider")  
 - Clean up author names and remove OCR artifacts
+- Extract email addresses and contact information for correspondence
 - Make all text readable and professional
 
 Return only the clean, properly formatted JSON object, no other text.`;

@@ -432,22 +432,26 @@ export function createTwitterScrollConfig(maxScrolls: number = 100, scrollDelay:
       selectors: [
         // Very specific selectors that only appear at actual end states
         '[data-testid="error"]',
-        '[data-testid="primaryColumn"] [data-testid="emptyState"]'
+        '[data-testid="primaryColumn"] [data-testid="emptyState"]',
+        '.error-page',
+        '[data-testid="empty-state"]'
       ],
       texts: [
         // Only stop on actual error messages
         'Something went wrong. Try reloading.',
-        'This Tweet was deleted by the Tweet author'
+        'This Tweet was deleted by the Tweet author',
+        'This account doesn\'t exist',
+        'This Tweet is unavailable'
       ]
     },
     maxScrolls,
     scrollDelay,
     scrollStrategy: 'progressive',
-    initialScrollAmount: window.innerHeight * 0.8, // Slightly larger scrolls
-    laterScrollAmount: window.innerHeight * 1.5, // Much larger scrolls later
-    progressiveThreshold: 5, // Switch to larger scrolls sooner
-    stableScrollThreshold: 10, // Allow many more scrolls without progress
-    contentStabilityWait: 200,
+    initialScrollAmount: window.innerHeight * 0.6, // More conservative initial scrolls
+    laterScrollAmount: window.innerHeight * 0.8, // Conservative later scrolls
+    progressiveThreshold: 8, // Switch to larger scrolls later
+    stableScrollThreshold: 8, // Allow more scrolls without progress
+    contentStabilityWait: 400, // Wait longer for content to load
     platform: 'twitter',
     debug: true
   };

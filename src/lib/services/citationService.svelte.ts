@@ -1100,6 +1100,7 @@ Return only the JSON metadata object, no other text.`;
       const authorString = authors.length > 0 ? authors.join(', ') : 'Unknown Author';
       const firstAuthor = authors.length > 0 ? authors[0] : 'Unknown Author';
       const lastAuthor = authors.length > 1 ? authors[authors.length - 1] : firstAuthor;
+      const correspondence = enhancedCitations.correspondence;
 
       // Create manual citations with enhanced data
       let bibtex = '';
@@ -1120,6 +1121,7 @@ Return only the JSON metadata object, no other text.`;
       if (pages) bibtex += `,\n  pages={${pages}}`;
       if (doi) bibtex += `,\n  doi={${doi}}`;
       if (arxiv) bibtex += `,\n  note={${arxiv}}`;
+      if (correspondence) bibtex += `,\n  correspondence={${correspondence}}`;
       if (url) bibtex += `,\n  url={${url}}`;
       bibtex += '\n}';
 

@@ -1,6 +1,5 @@
 import { ScrollCapture, createLinkedInScrollConfig, type ScrollCaptureProgress } from './scrollCapture.svelte';
-import { extractLinkedInThread } from './extractLinkedInThread.svelte';
-import type { LinkedInThread, SocialMediaPost } from '../../types/socialMedia';
+import type { LinkedInThread, SocialMediaPost, SocialMediaUser } from '../../types/socialMedia';
 
 interface PostIdentifier {
   id: string;
@@ -41,15 +40,17 @@ export async function extractLinkedInThreadWithScroll(
     // Expand initial truncated content
     await expandTruncatedContent(maxExpansions);
 
-    // PHASE 2: Extract initial posts and set up deduplication
-    console.log('🔗 Phase 2: Initial post extraction...');
-    const postDatabase = new Map<string, ExtractedPostData>();
+    // PHASE 2: Collect all posts during scrolling (allow duplicates for now)
+    console.log('🔗 Phase 2: Collecting all posts during scrolling...');
+    const allExtractedPosts: ExtractedPostData[] = [];
     let domOrderCounter = 0;
     
     // Extract initial posts
-    await extractAndStorePosts(postDatabase, domOrderCounter);
-    const initialCount = postDatabase.size;
-    console.log(`🔗 Initial extraction: ${initialCount} unique posts`);
+    const initialPosts = await extractAllPostsFromDOM(domOrderCounter);
+    allExtractedPosts.push(...initialPosts);
+    domOrderCounter += initialPosts.length;
+    
+    console.log(`🔗 Initial extraction: ${initialPosts.length} posts collected`);
 
     // PHASE 3: Scroll and extract with continuous expansion
     console.log('🔗 Phase 3: Scrolling and extracting with expansion...');
@@ -57,7 +58,7 @@ export async function extractLinkedInThreadWithScroll(
     const scrollConfig = createLinkedInScrollConfig(maxScrolls, scrollDelay);
     const scrollCapture = new ScrollCapture(scrollConfig);
     
-    let lastExtractedCount = initialCount;
+    let lastExtractedCount = initialPosts.length;
     let stableExtractionCount = 0;
     const maxStableExtractions = 5; // Stop if no new posts for 5 scroll cycles
     let totalExpansions = 0;
@@ -69,14 +70,16 @@ export async function extractLinkedInThreadWithScroll(
         const expansionsThisCycle = await expandTruncatedContent(10); // Limit per cycle
         totalExpansions += expansionsThisCycle;
         
-        // Extract posts at current position
-        const beforeCount = postDatabase.size;
-        domOrderCounter = await extractAndStorePosts(postDatabase, domOrderCounter);
-        const afterCount = postDatabase.size;
-        const newPosts = afterCount - beforeCount;
+        // Extract all posts at current position (including duplicates)
+        const beforeCount = allExtractedPosts.length;
+        const newPosts = await extractAllPostsFromDOM(domOrderCounter);
+        allExtractedPosts.push(...newPosts);
+        domOrderCounter += newPosts.length;
+        const afterCount = allExtractedPosts.length;
+        const newPostsCount = afterCount - beforeCount;
         
-        if (newPosts > 0 || expansionsThisCycle > 0) {
-          console.log(`🔗 Found ${newPosts} new posts and ${expansionsThisCycle} expansions during scroll (total: ${afterCount} posts, ${totalExpansions} expansions)`);
+        if (newPostsCount > 0 || expansionsThisCycle > 0) {
+          console.log(`🔗 Collected ${newPostsCount} more posts and ${expansionsThisCycle} expansions during scroll (total collected: ${afterCount} posts, ${totalExpansions} expansions)`);
           stableExtractionCount = 0;
           lastExtractedCount = afterCount;
         } else {
@@ -95,7 +98,7 @@ export async function extractLinkedInThreadWithScroll(
           progress: {
             expandedCount: totalExpansions,
             totalFound: afterCount,
-            currentStep: `Scrolled ${progress.scrollCount} times, expanded ${totalExpansions} elements, found ${afterCount} posts (${newPosts} new)`
+            currentStep: `Scrolled ${progress.scrollCount} times, expanded ${totalExpansions} elements, collected ${afterCount} posts (${newPostsCount} new)`
           }
         }).catch(() => {
           // Ignore errors - background script might not be ready
@@ -113,22 +116,23 @@ export async function extractLinkedInThreadWithScroll(
       success: scrollResult.success,
       totalScrolls: scrollResult.totalScrolls,
       stoppedReason: scrollResult.progress.stoppedReason,
-      finalPostCount: postDatabase.size,
+      totalCollectedPosts: allExtractedPosts.length,
       totalExpansions
     });
 
-    // PHASE 4: Final extraction and cleanup
-    console.log('🔗 Phase 4: Final extraction and thread building...');
+    // PHASE 4: Final extraction and deduplication
+    console.log('🔗 Phase 4: Final extraction and deduplication...');
     
     // One final expansion and extraction to catch any remaining content
     const finalExpansions = await expandTruncatedContent(maxExpansions);
     totalExpansions += finalExpansions;
-    await extractAndStorePosts(postDatabase, domOrderCounter);
+    const finalPosts = await extractAllPostsFromDOM(domOrderCounter);
+    allExtractedPosts.push(...finalPosts);
     
-    const finalPostCount = postDatabase.size;
-    console.log(`🔗 Final post count: ${finalPostCount}, total expansions: ${totalExpansions}`);
+    const totalCollectedPosts = allExtractedPosts.length;
+    console.log(`🔗 Total collected posts before deduplication: ${totalCollectedPosts}, total expansions: ${totalExpansions}`);
 
-    if (finalPostCount === 0) {
+    if (totalCollectedPosts === 0) {
       return {
         success: false,
         error: 'No posts were captured during extraction',
@@ -140,21 +144,23 @@ export async function extractLinkedInThreadWithScroll(
       };
     }
 
-    // PHASE 5: Build thread preserving display order
-    console.log('🔗 Phase 5: Building thread with preserved order...');
+    // PHASE 5: Deduplicate posts using robust content-based matching
+    console.log('🔗 Phase 5: Deduplicating posts...');
+    const uniquePosts = deduplicatePosts(allExtractedPosts);
+    console.log(`🔗 After deduplication: ${uniquePosts.length} unique posts (removed ${totalCollectedPosts - uniquePosts.length} duplicates)`);
+
+    // PHASE 6: Build thread preserving display order
+    console.log('🔗 Phase 6: Building thread with preserved order...');
     
     // Sort by DOM order to preserve LinkedIn's display ordering
-    const sortedPosts = Array.from(postDatabase.values())
-      .sort((a, b) => a.domOrder - b.domOrder);
-    
+    const sortedPosts = uniquePosts.sort((a, b) => a.domOrder - b.domOrder);
     const allPosts = sortedPosts.map(post => post.post);
     
     // Use the first post as root (top of timeline)
     const rootPost = allPosts[0];
     
-    // Get author from initial extraction or first post
-    const initialExtractionResult = await extractLinkedInThread();
-    const author = initialExtractionResult.thread?.author || rootPost.author;
+    // Extract author from the page or use the first post's author
+    const author = extractAuthorFromDOM() || rootPost.author;
 
     // Calculate total engagement
     const totalEngagement = allPosts.reduce((total, post) => ({
@@ -195,11 +201,11 @@ export async function extractLinkedInThreadWithScroll(
       },
       platformSpecific: {
         linkedin: {
-          postType: 'feed',
-          isSponsored: false,
+          postType: detectPostType(),
+          isSponsored: detectSponsoredContent(),
           targetAudience: [],
-          industryContext: [],
-          companyPages: []
+          industryContext: extractIndustryContext(),
+          companyPages: extractCompanyPages()
         }
       }
     };
@@ -210,7 +216,7 @@ export async function extractLinkedInThreadWithScroll(
       author: completeThread.author.username,
       totalScrolls: scrollResult.totalScrolls,
       totalExpansions,
-      uniquePostIds: postDatabase.size,
+      uniquePostsAfterDedup: uniquePosts.length,
       preservedOrder: true
     });
 
@@ -220,46 +226,32 @@ export async function extractLinkedInThreadWithScroll(
       progress: {
         expandedCount: totalExpansions,
         totalFound: completeThread.posts.length,
-        currentStep: `Enhanced extraction completed - ${completeThread.posts.length} posts captured with ${totalExpansions} expansions in display order`
+        currentStep: `Extraction completed: ${completeThread.posts.length} unique posts`
       }
     };
 
   } catch (error) {
-    console.error('❌ Enhanced LinkedIn thread extraction failed:', error);
+    console.error('❌ LinkedIn thread extraction failed:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error during enhanced extraction',
-      progress: {
-        expandedCount: 0,
-        totalFound: 0,
-        currentStep: 'Enhanced extraction failed'
-      }
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
     };
   }
 }
 
 /**
- * Extract posts from current DOM and store with bulletproof deduplication
+ * Extract all posts from current DOM state
  */
-async function extractAndStorePosts(
-  postDatabase: Map<string, ExtractedPostData>,
-  startingDomOrder: number
-): Promise<number> {
+async function extractAllPostsFromDOM(startingDomOrder: number): Promise<ExtractedPostData[]> {
   const postElements = document.querySelectorAll('.feed-shared-update-v2, .feed-shared-article, .comments-comment-entity, article[data-id]');
+  const extractedPosts: ExtractedPostData[] = [];
   let domOrderCounter = startingDomOrder;
   
   for (const element of postElements) {
     try {
       const postData = await extractSinglePostWithIdentifier(element, domOrderCounter);
       if (postData) {
-        const uniqueKey = generateUniqueKey(postData.identifier);
-        
-        // Only store if we haven't seen this exact post before
-        if (!postDatabase.has(uniqueKey)) {
-          postDatabase.set(uniqueKey, postData);
-          console.log(`🔗 Stored new post: ${postData.identifier.id} (DOM order: ${domOrderCounter})`);
-        }
-        
+        extractedPosts.push(postData);
         domOrderCounter++;
       }
     } catch (error) {
@@ -268,7 +260,55 @@ async function extractAndStorePosts(
     }
   }
   
-  return domOrderCounter;
+  return extractedPosts;
+}
+
+/**
+ * Deduplicate posts using robust content-based matching
+ */
+function deduplicatePosts(posts: ExtractedPostData[]): ExtractedPostData[] {
+  const uniquePosts: ExtractedPostData[] = [];
+  const seenContent = new Set<string>();
+  const seenIds = new Set<string>();
+  
+  for (const post of posts) {
+    // Create a content signature for this post
+    const contentSignature = createContentSignature(post);
+    
+    // Check if we've seen this exact content before
+    if (!seenContent.has(contentSignature) && !seenIds.has(post.post.id)) {
+      uniquePosts.push(post);
+      seenContent.add(contentSignature);
+      seenIds.add(post.post.id);
+    } else {
+      console.log(`🔗 Removing duplicate post: ${post.post.id} (signature: ${contentSignature.substring(0, 20)}...)`);
+    }
+  }
+  
+  return uniquePosts;
+}
+
+/**
+ * Create a robust content signature for deduplication
+ */
+function createContentSignature(postData: ExtractedPostData): string {
+  const post = postData.post;
+  
+  // Normalize text content (remove extra whitespace, normalize case)
+  const normalizedText = post.text.replace(/\s+/g, ' ').trim().toLowerCase();
+  
+  // Create signature from multiple factors
+  const signatureParts = [
+    normalizedText,
+    post.author.username || post.author.displayName,
+    post.createdAt ? new Date(post.createdAt).toISOString().split('T')[0] : '', // Date only
+    post.engagement.likes.toString(),
+    post.engagement.replies.toString()
+  ];
+  
+  // Create hash from signature parts
+  const signature = signatureParts.join('|');
+  return createTextHash(signature);
 }
 
 /**
@@ -459,21 +499,6 @@ async function expandTruncatedContent(maxExpansions: number = 100): Promise<numb
 }
 
 /**
- * Generate a unique key for deduplication using multiple identifiers
- */
-function generateUniqueKey(identifier: PostIdentifier): string {
-  // Use multiple identifiers to create a bulletproof unique key
-  const keyParts = [
-    identifier.id,
-    identifier.textHash,
-    identifier.timestamp,
-    identifier.url.split('/').pop() || '' // Post ID from URL
-  ];
-  
-  return keyParts.join('|');
-}
-
-/**
  * Generate a unique element ID for DOM tracking
  */
 function generateElementId(element: Element): string {
@@ -634,21 +659,148 @@ function extractMentionsFromText(text: string): string[] {
 }
 
 function extractAuthorFromPostElement(element: Element): any {
-  const authorElement = element.querySelector('.feed-shared-actor, .comments-comment-meta, .update-components-actor');
-  
-  const nameElement = authorElement?.querySelector('.feed-shared-actor__name, .comments-comment-meta__description-title, .update-components-actor__name');
-  const displayName = nameElement?.textContent?.trim() || 'Unknown User';
-  
-  const avatarElement = authorElement?.querySelector('img') as HTMLImageElement;
-  
-  // Extract profile URL
-  const profileLink = authorElement?.querySelector('a[href*="/in/"]') as HTMLAnchorElement;
-  const profileUrl = profileLink?.href;
-  const username = profileUrl ? extractUsernameFromUrl(profileUrl) : 'unknown';
-  
-  // Extract title
-  const titleElement = authorElement?.querySelector('.feed-shared-actor__description, .comments-comment-meta__description-subtitle, .update-components-actor__description');
-  const title = titleElement?.textContent?.trim();
+  // Try multiple selector strategies for LinkedIn's evolving DOM structure
+  const authorSelectors = [
+    '.feed-shared-actor',
+    '.comments-comment-meta', 
+    '.update-components-actor',
+    '.feed-shared-update-v2__actor',
+    '.comments-comment-item__actor',
+    '[data-test-actor]',
+    '.actor-name'
+  ];
+
+  let authorElement: Element | null = null;
+  for (const selector of authorSelectors) {
+    authorElement = element.querySelector(selector);
+    if (authorElement) break;
+  }
+
+  // If no author element found, try to find name and profile link separately
+  if (!authorElement) {
+    authorElement = element; // Use the whole element as fallback
+  }
+
+  // Extract display name with multiple fallback strategies
+  const nameSelectors = [
+    '.feed-shared-actor__name',
+    '.comments-comment-meta__description-title',
+    '.update-components-actor__name',
+    '.feed-shared-update-v2__actor-name',
+    '.comments-comment-item__actor-name',
+    '[data-test-actor-name]',
+    '.actor-name__text',
+    'h3 a span[aria-hidden="true"]', // Common LinkedIn pattern
+    'span[dir="ltr"]', // LinkedIn often uses this for names
+    '.hoverable-link-text'
+  ];
+
+  let displayName = 'Unknown User';
+  for (const selector of nameSelectors) {
+    const nameElement = authorElement.querySelector(selector);
+    if (nameElement?.textContent?.trim()) {
+      displayName = nameElement.textContent.trim();
+      break;
+    }
+  }
+
+  // If still no name found, try broader search
+  if (displayName === 'Unknown User') {
+    // Look for any link that might contain the author name
+    const profileLinks = authorElement.querySelectorAll('a[href*="/in/"]');
+    for (const link of profileLinks) {
+      const linkText = link.textContent?.trim();
+      if (linkText && linkText.length > 2 && !linkText.includes('...')) {
+        displayName = linkText;
+        break;
+      }
+    }
+  }
+
+  // Extract avatar with multiple strategies
+  const avatarSelectors = [
+    'img[alt*="photo"]',
+    'img[alt*="Picture"]', 
+    'img[alt*="profile"]',
+    '.feed-shared-actor__avatar img',
+    '.comments-comment-meta__avatar img',
+    '.update-components-actor__avatar img',
+    'img[src*="profile"]',
+    'img[src*="media.licdn.com"]'
+  ];
+
+  let avatarElement: HTMLImageElement | null = null;
+  for (const selector of avatarSelectors) {
+    const img = authorElement.querySelector(selector) as HTMLImageElement;
+    if (img?.src) {
+      avatarElement = img;
+      break;
+    }
+  }
+
+  // Extract profile URL with multiple strategies
+  const profileLinkSelectors = [
+    'a[href*="/in/"]',
+    'a[href*="/company/"]', // For company posts
+    'a[href*="/school/"]'   // For school posts
+  ];
+
+  let profileUrl: string | undefined;
+  let username = 'unknown';
+
+  for (const selector of profileLinkSelectors) {
+    const profileLink = authorElement.querySelector(selector) as HTMLAnchorElement;
+    if (profileLink?.href) {
+      profileUrl = profileLink.href;
+      username = extractUsernameFromUrl(profileUrl);
+      if (username !== 'unknown') break;
+    }
+  }
+
+  // If we still don't have a username, try to extract from the display name
+  if (username === 'unknown' && displayName !== 'Unknown User') {
+    // Create a username from display name as last resort
+    username = displayName.toLowerCase()
+      .replace(/[^a-z0-9\s]/g, '')
+      .replace(/\s+/g, '-')
+      .substring(0, 50);
+  }
+
+  // Extract title/description
+  const titleSelectors = [
+    '.feed-shared-actor__description',
+    '.comments-comment-meta__description-subtitle',
+    '.update-components-actor__description',
+    '.feed-shared-update-v2__actor-description',
+    '.comments-comment-item__actor-description'
+  ];
+
+  let title: string | undefined;
+  for (const selector of titleSelectors) {
+    const titleElement = authorElement.querySelector(selector);
+    if (titleElement?.textContent?.trim()) {
+      title = titleElement.textContent.trim();
+      break;
+    }
+  }
+
+  // Check for verification indicators
+  const verificationSelectors = [
+    '.feed-shared-actor__verified',
+    '.premium-icon',
+    '[aria-label*="verified"]',
+    '[aria-label*="Premium"]'
+  ];
+
+  let isVerified = false;
+  for (const selector of verificationSelectors) {
+    if (authorElement.querySelector(selector)) {
+      isVerified = true;
+      break;
+    }
+  }
+
+  console.log(`🔗 Extracted author: ${displayName} (@${username})`);
 
   return {
     id: username,
@@ -656,7 +808,7 @@ function extractAuthorFromPostElement(element: Element): any {
     displayName,
     avatarUrl: avatarElement?.src,
     profileUrl,
-    verified: false,
+    verified: isVerified,
     platform: 'linkedin',
     platformSpecific: {
       linkedin: {
@@ -735,3 +887,260 @@ export function getCurrentLinkedInPostCount(): number {
   const count = document.querySelectorAll('.feed-shared-update-v2, .feed-shared-article, .comments-comment-entity').length;
   return count;
 } 
+
+/**
+ * Extract author information from the page (main author)
+ */
+function extractAuthorFromDOM(): SocialMediaUser | null {
+  try {
+    console.log('🔗 Extracting main author from page DOM...');
+    
+    // Strategy 1: Look for author information in the main post area
+    const mainPostSelectors = [
+      '.feed-shared-actor',
+      '.update-components-actor',
+      '.feed-shared-update-v2__actor'
+    ];
+
+    let authorElement: Element | null = null;
+    for (const selector of mainPostSelectors) {
+      authorElement = document.querySelector(selector);
+      if (authorElement) {
+        console.log(`🔗 Found author element with selector: ${selector}`);
+        break;
+      }
+    }
+
+    // Strategy 2: Look in page header/profile area
+    if (!authorElement) {
+      const headerSelectors = [
+        '.pv-text-details__left-panel',
+        '.pv-top-card',
+        '.profile-header',
+        '.feed-identity-module',
+        '.artdeco-entity-lockup'
+      ];
+
+      for (const selector of headerSelectors) {
+        authorElement = document.querySelector(selector);
+        if (authorElement) {
+          console.log(`🔗 Found author element in header with selector: ${selector}`);
+          break;
+        }
+      }
+    }
+
+    // Strategy 3: Extract from URL and page title
+    let username = 'unknown';
+    let displayName = 'Unknown User';
+    let profileUrl: string | undefined;
+
+    // Extract username from URL
+    const urlPatterns = [
+      /\/in\/([^\/\?]+)/,  // Profile URLs
+      /\/posts\/([^\/\?]+)/, // Post URLs  
+      /\/activity-(\d+)/ // Activity URLs
+    ];
+
+    for (const pattern of urlPatterns) {
+      const urlMatch = window.location.pathname.match(pattern);
+      if (urlMatch) {
+        username = urlMatch[1];
+        profileUrl = `https://www.linkedin.com/in/${username}`;
+        console.log(`🔗 Extracted username from URL: ${username}`);
+        break;
+      }
+    }
+
+    // Extract display name from various sources
+    if (authorElement) {
+      const nameSelectors = [
+        '.feed-shared-actor__name',
+        '.update-components-actor__name',
+        '.pv-text-details__left-panel h1',
+        '.profile-header h1',
+        '.feed-identity-module__actor-meta h3',
+        '.artdeco-entity-lockup__title',
+        'h1[data-test-id]',
+        'h1'
+      ];
+
+      for (const selector of nameSelectors) {
+        const nameElement = authorElement.querySelector(selector) || document.querySelector(selector);
+        if (nameElement?.textContent?.trim()) {
+          displayName = nameElement.textContent.trim();
+          console.log(`🔗 Found display name: ${displayName}`);
+          break;
+        }
+      }
+    }
+
+    // Fallback: Try to get name from page title
+    if (displayName === 'Unknown User') {
+      const pageTitle = document.title;
+      if (pageTitle && !pageTitle.includes('LinkedIn')) {
+        // Extract name from title patterns like "John Doe | LinkedIn" or "Post | John Doe"
+        const titlePatterns = [
+          /^([^|]+)\s*\|\s*LinkedIn/,
+          /Post\s*\|\s*([^|]+)/,
+          /^([^-]+)\s*-\s*LinkedIn/
+        ];
+
+        for (const pattern of titlePatterns) {
+          const titleMatch = pageTitle.match(pattern);
+          if (titleMatch && titleMatch[1].trim()) {
+            displayName = titleMatch[1].trim();
+            console.log(`🔗 Extracted name from page title: ${displayName}`);
+            break;
+          }
+        }
+      }
+    }
+
+    // Extract avatar
+    let avatarElement: HTMLImageElement | null = null;
+    const avatarSelectors = [
+      '.feed-shared-actor__avatar img',
+      '.update-components-actor__avatar img', 
+      '.pv-top-card-profile-picture__image',
+      '.profile-header img',
+      'img[alt*="photo"]',
+      'img[alt*="Picture"]'
+    ];
+
+    for (const selector of avatarSelectors) {
+      const img = document.querySelector(selector) as HTMLImageElement;
+      if (img?.src && !img.src.includes('data:')) {
+        avatarElement = img;
+        console.log(`🔗 Found avatar: ${img.src}`);
+        break;
+      }
+    }
+
+    // Look for verification/premium indicators
+    const verificationSelectors = [
+      '.feed-shared-actor__verified',
+      '.premium-icon',
+      '.pv-premium-indicator',
+      '[aria-label*="verified"]',
+      '[aria-label*="Premium"]'
+    ];
+
+    let isVerified = false;
+    for (const selector of verificationSelectors) {
+      if (document.querySelector(selector)) {
+        isVerified = true;
+        console.log(`🔗 Found verification indicator`);
+        break;
+      }
+    }
+
+    // Extract title/headline
+    let title: string | undefined;
+    const titleSelectors = [
+      '.feed-shared-actor__description',
+      '.update-components-actor__description',
+      '.pv-text-details__left-panel .text-body-medium',
+      '.profile-header .headline',
+      '.pv-top-card--list-bullet'
+    ];
+
+    for (const selector of titleSelectors) {
+      const titleElement = document.querySelector(selector);
+      if (titleElement?.textContent?.trim()) {
+        title = titleElement.textContent.trim();
+        console.log(`🔗 Found title: ${title}`);
+        break;
+      }
+    }
+
+    const author: SocialMediaUser = {
+      id: username,
+      username,
+      displayName,
+      avatarUrl: avatarElement?.src,
+      profileUrl,
+      verified: isVerified,
+      platform: 'linkedin',
+      platformSpecific: {
+        linkedin: {
+          title,
+          connectionDegree: extractConnectionDegree(authorElement),
+          company: extractCompany(title || ''),
+          isPremium: isVerified
+        }
+      }
+    };
+
+    console.log('🔗 Successfully extracted main author:', {
+      username: author.username,
+      displayName: author.displayName,
+      verified: author.verified,
+      hasAvatar: !!author.avatarUrl,
+      hasTitle: !!title
+    });
+
+    return author;
+  } catch (error) {
+    console.warn('🔗 Failed to extract author from DOM:', error);
+    return null;
+  }
+}
+
+/**
+ * Detect post type from page content
+ */
+function detectPostType(): 'feed' | 'article' | 'video' | 'document' | 'poll' {
+  if (document.querySelector('video')) return 'video';
+  if (document.querySelector('.article-header, .article-content')) return 'article';
+  if (document.querySelector('.poll-container, .voting-container')) return 'poll';
+  if (document.querySelector('.document-container, .file-attachment')) return 'document';
+  return 'feed';
+}
+
+/**
+ * Detect if content is sponsored
+ */
+function detectSponsoredContent(): boolean {
+  return !!document.querySelector('.feed-shared-actor__sponsored, .sponsored-label, [data-test-id="sponsored-label"]');
+}
+
+/**
+ * Extract industry context from page
+ */
+function extractIndustryContext(): string[] {
+  const industries: string[] = [];
+  
+  // Look for industry tags or mentions in the content
+  const text = document.body.textContent?.toLowerCase() || '';
+  const industryKeywords = [
+    'technology', 'healthcare', 'finance', 'education', 'marketing',
+    'sales', 'engineering', 'design', 'consulting', 'manufacturing'
+  ];
+  
+  industryKeywords.forEach(keyword => {
+    if (text.includes(keyword)) {
+      industries.push(keyword);
+    }
+  });
+  
+  return industries.slice(0, 3); // Limit to 3 most relevant
+}
+
+/**
+ * Extract company pages mentioned
+ */
+function extractCompanyPages(): string[] {
+  const companies: string[] = [];
+  
+  const companyLinks = document.querySelectorAll('a[href*="/company/"]');
+  companyLinks.forEach(link => {
+    const href = (link as HTMLAnchorElement).href;
+    const match = href.match(/\/company\/([^\/]+)/);
+    if (match) {
+      companies.push(match[1]);
+    }
+  });
+  
+  return companies;
+}
