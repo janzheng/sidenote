@@ -112,7 +112,7 @@ export class ResearchPaperService {
         
         // Extraction metadata
         extractedAt: new Date().toISOString(),
-        extractionMethod: isQuickAnalysis ? 'quick_ai_analysis_iterative' : 'comprehensive_ai_analysis_iterative',
+        extractionMethod: isQuickAnalysis ? 'quick_ai_analysis_synthetic_extracted' : 'comprehensive_ai_analysis_iterative',
         extractionInfo: sectionResult.extractionInfo
       };
 
@@ -314,23 +314,44 @@ export class ResearchPaperService {
     // Combine all section definitions
     const allSectionDefinitions = [...syntheticSectionDefinitions, ...naturalSectionDefinitions];
     
-    // For quick analysis, return promise sections without content
+    // For quick analysis, extract synthetic sections but create promises for natural sections
     if (isQuickAnalysis) {
-      console.log(`📋 Quick analysis: Identifying ${allSectionDefinitions.length} sections as promises`);
+      console.log(`📋 Quick analysis: Extracting ${syntheticSectionDefinitions.length} synthetic sections, creating promises for ${naturalSectionDefinitions.length} natural sections`);
       
-      const promiseSections: Record<string, { summary: string; fullText: string }> = {};
+      const extractedSections: Record<string, { summary: string; fullText: string }> = {};
       
-      // Create promise sections for synthetic sections
+      // Extract synthetic sections (these are the main value for quick analysis)
       for (const sectionDef of syntheticSectionDefinitions) {
-        promiseSections[sectionDef.name] = {
-          summary: `AI-generated ${sectionDef.name} section`,
-          fullText: `[Section not yet extracted - click to expand and generate ${sectionDef.name}]`
-        };
+        console.log(`🔄 Extracting synthetic section: ${sectionDef.name}`);
+        
+        try {
+          const sectionResult = await this.extractSingleSection(
+            content, 
+            title, 
+            sectionDef, 
+            userBackground, 
+            isQuickAnalysis
+          );
+          
+          if (sectionResult && sectionResult.summary && sectionResult.fullText) {
+            extractedSections[sectionDef.name] = sectionResult;
+            console.log(`✅ Successfully extracted synthetic section: ${sectionDef.name} (${sectionResult.fullText.length} chars)`);
+          } else {
+            console.log(`⚠️ Skipping synthetic section ${sectionDef.name} - insufficient content`);
+          }
+          
+          // Small delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
+        } catch (error) {
+          console.error(`❌ Failed to extract synthetic section ${sectionDef.name}:`, error);
+          // Continue with other sections
+        }
       }
       
-      // Create promise sections for natural sections
+      // Create promise sections for natural sections (can be extracted on demand)
       for (const sectionDef of naturalSectionDefinitions) {
-        promiseSections[sectionDef.name] = {
+        extractedSections[sectionDef.name] = {
           summary: `${sectionDef.name} section from the paper`,
           fullText: `[Section not yet extracted - click to expand and extract ${sectionDef.name}]`
         };
@@ -341,21 +362,23 @@ export class ResearchPaperService {
       
       // Add synthetic sections first
       for (const syntheticDef of syntheticSectionDefinitions) {
-        sectionOrder.push(syntheticDef.name);
+        if (extractedSections[syntheticDef.name]) {
+          sectionOrder.push(syntheticDef.name);
+        }
       }
       
       // Add natural sections in order
       for (const paperSection of identifiedSections.order) {
-        if (!sectionOrder.includes(paperSection)) {
+        if (extractedSections[paperSection] && !sectionOrder.includes(paperSection)) {
           sectionOrder.push(paperSection);
         }
       }
       
       return {
-        sections: promiseSections,
+        sections: extractedSections,
         extractionInfo: {
-          totalSections: Object.keys(promiseSections).length,
-          extractionMethod: 'quick_section_identification',
+          totalSections: Object.keys(extractedSections).length,
+          extractionMethod: 'quick_ai_analysis_synthetic_only',
           extractedAt: new Date().toISOString(),
           contentType: 'research_paper',
           sectionOrder: sectionOrder

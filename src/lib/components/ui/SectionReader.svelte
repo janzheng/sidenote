@@ -470,63 +470,6 @@
       </div>
     </div>
   {:else}
-    <!-- Quick Summary Section -->
-    {#if analysisData?.tldr || analysisData?.keyInsights?.length > 0 || analysisData?.practicalImplications || analysisData?.whyItMatters}
-      <div class="quick-summary">
-        <div class="quick-summary-header">
-          <Icon icon="mdi:auto-awesome" class="w-5 h-5 text-purple-600" />
-          <h3 class="quick-summary-title">Quick Summary</h3>
-        </div>
-        
-        {#if analysisData.tldr}
-          <div class="summary-item">
-            <div class="summary-label">TL;DR</div>
-            <div class="summary-content">{analysisData.tldr}</div>
-          </div>
-        {/if}
-        
-        {#if analysisData.keyInsights?.length > 0}
-          <div class="summary-item">
-            <div class="summary-label">Key Insights</div>
-            <div class="summary-content">
-              <ul class="insights-list">
-                {#each analysisData.keyInsights as insight}
-                  <li>{insight}</li>
-                {/each}
-              </ul>
-            </div>
-          </div>
-        {/if}
-        
-        {#if analysisData.practicalImplications}
-          <div class="summary-item">
-            <div class="summary-label">Practical Implications</div>
-            <div class="summary-content">{analysisData.practicalImplications}</div>
-          </div>
-        {/if}
-        
-        {#if analysisData.whyItMatters}
-          <div class="summary-item">
-            <div class="summary-label">Why It Matters</div>
-            <div class="summary-content">{analysisData.whyItMatters}</div>
-          </div>
-        {/if}
-        
-        {#if analysisData.practicalTakeaways?.length > 0}
-          <div class="summary-item">
-            <div class="summary-label">Practical Takeaways</div>
-            <div class="summary-content">
-              <ul class="insights-list">
-                {#each analysisData.practicalTakeaways as takeaway}
-                  <li>{takeaway}</li>
-                {/each}
-              </ul>
-            </div>
-          </div>
-        {/if}
-      </div>
-    {/if}
-
     <!-- Controls -->
     <div class="controls">
       <div class="section-count">
@@ -612,9 +555,9 @@
             <div class="section-info">
               <Icon 
                 icon={section.expanded ? 'mdi:chevron-down' : 'mdi:chevron-right'} 
-                class="w-6 h-6 text-gray-500 transition-transform arrow-icon"
+                class="w-6 h-6 text-gray-500 transition-transform arrow-icon flex-shrink-0"
               />
-              <Icon icon={section.icon} class="w-6 h-6 min-w-6 min-h-6 {getTextColor(section.color)}" />
+              <Icon icon={section.icon} class="w-6 h-6 min-w-6 min-h-6 flex-shrink-0 {getTextColor(section.color)}" />
               <h3 class="section-title {getTextColor(section.color)}">{@html renderInlineMarkdown(section.title)}</h3>
             </div>
             <div class="section-controls">
@@ -625,18 +568,22 @@
                   title="Click to extract this section"
                   role="button"
                   tabindex="0"
-                  onclick={() => toggleSection(section.id)}
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    toggleSection(section.id);
+                  }}
                   onkeydown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
+                      e.stopPropagation();
                       toggleSection(section.id);
                     }
                   }}
                 >
                   {#if loadingSections.has(section.id)}
-                    <Icon icon="mdi:loading" class="w-6 h-6 animate-spin" />
+                    <Icon icon="mdi:loading" class="w-6 h-6 animate-spin flex-shrink-0" />
                   {:else}
-                    <Icon icon="mdi:brain-freeze" class="w-6 h-6" />
+                    <Icon icon="mdi:brain-freeze" class="w-6 h-6 flex-shrink-0" />
                   {/if}
                 </div>
               {:else}
@@ -647,7 +594,7 @@
                   title="Copy section content"
                 />
               {/if}
-              <Icon icon="mdi:drag-vertical" class="w-6 h-6 text-gray-400 drag-handle" />
+              <Icon icon="mdi:drag-vertical" class="w-6 h-6 text-gray-400 drag-handle flex-shrink-0" />
             </div>
           </div>
 
@@ -903,12 +850,16 @@
     align-items: center;
     gap: 8px;
     flex: 1;
+    min-width: 0; /* Allow text to shrink */
   }
 
   .section-title {
     font-size: 14px;
     font-weight: 600;
     margin: 0;
+    flex: 1;
+    min-width: 0; /* Allow text to shrink and wrap */
+    word-break: break-word;
   }
 
   .section-controls {

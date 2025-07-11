@@ -30,7 +30,9 @@
   
   let copySuccess = $state(false);
   
-  async function handleCopy() {
+  async function handleCopy(event: MouseEvent) {
+    event.stopPropagation(); // Prevent event bubbling to parent elements
+    
     try {
       if (copyFn) {
         await copyFn();
