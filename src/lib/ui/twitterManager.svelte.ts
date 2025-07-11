@@ -93,7 +93,7 @@ class TwitterManager {
       const response = await chrome.runtime.sendMessage({
         action: 'extractTwitterThreadWithScroll',
         url: url,
-        maxScrolls: 100, // Maximum scrolling for complete thread capture
+        maxScrolls: 150, // Increased from 100 for more thorough extraction
         scrollDelay: 300
       });
 

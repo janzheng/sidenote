@@ -32,7 +32,7 @@ const TWITTER_SELECTORS = {
 };
 
 export async function extractTwitterThreadWithScroll(
-  maxScrolls: number = 100, 
+  maxScrolls: number = 150, // Increased from 100 to be more thorough 
   scrollDelay: number = 300
 ): Promise<{
   success: boolean;
@@ -41,68 +41,71 @@ export async function extractTwitterThreadWithScroll(
   error?: string;
 }> {
   try {
-    console.log('🐦 Starting clean Twitter thread extraction with scroll-only approach...');
+    console.log('🐦 Starting enhanced Twitter thread extraction with comprehensive scrolling and expansion...');
     console.log('🐦 Parameters:', { maxScrolls, scrollDelay });
     console.log('🐦 Current URL:', window.location.href);
 
-    // PHASE 1: Scroll to top and analyze page structure
-    console.log('🐦 Phase 1: Scrolling to top and analyzing page structure...');
+    // PHASE 1: Scroll to top and expand initial content
+    console.log('🐦 Phase 1: Scrolling to top and expanding initial content...');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // Analyze page structure to identify boundaries
-    const structureAnalysis = analyzePageStructure();
+    // Expand initial content comprehensively
+    await expandAllTwitterContent(50); // Initial expansion burst
 
-    // PHASE 2: Extract initial tweets and set up deduplication
-    console.log('🐦 Phase 2: Initial tweet extraction...');
-    const tweetDatabase = new Map<string, ExtractedTweetData>();
+    // PHASE 2: Collect all tweets during scrolling (with smart tracking to avoid re-processing)
+    console.log('🐦 Phase 2: Collecting all tweets during scrolling...');
+    const allExtractedTweets: ExtractedTweetData[] = [];
+    const processedTweetIds = new Set<string>(); // Track which tweets we've already processed
     let domOrderCounter = 0;
     
     // Extract initial tweets
-    await extractAndStoreTweets(tweetDatabase, domOrderCounter, structureAnalysis);
-    const initialCount = tweetDatabase.size;
-    console.log(`🐦 Initial extraction: ${initialCount} unique tweets`);
+    const initialTweets = await extractNewTweetsFromDOM(domOrderCounter, processedTweetIds);
+    allExtractedTweets.push(...initialTweets);
+    domOrderCounter += initialTweets.length;
+    
+    console.log(`🐦 Initial extraction: ${initialTweets.length} tweets collected`);
 
-    // PHASE 3: Scroll-only expansion (no button clicking)
-    console.log('🐦 Phase 3: Scroll-only expansion...');
+    // PHASE 3: Scroll and extract with continuous expansion (only new tweets)
+    console.log('🐦 Phase 3: Scrolling and extracting with comprehensive expansion...');
     
     const scrollConfig = createTwitterScrollConfig(maxScrolls, scrollDelay);
     const scrollCapture = new ScrollCapture(scrollConfig);
     
-    let lastExtractedCount = initialCount;
+    let lastExtractedCount = initialTweets.length;
     let stableExtractionCount = 0;
-    const maxStableExtractions = 8; // More conservative
-    let totalScrolls = 0;
-    let totalTextExpansions = 0;
+    const maxStableExtractions = 12; // More patient than before (was 8)
+    let totalExpansions = 0;
     
-    // Set up progress callback with scroll-only extraction
+    // Set up progress callback with continuous extraction and expansion
     const progressCallback = async (progress: ScrollCaptureProgress) => {
       try {
-        // Check if we've reached recommendation content
-        if (hasReachedDiscoverMoreSection()) {
-          console.log('🛑 Reached "Discover more" section, stopping scroll capture');
+        // Check if we've reached true end content (more lenient than before)
+        if (hasReachedActualEndOfThread()) {
+          console.log('🛑 Reached actual end of thread content, stopping scroll capture');
           scrollCapture.stop();
           return;
         }
         
-        // Expand truncated tweet text (but not navigation elements)
-        const textExpansions = await expandTruncatedTweetText();
-        totalTextExpansions += textExpansions;
+        // First, expand any new content that appeared
+        const expansionsThisCycle = await expandAllTwitterContent(10); // Reduced from 15 since we're more efficient now
+        totalExpansions += expansionsThisCycle;
         
-        // Extract tweets at current position (no button clicking)
-        const beforeCount = tweetDatabase.size;
-        domOrderCounter = await extractAndStoreTweets(tweetDatabase, domOrderCounter, structureAnalysis);
-        const afterCount = tweetDatabase.size;
-        const newTweets = afterCount - beforeCount;
+        // Extract ONLY new tweets that we haven't processed yet
+        const beforeCount = allExtractedTweets.length;
+        const newTweets = await extractNewTweetsFromDOM(domOrderCounter, processedTweetIds);
+        allExtractedTweets.push(...newTweets);
+        domOrderCounter += newTweets.length;
+        const afterCount = allExtractedTweets.length;
+        const newTweetsCount = afterCount - beforeCount;
         
-        totalScrolls = progress.scrollCount;
-        
-        if (newTweets > 0 || textExpansions > 0) {
-          console.log(`🐦 Found ${newTweets} new tweets and expanded ${textExpansions} text during scroll (total: ${afterCount} tweets, ${totalTextExpansions} expansions)`);
+        if (newTweetsCount > 0 || expansionsThisCycle > 0) {
+          console.log(`🐦 Found ${newTweetsCount} NEW tweets and ${expansionsThisCycle} expansions during scroll (total collected: ${afterCount} tweets, ${totalExpansions} expansions)`);
           stableExtractionCount = 0;
           lastExtractedCount = afterCount;
         } else {
           stableExtractionCount++;
+          console.log(`🐦 No new content found this cycle (${stableExtractionCount}/${maxStableExtractions}) - ${processedTweetIds.size} tweets already processed`);
         }
         
         // Stop scrolling if we haven't found new content for several cycles
@@ -115,9 +118,9 @@ export async function extractTwitterThreadWithScroll(
         chrome.runtime.sendMessage({
           action: 'updateExtractionProgress',
           progress: {
-            expandedCount: totalTextExpansions,
+            expandedCount: totalExpansions,
             totalFound: afterCount,
-            currentStep: `Scrolled ${progress.scrollCount} times, expanded ${totalTextExpansions} texts, found ${afterCount} tweets (${newTweets} new)`
+            currentStep: `Scrolled ${progress.scrollCount} times, expanded ${totalExpansions} elements, found ${newTweetsCount} new tweets (${afterCount} total)`
           }
         }).catch(() => {
           // Ignore errors - background script might not be ready
@@ -135,39 +138,46 @@ export async function extractTwitterThreadWithScroll(
       success: scrollResult.success,
       totalScrolls: scrollResult.totalScrolls,
       stoppedReason: scrollResult.progress.stoppedReason,
-      finalTweetCount: tweetDatabase.size
+      totalCollectedTweets: allExtractedTweets.length,
+      totalExpansions,
+      processedTweetIds: processedTweetIds.size
     });
 
-    // PHASE 4: Final extraction and cleanup
-    console.log('🐦 Phase 4: Final extraction and thread building...');
+    // PHASE 4: Final extraction and deduplication
+    console.log('🐦 Phase 4: Final extraction and deduplication...');
     
-    // One final text expansion and extraction to catch any remaining content
-    const finalTextExpansions = await expandTruncatedTweetText();
-    totalTextExpansions += finalTextExpansions;
-    await extractAndStoreTweets(tweetDatabase, domOrderCounter, structureAnalysis);
+    // One final expansion and extraction to catch any remaining content
+    const finalExpansions = await expandAllTwitterContent(50);
+    totalExpansions += finalExpansions;
+    const finalTweets = await extractNewTweetsFromDOM(domOrderCounter, processedTweetIds);
+    allExtractedTweets.push(...finalTweets);
     
-    const finalTweetCount = tweetDatabase.size;
-    console.log(`🐦 Final tweet count: ${finalTweetCount}, total text expansions: ${totalTextExpansions}`);
+    const totalCollectedTweets = allExtractedTweets.length;
+    console.log(`🐦 Total collected tweets: ${totalCollectedTweets}, total expansions: ${totalExpansions}, unique processed IDs: ${processedTweetIds.size}`);
 
-    if (finalTweetCount === 0) {
+    if (totalCollectedTweets === 0) {
       return {
         success: false,
         error: 'No tweets were captured during extraction',
         progress: {
-          expandedCount: totalTextExpansions,
+          expandedCount: totalExpansions,
           totalFound: 0,
           currentStep: 'No tweets captured'
         }
       };
     }
 
-    // PHASE 5: Build thread preserving display order
-    console.log('🐦 Phase 5: Building thread with preserved order...');
+    // PHASE 5: Light deduplication (should be minimal now)
+    console.log('🐦 Phase 5: Final deduplication check...');
+    const uniqueTweets = deduplicateTweets(allExtractedTweets);
+    const duplicatesRemoved = totalCollectedTweets - uniqueTweets.length;
+    console.log(`🐦 After final deduplication: ${uniqueTweets.length} unique tweets (removed ${duplicatesRemoved} duplicates - should be minimal)`);
+
+    // PHASE 6: Build thread preserving display order
+    console.log('🐦 Phase 6: Building thread with preserved order...');
     
     // Sort by DOM order to preserve Twitter's display ordering
-    const sortedTweets = Array.from(tweetDatabase.values())
-      .sort((a, b) => a.domOrder - b.domOrder);
-    
+    const sortedTweets = uniqueTweets.sort((a, b) => a.domOrder - b.domOrder);
     const allPosts = sortedTweets.map(tweet => tweet.post);
     
     // Use the first tweet as root (top of timeline)
@@ -216,12 +226,14 @@ export async function extractTwitterThreadWithScroll(
       }
     };
 
-    console.log('✅ Clean Twitter thread extraction completed:', {
+    console.log('✅ Enhanced Twitter thread extraction completed:', {
       id: completeThread.id,
       posts: completeThread.posts.length,
       author: completeThread.author.username,
       totalScrolls: scrollResult.totalScrolls,
-      uniqueTweetIds: tweetDatabase.size,
+      totalExpansions,
+      uniqueTweetsAfterDedup: uniqueTweets.length,
+      duplicatesWereMinimal: duplicatesRemoved < 10,
       preservedOrder: true
     });
 
@@ -229,22 +241,17 @@ export async function extractTwitterThreadWithScroll(
       success: true,
       thread: completeThread,
       progress: {
-        expandedCount: totalTextExpansions,
+        expandedCount: totalExpansions,
         totalFound: completeThread.posts.length,
-        currentStep: `Clean extraction completed - ${completeThread.posts.length} tweets captured with ${totalTextExpansions} text expansions in display order`
+        currentStep: `Enhanced extraction completed: ${completeThread.posts.length} unique tweets with minimal revisiting`
       }
     };
 
   } catch (error) {
-    console.error('❌ Clean Twitter thread extraction failed:', error);
+    console.error('❌ Enhanced Twitter thread extraction failed:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error during clean extraction',
-      progress: {
-        expandedCount: 0,
-        totalFound: 0,
-        currentStep: 'Clean extraction failed'
-      }
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
     };
   }
 }
@@ -415,36 +422,112 @@ function hasReachedDiscoverMoreSection(): boolean {
 }
 
 /**
- * Extract tweets from current DOM and store with deduplication
+ * Check if we've reached the actual end of the thread content
  */
-async function extractAndStoreTweets(
-  tweetDatabase: Map<string, ExtractedTweetData>,
-  startingDomOrder: number,
-  structureAnalysis: ReturnType<typeof analyzePageStructure>
-): Promise<number> {
+function hasReachedActualEndOfThread(): boolean {
+  // Look for actual end-of-content indicators, not just recommendations
+  const endIndicators = [
+    'Something went wrong. Try reloading.',
+    'This Tweet was deleted by the Tweet author',
+    'This account doesn\'t exist',
+    'This Tweet is unavailable',
+    'End of conversation', // Twitter sometimes shows this
+    'No more Tweets to show' // Another possible indicator
+  ];
+  
+  // Check for error states or actual end messages
+  for (const indicator of endIndicators) {
+    if (document.body.textContent?.includes(indicator)) {
+      console.log(`🛑 Detected actual end indicator: ${indicator}`);
+      return true;
+    }
+  }
+  
+  // Check for error elements
+  const errorElements = document.querySelectorAll([
+    '[data-testid="error"]',
+    '[data-testid="primaryColumn"] [data-testid="emptyState"]',
+    '.error-page',
+    '[data-testid="empty-state"]'
+  ].join(', '));
+  
+  if (errorElements.length > 0) {
+    console.log('🛑 Detected error elements indicating end of content');
+    return true;
+  }
+  
+  // Check if we're in a state where no new tweets are loading
+  // Look for loading spinners - if none exist, we might be at the end
+  const loadingElements = document.querySelectorAll([
+    '[data-testid="spinner"]',
+    '.loading',
+    '[aria-label*="Loading"]'
+  ].join(', '));
+  
+  // If we've scrolled significantly and there are no loading indicators,
+  // and we haven't seen new tweets in a while, we might be at the end
+  const currentTweetCount = document.querySelectorAll(TWITTER_SELECTORS.TWEETS).length;
+  if (currentTweetCount > 50 && loadingElements.length === 0) {
+    // This is a soft indicator - we'll let the stable extraction count handle this
+    console.log('🟡 Possible end of content: many tweets loaded, no loading indicators');
+  }
+  
+  return false;
+}
+
+/**
+ * Generate a unique key for deduplication using multiple identifiers
+ */
+function generateUniqueKey(identifier: TweetIdentifier): string {
+  // Use multiple identifiers to create a bulletproof unique key
+  const keyParts = [
+    identifier.id,
+    identifier.textHash,
+    identifier.timestamp,
+    identifier.url.split('/').pop() || '' // Tweet ID from URL
+  ];
+  
+  return keyParts.join('|');
+}
+
+/**
+ * Extract only NEW tweets from current DOM that haven't been processed yet
+ */
+async function extractNewTweetsFromDOM(
+  startingDomOrder: number, 
+  processedTweetIds: Set<string>
+): Promise<ExtractedTweetData[]> {
   const tweetElements = document.querySelectorAll(TWITTER_SELECTORS.TWEETS);
+  const extractedTweets: ExtractedTweetData[] = [];
   let domOrderCounter = startingDomOrder;
   
   for (const element of tweetElements) {
     try {
       const tweetElement = element as HTMLElement;
       
+      // Quick check: get a fast identifier for this tweet to see if we've processed it
+      const quickId = generateQuickTweetId(tweetElement);
+      if (processedTweetIds.has(quickId)) {
+        // Skip this tweet - we've already processed it
+        continue;
+      }
+      
       // Apply structural filtering
-      if (!isValidThreadTweet(tweetElement, structureAnalysis)) {
+      if (!isValidThreadTweet(tweetElement, analyzePageStructure())) {
         continue;
       }
       
       const tweetData = await extractSingleTweetWithIdentifier(tweetElement, domOrderCounter);
       if (tweetData) {
-        const uniqueKey = generateUniqueKey(tweetData.identifier);
+        // Mark this tweet as processed using multiple identifiers
+        processedTweetIds.add(quickId);
+        processedTweetIds.add(tweetData.identifier.id);
+        processedTweetIds.add(tweetData.identifier.elementId);
         
-        // Only store if we haven't seen this exact tweet before
-        if (!tweetDatabase.has(uniqueKey)) {
-          tweetDatabase.set(uniqueKey, tweetData);
-          console.log(`🐦 Stored new tweet: ${tweetData.identifier.id} (DOM order: ${domOrderCounter})`);
-        }
-        
+        extractedTweets.push(tweetData);
         domOrderCounter++;
+        
+        console.log(`🐦 ✅ NEW tweet processed: ${tweetData.identifier.id} (DOM order: ${domOrderCounter - 1})`);
       }
     } catch (error) {
       console.warn('🐦 Failed to extract tweet:', error);
@@ -452,62 +535,175 @@ async function extractAndStoreTweets(
     }
   }
   
-  return domOrderCounter;
+  console.log(`🐦 📊 Processed ${extractedTweets.length} NEW tweets out of ${tweetElements.length} total tweets on page`);
+  return extractedTweets;
 }
 
 /**
- * Expand only truncated tweet text (Show more buttons) - not navigation elements
+ * Generate a quick identifier for a tweet element to check if we've seen it before
  */
-async function expandTruncatedTweetText(): Promise<number> {
+function generateQuickTweetId(element: HTMLElement): string {
+  // Try to get tweet ID from URL first (most reliable)
+  const linkElement = element.querySelector('a[href*="/status/"]') as HTMLAnchorElement;
+  if (linkElement?.href) {
+    const match = linkElement.href.match(/\/status\/(\d+)/);
+    if (match) return `url_${match[1]}`;
+  }
+  
+  // Fallback: create a quick identifier based on position and some text
+  const rect = element.getBoundingClientRect();
+  const textContent = element.textContent?.substring(0, 100) || '';
+  const quickHash = textContent.replace(/\s+/g, '').substring(0, 20);
+  
+  return `quick_${Math.round(rect.top)}_${Math.round(rect.left)}_${quickHash}`;
+}
+
+/**
+ * Careful expansion of ONLY content expansion buttons (not reply buttons!)
+ */
+async function expandAllTwitterContent(maxExpansions: number = 15): Promise<number> {
   let clickedCount = 0;
   
-  // Target ONLY tweet text expansion buttons - very specific selectors
-  const textExpansionButtons = document.querySelectorAll([
-    '[data-testid="tweet-text-show-more-link"]',  // Primary selector for tweet text expansion
-    'button[data-testid="tweet-text-show-more-link"]',
-    '.tweet-text-show-more-link'
+  // ONLY TARGET ACTUAL CONTENT EXPANSION BUTTONS
+  
+  // 1. Tweet text "Show more" buttons (most important)
+  const textShowMoreButtons = document.querySelectorAll([
+    '[data-testid="tweet-text-show-more-link"]',
+    'span[data-testid="tweet-text-show-more-link"]'
   ].join(', '));
   
-  console.log(`🐦 Found ${textExpansionButtons.length} tweet text expansion buttons`);
+  console.log(`🐦 Found ${textShowMoreButtons.length} "Show more" text buttons`);
   
-  for (const button of textExpansionButtons) {
+  for (const button of textShowMoreButtons) {
+    if (clickedCount >= maxExpansions) break;
+    
     try {
       const buttonElement = button as HTMLElement;
       
-      // Verify this is actually a "Show more" button for tweet text
+      // Double-check this is actually a "Show more" button
       const buttonText = buttonElement.textContent?.toLowerCase() || '';
       if (!buttonText.includes('show more')) {
+        console.log(`🐦 ⏭️ Skipping non-show-more button: "${buttonText}"`);
         continue;
       }
       
       // Check if button is visible and clickable
-      if (buttonElement.offsetParent === null) {
-        continue;
-      }
-      
       const rect = buttonElement.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0) {
+      if (rect.width <= 0 || rect.height <= 0 || buttonElement.offsetParent === null) {
         continue;
       }
       
-      // Click the button
+      // Scroll into view and click
+      buttonElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
       buttonElement.click();
       clickedCount++;
       
-      console.log(`🐦 Expanded tweet text ${clickedCount}: ${buttonText}`);
+      console.log(`🐦 ✅ Expanded tweet text ${clickedCount}: "${buttonText}"`);
       
-      // Small delay to allow content to expand
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Wait for content to expand
+      await new Promise(resolve => setTimeout(resolve, 400));
       
     } catch (error) {
-      console.warn('🐦 Failed to click tweet text expansion button:', error);
+      console.warn('🐦 Failed to click show more button:', error);
+    }
+  }
+  
+  // 2. "Show this thread" buttons (if any exist)
+  const showThreadButtons = document.querySelectorAll([
+    'span[role="button"]'
+  ].join(', '));
+  
+  for (const button of showThreadButtons) {
+    if (clickedCount >= maxExpansions) break;
+    
+    try {
+      const buttonElement = button as HTMLElement;
+      const buttonText = buttonElement.textContent?.toLowerCase() || '';
+      const ariaLabel = buttonElement.getAttribute('aria-label')?.toLowerCase() || '';
+      
+      // ONLY click if it's specifically about showing threads/conversations
+      if (buttonText.includes('show this thread') || 
+          buttonText.includes('show conversation') ||
+          ariaLabel.includes('show this thread') ||
+          ariaLabel.includes('show conversation')) {
+        
+        // Check if button is visible and clickable
+        const rect = buttonElement.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0 || buttonElement.offsetParent === null) {
+          continue;
+        }
+        
+        buttonElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        buttonElement.click();
+        clickedCount++;
+        
+        console.log(`🐦 ✅ Expanded thread ${clickedCount}: "${buttonText || ariaLabel}"`);
+        
+        // Wait for content to load
+        await new Promise(resolve => setTimeout(resolve, 600));
+      }
+      
+    } catch (error) {
+      console.warn('🐦 Failed to click thread expansion button:', error);
+    }
+  }
+  
+  // 3. "Show more replies" or "Load more" buttons (very specific)
+  const moreRepliesButtons = document.querySelectorAll([
+    'button[aria-label*="Show more replies"]',
+    'button[aria-label*="show more replies"]',
+    'button[aria-label*="Load more"]',
+    'button[aria-label*="load more"]'
+  ].join(', '));
+  
+  console.log(`🐦 Found ${moreRepliesButtons.length} "Show more replies" buttons`);
+  
+  for (const button of moreRepliesButtons) {
+    if (clickedCount >= maxExpansions) break;
+    
+    try {
+      const buttonElement = button as HTMLElement;
+      const ariaLabel = buttonElement.getAttribute('aria-label') || '';
+      
+      // Make sure it's not a reply button
+      if (ariaLabel.toLowerCase().includes('reply to') || 
+          ariaLabel.toLowerCase().includes('post your reply')) {
+        console.log(`🐦 ⏭️ Skipping reply button: "${ariaLabel}"`);
+        continue;
+      }
+      
+      // Check if button is visible and clickable
+      const rect = buttonElement.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0 || buttonElement.offsetParent === null) {
+        continue;
+      }
+      
+      buttonElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      buttonElement.click();
+      clickedCount++;
+      
+      console.log(`🐦 ✅ Loaded more replies ${clickedCount}: "${ariaLabel}"`);
+      
+      // Wait for content to load
+      await new Promise(resolve => setTimeout(resolve, 600));
+      
+    } catch (error) {
+      console.warn('🐦 Failed to click load more button:', error);
     }
   }
   
   if (clickedCount > 0) {
-    console.log(`🐦 Expanded ${clickedCount} tweet texts, waiting for content to load...`);
-    // Wait for all expansions to complete
-    await new Promise(resolve => setTimeout(resolve, 300));
+    console.log(`🐦 ✅ Successfully expanded ${clickedCount} content elements (NO reply boxes opened)`);
+    // Extra wait for all content to load
+    await new Promise(resolve => setTimeout(resolve, 800));
+  } else {
+    console.log(`🐦 ℹ️ No content expansion buttons found on this cycle`);
   }
   
   return clickedCount;
@@ -603,21 +799,6 @@ async function extractSingleTweetWithIdentifier(
     console.error('Error extracting tweet with identifier:', error);
     return null;
   }
-}
-
-/**
- * Generate a unique key for deduplication using multiple identifiers
- */
-function generateUniqueKey(identifier: TweetIdentifier): string {
-  // Use multiple identifiers to create a bulletproof unique key
-  const keyParts = [
-    identifier.id,
-    identifier.textHash,
-    identifier.timestamp,
-    identifier.url.split('/').pop() || '' // Tweet ID from URL
-  ];
-  
-  return keyParts.join('|');
 }
 
 /**
@@ -882,6 +1063,29 @@ function extractAuthorFromDOM(): SocialMediaUser | null {
     console.warn('Failed to extract author from DOM:', error);
     return null;
   }
+}
+
+/**
+ * Deduplicate tweets based on robust content-based matching
+ */
+function deduplicateTweets(tweets: ExtractedTweetData[]): ExtractedTweetData[] {
+  const uniqueTweets = new Map<string, ExtractedTweetData>();
+  
+  for (const tweet of tweets) {
+    const uniqueKey = generateUniqueKey(tweet.identifier);
+    
+    // If we've seen this tweet before, keep the one with the highest DOM order
+    if (uniqueTweets.has(uniqueKey)) {
+      const existingTweet = uniqueTweets.get(uniqueKey)!;
+      if (tweet.domOrder > existingTweet.domOrder) {
+        uniqueTweets.set(uniqueKey, tweet);
+      }
+    } else {
+      uniqueTweets.set(uniqueKey, tweet);
+    }
+  }
+  
+  return Array.from(uniqueTweets.values());
 }
 
 /**

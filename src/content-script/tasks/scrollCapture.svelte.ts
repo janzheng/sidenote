@@ -425,7 +425,7 @@ export class ScrollCapture {
 /**
  * Create a Twitter-specific scroll capture configuration
  */
-export function createTwitterScrollConfig(maxScrolls: number = 100, scrollDelay: number = 300): ScrollCaptureConfig {
+export function createTwitterScrollConfig(maxScrolls: number = 150, scrollDelay: number = 300): ScrollCaptureConfig {
   return {
     contentSelector: 'article[data-testid="tweet"]',
     stopConditions: {
@@ -437,21 +437,23 @@ export function createTwitterScrollConfig(maxScrolls: number = 100, scrollDelay:
         '[data-testid="empty-state"]'
       ],
       texts: [
-        // Only stop on actual error messages
+        // Only stop on actual error messages, not recommendations
         'Something went wrong. Try reloading.',
         'This Tweet was deleted by the Tweet author',
         'This account doesn\'t exist',
-        'This Tweet is unavailable'
+        'This Tweet is unavailable',
+        'End of conversation',
+        'No more Tweets to show'
       ]
     },
     maxScrolls,
     scrollDelay,
     scrollStrategy: 'progressive',
-    initialScrollAmount: window.innerHeight * 0.6, // More conservative initial scrolls
-    laterScrollAmount: window.innerHeight * 0.8, // Conservative later scrolls
-    progressiveThreshold: 8, // Switch to larger scrolls later
-    stableScrollThreshold: 8, // Allow more scrolls without progress
-    contentStabilityWait: 400, // Wait longer for content to load
+    initialScrollAmount: window.innerHeight * 0.8, // More aggressive initial scrolls (was 0.6)
+    laterScrollAmount: window.innerHeight * 1.0, // More aggressive later scrolls (was 0.8)
+    progressiveThreshold: 12, // Switch to larger scrolls later (was 8)
+    stableScrollThreshold: 15, // Much more patient - allow more scrolls without progress (was 8)
+    contentStabilityWait: 500, // Wait longer for content to load (was 400)
     platform: 'twitter',
     debug: true
   };

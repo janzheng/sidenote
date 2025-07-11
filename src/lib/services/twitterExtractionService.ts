@@ -40,7 +40,7 @@ export class TwitterExtractionService {
     options: TwitterExtractionOptions = {}
   ): Promise<TwitterExtractionResult> {
     const {
-      maxScrolls = 100,
+      maxScrolls = 150, // Increased from 100 to be more thorough
       scrollDelay = 300,
       generateMarkdown = true
     } = options;
@@ -176,15 +176,8 @@ export class TwitterExtractionService {
     // Thread statistics
     markdown += `\n---\n\n## Statistics\n\n`;
     markdown += `- **Posts:** ${thread.posts.length}\n`;
-         markdown += `- **Unique Authors:** ${new Set(thread.posts.map(p => p.author.id)).size}\n`;
-     markdown += `- **Thread Depth:** ${Math.max(...thread.posts.map(p => p.threadPosition || 0))} levels\n`;
+    markdown += `- **Unique Authors:** ${new Set(thread.posts.map(p => p.author.id)).size}\n`;
     
-    if (thread.expansionPotential && !thread.expansionPotential.canExpand) {
-      markdown += `- **Thread Status:** Complete\n`;
-    } else if (thread.expansionPotential?.canExpand) {
-      markdown += `- **Thread Status:** May have more content available\n`;
-    }
-
     return markdown.trim();
   }
 
