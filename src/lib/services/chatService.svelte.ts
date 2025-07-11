@@ -32,7 +32,7 @@ export class ChatService {
   /**
    * Send a chat message and get AI response
    */
-  static async sendMessage(tabData: TabData, userMessage: string, chatHistory: ChatMessage[] = []): Promise<ChatResponse> {
+  static async sendMessage(tabData: TabData, userMessage: string, chatHistory: ChatMessage[] = [], customSystemPrompt?: string): Promise<ChatResponse> {
     try {
       console.log('💬 Starting chat message processing for TabData:', tabData.content.url);
 
@@ -50,18 +50,18 @@ export class ChatService {
       
       // Build user background context
       let userBackgroundContext = '';
-      if (settings.userBackground && settings.userBackground.trim()) {
-        userBackgroundContext = `\n\n**User Background:** The user has a background in ${settings.userBackground.trim()}. Please tailor your responses to be relevant and accessible to someone with this expertise. Use language and examples they would understand, and focus on aspects that would be most interesting or useful for their field.`;
-      }
+      // if (settings.userBackground && settings.userBackground.trim()) {
+      //   userBackgroundContext = `\n\n**User Background:** The user has a background in ${settings.userBackground.trim()}. Please tailor your responses to be relevant and accessible to someone with this expertise. Use language and examples they would understand, and focus on aspects that would be most interesting or useful for their field.`;
+      // }
       
-      // Create system prompt for chat
-      const systemPrompt = `You are an AI assistant helping users understand and discuss content from web pages. You have access to the following content:
+      // Create system prompt for chat - use custom prompt if provided, otherwise use default
+      const systemPrompt = customSystemPrompt || `You are an AI assistant helping users understand and discuss content from web pages. You have access to the following content:
 
 **Title:** ${title}
 **Word Count:** ${wordCount}
 
 **Content:**
-${text.substring(0, 10000)}${text.length > 10000 ? '...\n\n[Content truncated for length]' : ''}${userBackgroundContext}
+${text.substring(0, 100000)}${text.length > 100000 ? '...\n\n[Content truncated for length]' : ''}${userBackgroundContext}
 
 Your role is to:
 1. Answer questions about the content accurately
@@ -72,9 +72,21 @@ Your role is to:
 
 Always base your responses on the provided content when possible. If asked about something not in the content, clearly state that and provide general knowledge if appropriate. Also try to mirror the tone and style of the user's message; if the user is casual, be casual, if the user is formal, be formal!`;
 
+      // If using custom system prompt, still include content context
+      const finalSystemPrompt = customSystemPrompt ? 
+        `${customSystemPrompt}
+
+**Content Context:**
+**Title:** ${title}
+**Word Count:** ${wordCount}
+
+**Content:**
+${text.substring(0, 100000)}${text.length > 100000 ? '...\n\n[Content truncated for length]' : ''}${userBackgroundContext}` : 
+        systemPrompt;
+
       // Prepare conversation history
       const conversationHistory: ChatMessage[] = [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: finalSystemPrompt },
         ...chatHistory,
         { role: 'user', content: userMessage }
       ];

@@ -31,7 +31,7 @@ class ChatManager {
   }
 
   // Send chat message functionality
-  async handleSendMessage(url: string | null, message: string, onSuccess?: () => void) {
+  async handleSendMessage(url: string | null, message: string, onSuccess?: () => void, customSystemPrompt?: string) {
     if (!url || !message.trim() || this.state.isGenerating) {
       return;
     }
@@ -46,7 +46,8 @@ class ChatManager {
         action: 'sendChatMessage',
         url: url,
         message: message.trim(),
-        chatHistory: this.state.messages
+        chatHistory: this.state.messages,
+        customSystemPrompt: customSystemPrompt
       });
 
       if (response.success) {

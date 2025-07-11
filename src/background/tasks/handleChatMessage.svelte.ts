@@ -6,7 +6,7 @@ import { ChatService } from '../../lib/services/chatService.svelte';
 /**
  * Handle chat message request for a specific URL
  */
-export async function handleChatMessage(url: string, message: string, chatHistory: ChatMessage[], sendResponse: (response: any) => void) {
+export async function handleChatMessage(url: string, message: string, chatHistory: ChatMessage[], sendResponse: (response: any) => void, customSystemPrompt?: string) {
   try {
     console.log('💬 Starting chat message processing for URL:', url);
 
@@ -41,7 +41,7 @@ export async function handleChatMessage(url: string, message: string, chatHistor
     console.log('💬 Sending message to ChatService...');
     
     // Use ChatService to generate response
-    const chatResult = await ChatService.sendMessage(tabData, message, chatHistory);
+    const chatResult = await ChatService.sendMessage(tabData, message, chatHistory, customSystemPrompt);
 
     if (chatResult.success && chatResult.messages) {
       console.log('✅ Chat response generated successfully');

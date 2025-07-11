@@ -129,8 +129,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Handle chat message requests
   if (message.action === 'sendChatMessage') {
-    const { url, message: chatMessage, chatHistory } = message;
-    handleChatMessage(url, chatMessage, chatHistory, sendResponse);
+    const { url, message: chatMessage, chatHistory, customSystemPrompt } = message;
+    handleChatMessage(url, chatMessage, chatHistory, sendResponse, customSystemPrompt);
     return true; // Keep message channel open for async response
   }
 

@@ -11,6 +11,7 @@
   import Threadgirl from './lib/components/Threadgirl.svelte';
   import Citations from './lib/components/Citations.svelte';
   import AiChat from './lib/components/AiChat.svelte';
+  import AiSummaryChat from './lib/components/AiSummaryChat.svelte';
   import AiResearchPaper from './lib/components/AiResearchPaper.svelte';
   import TwitterThread from './lib/components/TwitterThread.svelte';
   import LinkedInThread from './lib/components/LinkedInThread.svelte';
@@ -223,7 +224,7 @@
     <!-- Components -->
     <div class="space-y-2">
       <!-- AI Summary Component -->
-      {#if currentTab === 'content' && panelManager.content}
+      <!-- {#if currentTab === 'content' && panelManager.content}
         <div class="">
           <AiSummary 
             url={panelManager.url}
@@ -233,16 +234,30 @@
             onRefresh={() => panelManager.refreshDataOnly()}
           />
         </div>
-      {/if}
+      {/if} -->
 
       <!-- AI Chat Component -->
-      {#if currentTab === 'content' && panelManager.content}
+      <!-- {#if currentTab === 'content' && panelManager.content}
         <div class="">
           <AiChat 
             url={panelManager.url}
             content={panelManager.content.content}
             chatMessages={panelManager.content.analysis?.chatMessages}
             isGenerating={panelManager.content.processing?.chat?.isGenerating || false}
+            onRefresh={() => panelManager.refreshDataOnly()}
+          />
+        </div>
+      {/if} -->
+
+      <!-- AI Summary + Chat Component -->
+      {#if currentTab === 'content' && panelManager.content}
+        <div class="">
+          <AiSummaryChat 
+            url={panelManager.url}
+            content={panelManager.content.content}
+            summary={panelManager.content.analysis?.summary}
+            chatMessages={panelManager.content.analysis?.chatMessages}
+            isGenerating={panelManager.content.processing?.summary?.isStreaming || panelManager.content.processing?.chat?.isGenerating || false}
             onRefresh={() => panelManager.refreshDataOnly()}
           />
         </div>
