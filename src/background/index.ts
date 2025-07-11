@@ -17,6 +17,7 @@ import { handleRecipeExtraction, getRecipeStatus } from './tasks/handleRecipeExt
 import { handleLinkedInThreadExtractionWithScroll, getLinkedInThreadStatus } from './tasks/handleLinkedInThreadExtraction.svelte';
 import { handleTwitterThreadExtractionWithScroll, getTwitterThreadStatus } from './tasks/handleTwitterThreadExtraction.svelte';
 import { handlePDFExtraction, getPDFExtractionStatus, generateCitations } from './tasks/handlePDFExtraction.svelte';
+import { handleTextToSpeechGeneration, handleTtsTextGeneration, handleTtsAudioGeneration, getTtsStatus } from './tasks/handleTextToSpeechGeneration.svelte';
 import { DataController } from '../lib/services/dataController.svelte';
 
 // Shared data controller instance for background context
@@ -296,6 +297,38 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'generatePDFCitations') {
     const { url } = message;
     generateCitations(url, sendResponse); // Use the unified handler
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle text-to-speech generation requests (legacy - full pipeline)
+  if (message.action === 'generateTextToSpeech') {
+    const { url, voice } = message;
+    handleTextToSpeechGeneration(url, voice, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle TTS text generation requests (Step 1)
+  if (message.action === 'generateTtsText') {
+    const { url } = message;
+    handleTtsTextGeneration(url, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle TTS audio generation requests (Step 2)
+  if (message.action === 'generateTtsAudio') {
+    const { text, voice } = message;
+    handleTtsAudioGeneration(text, voice, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle TTS status requests
+  if (message.action === 'getTtsStatus') {
+    const { url } = message;
+    getTtsStatus(url).then(status => {
+      sendResponse({ success: true, status });
+    }).catch(error => {
+      sendResponse({ success: false, error: error.message });
+    });
     return true; // Keep message channel open for async response
   }
 

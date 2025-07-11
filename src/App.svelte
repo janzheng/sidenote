@@ -13,6 +13,7 @@
   import AiChat from './lib/components/AiChat.svelte';
   import AiSummaryChat from './lib/components/AiSummaryChat.svelte';
   import AiResearchPaper from './lib/components/AiResearchPaper.svelte';
+  import AiTextToSpeech from './lib/components/AiTextToSpeech.svelte';
   import TwitterThread from './lib/components/TwitterThread.svelte';
   import LinkedInThread from './lib/components/LinkedInThread.svelte';
   import PageAssets from './lib/components/PageAssets.svelte';
@@ -361,6 +362,19 @@
         <div class="">
           <AiResearchPaper 
             tabData={panelManager.content}
+            onRefresh={() => panelManager.refreshDataOnly()}
+          />
+        </div>
+      {/if}
+
+      <!-- AI Text-to-Speech Component -->
+      {#if currentTab === 'content' && panelManager.content}
+        <div class="">
+          <AiTextToSpeech 
+            url={panelManager.url}
+            content={panelManager.content.content}
+            textToSpeech={panelManager.content.analysis?.textToSpeech}
+            isGenerating={panelManager.content.processing?.textToSpeech?.isGenerating || false}
             onRefresh={() => panelManager.refreshDataOnly()}
           />
         </div>

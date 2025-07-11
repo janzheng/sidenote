@@ -98,7 +98,7 @@ ${text.substring(0, 100000)}${text.length > 100000 ? '...\n\n[Content truncated 
           // model: 'llama-3.1-8b-instant',
           model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
           temperature: 0.3,
-          maxTokens: 3000,
+          maxTokens: 10000,
           topP: 0.9
         }
       );

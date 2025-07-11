@@ -1,0 +1,1 @@
+export type TtsStatus = 'idle' | 'rewriting' | 'generating-audio' | 'success' | 'error'; 

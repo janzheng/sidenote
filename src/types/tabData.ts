@@ -7,6 +7,7 @@ import type { ThreadgirlResult } from './threadgirlResult';
 import type { PageAssets } from './pageAssets';
 import type { Recipe } from './recipe';
 import type { SocialMediaThread } from './socialMedia';
+import type { TextToSpeech } from './textToSpeech';
 
 export interface TabData {
   content: {
@@ -30,6 +31,7 @@ export interface TabData {
     pageAssets: PageAssets | null;
     recipe: Recipe | null;
     socialMediaThread: SocialMediaThread | null;
+    textToSpeech: TextToSpeech | null;
   };
 
   statuses: {
@@ -45,6 +47,7 @@ export interface TabData {
     pageAssets: { isExtracting: boolean; error: string | null };
     recipe: { isExtracting: boolean; error: string | null };
     socialMediaThread: { isExtracting: boolean; isExpanding: boolean; error: string | null };
+    textToSpeech: { isGenerating: boolean; error: string | null };
   };
   
   meta: {

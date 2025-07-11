@@ -11,7 +11,9 @@ import { extractJsonFromResponse } from '../utils/extractJsonFromResponse';
  */
 export class GroqService {
   private static readonly BASE_URL = 'https://api.groq.com/openai/v1';
-  private static readonly DEFAULT_MODEL = 'llama-3.1-8b-instant';
+  private static readonly DEFAULT_MODEL = 'meta-llama/llama-4-maverick-17b-128e-instruct';
+  private static readonly DEFAULT_TTS_MODEL = 'playai-tts';
+  private static readonly DEFAULT_TTS_VOICE = 'Arista-PlayAI';
   private static readonly TIMEOUT = 60000; // 60 seconds
 
   /**
@@ -180,6 +182,142 @@ export class GroqService {
     
     return this.generateTextWithJsonParsing(messages, options);
   }
+
+  /**
+   * Generate text-to-speech audio using Groq API
+   */
+  static async generateSpeech(
+    text: string,
+    voice: string = this.DEFAULT_TTS_VOICE,
+    model: string = this.DEFAULT_TTS_MODEL
+  ): Promise<{ success: boolean; audioBlob?: Blob; error?: string }> {
+    try {
+      console.log('🔊 Starting TTS generation with Groq API');
+      console.log('🔊 Text length:', text.length, 'characters');
+      console.log('🔊 Voice:', voice);
+      console.log('🔊 Model:', model);
+
+      const settings = getCurrentSettings();
+      if (!settings.apiKey) {
+        return { 
+          success: false, 
+          error: 'Groq API key not configured. Please set it in settings.' 
+        };
+      }
+
+      // Validate text length (Groq has a 10K character limit)
+      if (text.length > 10000) {
+        return {
+          success: false,
+          error: 'Text is too long for TTS generation. Maximum 10,000 characters allowed.'
+        };
+      }
+
+      const requestBody = {
+        model: model,
+        input: text,
+        voice: voice,
+        response_format: 'wav'
+      };
+
+      console.log('🔊 TTS Request config:', {
+        model: requestBody.model,
+        voice: requestBody.voice,
+        text_length: text.length
+      });
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.TIMEOUT);
+
+      const response = await fetch(`${this.BASE_URL}/audio/speech`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${settings.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Groq TTS API error:', response.status, errorText);
+        
+        let errorMessage = `TTS API request failed with status ${response.status}`;
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.error?.message) {
+            errorMessage = errorData.error.message;
+          }
+        } catch {
+          // Use generic error message
+        }
+
+        return { success: false, error: errorMessage };
+      }
+
+      const audioBlob = await response.blob();
+      console.log('🔊 TTS audio generated successfully, blob size:', audioBlob.size, 'bytes');
+
+      return {
+        success: true,
+        audioBlob
+      };
+
+    } catch (error) {
+      console.error('❌ Groq TTS API call failed:', error);
+      
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          return { success: false, error: 'TTS request timed out' };
+        }
+        return { success: false, error: error.message };
+      }
+      
+      return { success: false, error: 'Unknown TTS error occurred' };
+    }
+  }
+
+  /**
+   * Get available TTS voices for English
+   */
+  static getAvailableVoices(): string[] {
+    return [
+      'Arista-PlayAI',
+      'Atlas-PlayAI', 
+      'Basil-PlayAI',
+      'Briggs-PlayAI',
+      'Calum-PlayAI',
+      'Celeste-PlayAI',
+      'Cheyenne-PlayAI',
+      'Chip-PlayAI',
+      'Cillian-PlayAI',
+      'Deedee-PlayAI',
+      'Fritz-PlayAI',
+      'Gail-PlayAI',
+      'Indigo-PlayAI',
+      'Mamaw-PlayAI',
+      'Mason-PlayAI',
+      'Mikail-PlayAI',
+      'Mitch-PlayAI',
+      'Quinn-PlayAI',
+      'Thunder-PlayAI'
+    ];
+  }
+
+  /**
+   * Get available TTS voices for Arabic
+   */
+  static getAvailableArabicVoices(): string[] {
+    return [
+      'Ahmad-PlayAI',
+      'Amira-PlayAI',
+      'Khalid-PlayAI',
+      'Nasser-PlayAI'
+    ];
+  }
 }
 
 // Export the static methods as functions for backward compatibility
@@ -187,3 +325,4 @@ export const generateText = GroqService.generateText.bind(GroqService);
 export const generateTextFromPrompt = GroqService.generateTextFromPrompt.bind(GroqService);
 export const generateTextWithJsonParsing = GroqService.generateTextWithJsonParsing.bind(GroqService);
 export const generateTextFromPromptWithJsonParsing = GroqService.generateTextFromPromptWithJsonParsing.bind(GroqService);
+export const generateSpeech = GroqService.generateSpeech.bind(GroqService);
