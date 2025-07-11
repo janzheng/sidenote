@@ -5,6 +5,7 @@
   import { chatManager } from '../ui/chatManager.svelte';
   import ToggleDrawer from './ui/ToggleDrawer.svelte';
   import CopyButton from './ui/CopyButton.svelte';
+  import CollapsibleContent from './ui/CollapsibleContent.svelte';
   import ApiSettings from './ui/ApiSettings.svelte';
   import type { ChatMessage } from '../../types/chatMessage';
 
@@ -21,6 +22,7 @@
 
   // Component UI state
   let isExpanded = $state(false);
+  let isSummaryExpanded = $state(false);
   let messageInput = $state('');
   let chatContainer = $state<HTMLElement>();
   let inputElement = $state<HTMLTextAreaElement>();
@@ -91,6 +93,7 @@
   async function handleToggle(expanded: boolean) {
     if (expanded && !hasSummary && !hasSummaryGenerated && canGenerate) {
       hasSummaryGenerated = true;
+      isSummaryExpanded = true; // Auto-expand summary when generating
       await handleGenerateSummary();
     }
     
@@ -231,41 +234,25 @@
     </div>
 
     <!-- Summary Section -->
-    <div class="mb-6">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-lg font-semibold text-gray-800">Summary</h3>
-        <div class="flex gap-2">
-          <button 
-            onclick={handleGenerateSummary}
-            class="px-3 py-1 text-gray-600 hover:text-blue-600 border border-gray-300 rounded transition-colors text-sm flex items-center gap-1"
-            disabled={!canGenerate || summaryManager.isGenerating}
-            title={summaryManager.summaryError || 'Regenerate Summary'}
-          >
-            {#if summaryManager.isGenerating}
-              <Icon icon="mdi:loading" class="animate-spin w-4 h-4" />
-            {:else}
-              <Icon icon="mdi:refresh" class="w-4 h-4" />
-            {/if}
-          </button>
-          
-          {#if hasSummary && !summaryManager.isGenerating}
+    {#if summaryManager.summaryError}
+      <div class="mb-6">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-lg font-semibold text-gray-800">Summary</h3>
+          <div class="flex gap-2">
             <button 
-              onclick={handleCopySummary}
+              onclick={handleGenerateSummary}
               class="px-3 py-1 text-gray-600 hover:text-blue-600 border border-gray-300 rounded transition-colors text-sm flex items-center gap-1"
-              title="Copy summary"
+              disabled={!canGenerate || summaryManager.isGenerating}
+              title={summaryManager.summaryError || 'Regenerate Summary'}
             >
-              {#if isCopied}
-                <Icon icon="mdi:check" class="w-4 h-4 text-green-600" />
+              {#if summaryManager.isGenerating}
+                <Icon icon="mdi:loading" class="animate-spin w-6 h-6" />
               {:else}
-                <Icon icon="mdi:content-copy" class="w-4 h-4" />
+                <Icon icon="mdi:refresh" class="w-6 h-6" />
               {/if}
             </button>
-          {/if}
+          </div>
         </div>
-      </div>
-
-      <!-- Summary Content -->
-      {#if summaryManager.summaryError}
         <div class="bg-red-50 border border-red-200 p-3 rounded">
           <div class="text-red-600 flex items-center gap-2">
             <Icon icon="mdi:alert-circle" class="w-5 h-5" />
@@ -275,21 +262,22 @@
             </div>
           </div>
         </div>
-      {:else if summaryManager.isGenerating}
-        <div class="bg-gray-50 p-3 rounded border min-h-[120px] flex items-center justify-center">
-          <div class="flex items-center gap-2 text-gray-600">
-            <Icon icon="mdi:loading" class="animate-spin w-5 h-5" />
-            <span>Generating summary...</span>
-          </div>
-        </div>
-      {:else if hasSummary}
-        <div class="bg-gray-50 p-3 rounded border min-h-[120px] overflow-y-auto">
-          <div class="text-gray-700 prose prose-sm max-w-none markdown-content">
-            {@html renderMarkdown(summary || '')}
-          </div>
-        </div>
-      {/if}
-    </div>
+      </div>
+    {:else}
+      <CollapsibleContent
+        title="Summary"
+        content={summary || ''}
+        bind:isExpanded={isSummaryExpanded}
+        onRefresh={handleGenerateSummary}
+        refreshDisabled={!canGenerate || summaryManager.isGenerating}
+        refreshTitle={summaryManager.summaryError || 'Regenerate Summary'}
+        showRefresh={true}
+        showCopy={!!hasSummary && !summaryManager.isGenerating}
+        isLoading={summaryManager.isGenerating}
+        emptyMessage="No summary available"
+        renderAsMarkdown={true}
+      />
+    {/if}
 
     <!-- Chat Section -->
     <div>

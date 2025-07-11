@@ -42,7 +42,7 @@
 
 /* Base styles for consistent rendering between dev and extension environments */
 html {
-  font-size: 12px; /* Ensure base font size is consistent */
+  font-size: 13px; /* Ensure base font size is consistent */
   font-weight: 500;
   -webkit-text-size-adjust: 100%; /* Prevent mobile zoom adjustments */
   -moz-text-size-adjust: 100%;
