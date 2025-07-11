@@ -6,7 +6,7 @@
   import Settings from './lib/components/Settings.svelte';
   import ManualContentInput from './lib/components/ManualContentInput.svelte';
   import DebugPanel from './lib/components/DebugPanel.svelte';
-  import AiSummary from './lib/components/AiSummary.svelte';
+  // import AiSummary from './lib/components/AiSummary.svelte';
   import AiRecipe from './lib/components/AiRecipe.svelte';
   import Threadgirl from './lib/components/Threadgirl.svelte';
   import Citations from './lib/components/Citations.svelte';
@@ -277,6 +277,19 @@
         </div>
       {/if}
 
+      <!-- AI Text-to-Speech Component -->
+      {#if currentTab === 'content' && panelManager.content}
+        <div class="">
+          <AiTextToSpeech 
+            url={panelManager.url}
+            content={panelManager.content.content}
+            textToSpeech={panelManager.content.analysis?.textToSpeech}
+            isGenerating={panelManager.content.processing?.textToSpeech?.isGenerating || false}
+            onRefresh={() => panelManager.refreshDataOnly()}
+          />
+        </div>
+      {/if}
+
       <!-- Threadgirl Component -->
       {#if currentTab === 'content' && panelManager.content}
         <div class="">
@@ -367,18 +380,6 @@
         </div>
       {/if}
 
-      <!-- AI Text-to-Speech Component -->
-      {#if currentTab === 'content' && panelManager.content}
-        <div class="">
-          <AiTextToSpeech 
-            url={panelManager.url}
-            content={panelManager.content.content}
-            textToSpeech={panelManager.content.analysis?.textToSpeech}
-            isGenerating={panelManager.content.processing?.textToSpeech?.isGenerating || false}
-            onRefresh={() => panelManager.refreshDataOnly()}
-          />
-        </div>
-      {/if}
     </div>
 
     <!-- Debug Panel at bottom with collapsibles only mode -->

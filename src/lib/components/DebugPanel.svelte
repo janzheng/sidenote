@@ -86,7 +86,7 @@
     <!-- New Citation Metadata Section -->
     {#if panelManager.hasCitations}
       <CollapsibleContent
-        title="Citation Metadata {panelManager.isAcademicPaper ? '📚 Academic Paper' : ''}"
+        title="Citation Metadata"
         content={JSON.stringify(panelManager.citations, null, 2)}
         itemCount="{Object.keys(panelManager.citations || {}).length} fields{panelManager.citationSummary ? ` • ${panelManager.citationSummary.substring(0, 100)}${panelManager.citationSummary.length > 100 ? '...' : ''}` : ''}"
         emptyMessage="No citation metadata available"
