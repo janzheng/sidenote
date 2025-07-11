@@ -7,7 +7,7 @@ import { handleContentExtraction } from './tasks/handleContentExtraction.svelte'
 import { handleManualContentSetting } from './tasks/handleManualContentSetting.svelte';
 import { handleBookmarking, getBookmarkStatus } from './tasks/handleBookmarking.svelte';
 import { handleSummaryGeneration, getSummaryStatus } from './tasks/handleSummaryGeneration.svelte';
-import { handleResearchPaperExtraction, handleQuickResearchPaperExtraction, getResearchPaperStatus } from './tasks/handleResearchPaperExtraction.svelte';
+import { handleResearchPaperExtraction, handleQuickResearchPaperExtraction, handleSingleSectionExtraction, getResearchPaperStatus } from './tasks/handleResearchPaperExtraction.svelte';
 import { handleContentStructureParsing, getContentStructureStatus } from './tasks/handleContentStructureParsing.svelte';
 import { handleChatMessage, handleClearChatHistory, getChatStatus } from './tasks/handleChatMessage.svelte';
 import { handleThreadgirlProcessing, getThreadgirlStatus } from './tasks/handleThreadgirlProcessing.svelte';
@@ -99,6 +99,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }).catch(error => {
       sendResponse({ success: false, error: error.message });
     });
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle single section extraction requests
+  if (message.action === 'extractSingleSection') {
+    const { url, sectionName, userBackground } = message;
+    handleSingleSectionExtraction(url, sectionName, userBackground, sendResponse);
     return true; // Keep message channel open for async response
   }
 

@@ -207,6 +207,77 @@ export async function handleQuickResearchPaperExtraction(
 }
 
 /**
+ * Handle single section extraction for lazy loading
+ */
+export async function handleSingleSectionExtraction(
+  url: string,
+  sectionName: string,
+  userBackground: string | undefined,
+  sendResponse: (response: any) => void
+) {
+  try {
+    console.log(`🔍 Starting single section extraction for: ${sectionName} on URL: ${url}`);
+
+    // Load the tab data for this URL
+    const tabData = await backgroundDataController.loadData(url);
+    if (!tabData) {
+      console.error('❌ No tab data found for URL:', url);
+      sendResponse({ 
+        success: false, 
+        error: 'No content data found for this URL. Please extract content first.' 
+      });
+      return;
+    }
+
+    // Extract the single section
+    const extractionResult = await ResearchPaperService.extractSingleSectionOnDemand(
+      tabData,
+      sectionName,
+      userBackground
+    );
+
+    if (extractionResult.success && extractionResult.section) {
+      // Update the existing research paper analysis with the new section
+      const existingAnalysis = tabData.analysis?.researchPaper;
+      if (existingAnalysis && existingAnalysis.sections) {
+        existingAnalysis.sections[sectionName] = extractionResult.section;
+        
+        // Save the updated analysis
+        await backgroundDataController.saveData(url, {
+          analysis: { 
+            researchPaper: existingAnalysis
+          }
+        });
+
+        console.log(`✅ Single section extraction successful: ${sectionName}`);
+        sendResponse({ 
+          success: true, 
+          sectionName: sectionName,
+          section: extractionResult.section
+        });
+      } else {
+        console.error('❌ No existing research paper analysis found');
+        sendResponse({ 
+          success: false, 
+          error: 'No existing research paper analysis found. Please run analysis first.' 
+        });
+      }
+    } else {
+      console.error(`❌ Single section extraction failed for ${sectionName}:`, extractionResult.error);
+      sendResponse({ 
+        success: false, 
+        error: extractionResult.error || `Failed to extract section: ${sectionName}` 
+      });
+    }
+
+  } catch (error) {
+    console.error(`❌ Error in single section extraction process for ${sectionName}:`, error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    sendResponse({ success: false, error: errorMessage });
+  }
+}
+
+/**
  * Get research paper extraction status for a URL
  */
 export async function getResearchPaperStatus(url: string): Promise<{ 

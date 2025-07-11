@@ -2,14 +2,18 @@
   import { marked } from 'marked';
   import Icon from "@iconify/svelte";
   import CopyButton from './CopyButton.svelte';
+  import { researchPaperManager } from '../../ui/researchPaperManager.svelte';
+  import { settingsManager } from '../../ui/settings.svelte';
   // Component for reading research paper sections
 
   // Props
   interface Props {
     analysisData?: any;
+    url?: string;
+    onRefresh?: () => void;
   }
 
-  let { analysisData }: Props = $props();
+  let { analysisData, url, onRefresh }: Props = $props();
 
   // Section interface for drag and drop
   interface PaperSection {
@@ -31,6 +35,16 @@
   
   // Track expanded state separately to preserve across updates
   let expandedSections = $state<Set<string>>(new Set());
+  
+  // Track loading state for individual sections
+  let loadingSections = $state<Set<string>>(new Set());
+  
+  // Debug loading state changes
+  $effect(() => {
+    if (loadingSections.size > 0) {
+      console.log('📊 Loading sections updated:', Array.from(loadingSections));
+    }
+  });
 
   // Section patterns for detection
   const sectionPatterns = [
@@ -187,20 +201,90 @@
     extractSections();
   });
 
-  // Toggle section expansion
-  function toggleSection(sectionId: string) {
+  // Check if a section is a promise section (not yet extracted)
+  function isPromiseSection(content: string): boolean {
+    return content.includes('[Section not yet extracted');
+  }
+
+  // Toggle section expansion with lazy loading
+  async function toggleSection(sectionId: string) {
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) return;
+
+    // If section is being collapsed, just collapse it
     if (expandedSections.has(sectionId)) {
       expandedSections.delete(sectionId);
-    } else {
-      expandedSections.add(sectionId);
+      sections = sections.map(s => 
+        s.id === sectionId 
+          ? { ...s, expanded: false }
+          : s
+      );
+      return;
     }
-    
-    // Update the sections array to reflect the change
-    sections = sections.map(section => 
-      section.id === sectionId 
-        ? { ...section, expanded: !section.expanded }
-        : section
-    );
+
+    // If section is a promise section, extract it first
+    if (isPromiseSection(section.content) && url) {
+      // Immediately set loading state before async operation
+      loadingSections = new Set([...loadingSections, sectionId]);
+      console.log(`🔍 Starting lazy loading for section: ${section.title}`, 'Loading sections:', Array.from(loadingSections));
+      
+      try {
+        const result = await researchPaperManager.handleExtractSingleSection(
+          url, 
+          section.title, 
+          settingsManager.settings.userBackground,
+          onRefresh
+        );
+        
+        if (result.success && result.section) {
+          // Update the section content
+          sections = sections.map(s => 
+            s.id === sectionId 
+              ? { 
+                  ...s, 
+                  content: result.section.fullText,
+                  expanded: true 
+                }
+              : s
+          );
+          
+          expandedSections.add(sectionId);
+          console.log(`✅ Successfully lazy loaded section: ${section.title}`);
+        } else {
+          console.error(`❌ Failed to lazy load section: ${section.title}`, result.error);
+          // Still expand to show the error or promise message
+          expandedSections.add(sectionId);
+          sections = sections.map(s => 
+            s.id === sectionId 
+              ? { ...s, expanded: true }
+              : s
+          );
+        }
+      } catch (error) {
+        console.error(`❌ Error lazy loading section: ${section.title}`, error);
+        // Still expand to show the error
+        expandedSections.add(sectionId);
+        sections = sections.map(s => 
+          s.id === sectionId 
+            ? { ...s, expanded: true }
+            : s
+        );
+      } finally {
+        // Always clear loading state by creating new Set without this section
+        const newLoadingSections = new Set(loadingSections);
+        newLoadingSections.delete(sectionId);
+        loadingSections = newLoadingSections;
+        console.log(`🏁 Finished loading section: ${section.title}`, 'Loading sections:', Array.from(loadingSections));
+      }
+    } else {
+      // Normal expansion for already loaded sections
+      expandedSections.add(sectionId);
+      sections = sections.map(s => 
+        s.id === sectionId 
+          ? { ...s, expanded: true }
+          : s
+      );
+    }
   }
 
   // Drag and drop functions
@@ -461,7 +545,7 @@
       <CopyButton 
         content={copyAllSections()}
         buttonClass="copy-all-sections-btn"
-        iconClass="w-4 h-4"
+        iconClass="w-6 h-6"
         title="Copy all sections as text"
       >
         Copy All
@@ -526,31 +610,64 @@
             aria-label="Toggle {section.title} section"
           >
             <div class="section-info">
+              <Icon 
+                icon={section.expanded ? 'mdi:chevron-down' : 'mdi:chevron-right'} 
+                class="w-6 h-6 text-gray-500 transition-transform arrow-icon"
+              />
               <Icon icon={section.icon} class="w-6 h-6 min-w-6 min-h-6 {getTextColor(section.color)}" />
               <h3 class="section-title {getTextColor(section.color)}">{@html renderInlineMarkdown(section.title)}</h3>
             </div>
             <div class="section-controls">
+              {#if isPromiseSection(section.content)}
+                <!-- Brain-freeze icon instead of copy for promise sections -->
+                <div 
+                  class="content-copy-btn brain-freeze-btn"
+                  title="Click to extract this section"
+                  role="button"
+                  tabindex="0"
+                  onclick={() => toggleSection(section.id)}
+                  onkeydown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleSection(section.id);
+                    }
+                  }}
+                >
+                  {#if loadingSections.has(section.id)}
+                    <Icon icon="mdi:loading" class="w-6 h-6 animate-spin" />
+                  {:else}
+                    <Icon icon="mdi:brain-freeze" class="w-6 h-6" />
+                  {/if}
+                </div>
+              {:else}
+                <CopyButton 
+                  content={section.content}
+                  buttonClass="content-copy-btn"
+                  iconClass="w-6 h-6"
+                  title="Copy section content"
+                />
+              {/if}
               <Icon icon="mdi:drag-vertical" class="w-6 h-6 text-gray-400 drag-handle" />
-              <Icon 
-                icon={section.expanded ? 'mdi:chevron-up' : 'mdi:chevron-down'} 
-                class="w-6 h-6 text-gray-500 transition-transform"
-              />
             </div>
           </div>
 
           <!-- Section Content -->
           {#if section.expanded}
             <div class="section-content">
-              <div class="content-header">
-                <CopyButton 
-                  content={section.content}
-                  buttonClass="content-copy-btn"
-                  iconClass="w-4 h-4"
-                  title="Copy section content"
-                />
-              </div>
               <div class="content-body">
-                {@html renderMarkdown(section.content)}
+                {#if isPromiseSection(section.content)}
+                  <div class="promise-section-content">
+                    <div class="promise-message">
+                      <Icon icon="mdi:brain-freeze" class="w-5 h-5 text-blue-500" />
+                      <span class="text-blue-700 font-medium">Section not yet extracted</span>
+                    </div>
+                    <p class="text-gray-600 text-sm mt-2">
+                      Click on this section header to extract the content using AI.
+                    </p>
+                  </div>
+                {:else}
+                  {@html renderMarkdown(section.content)}
+                {/if}
               </div>
             </div>
           {/if}
@@ -797,7 +914,15 @@
   .section-controls {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
+  }
+
+  .arrow-icon {
+    transition: transform 0.2s ease;
+  }
+
+  .section-card.expanded .arrow-icon {
+    transform: rotate(90deg);
   }
 
   .drag-handle {
@@ -815,24 +940,27 @@
     cursor: text;
   }
 
-  .content-header {
-    display: flex;
-    justify-content: flex-end;
-    padding: 8px 16px 0 16px;
-  }
-
   :global(.content-copy-btn) {
-    padding: 4px 8px;
-    background: #f3f4f6;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
+    padding: 4px;
+    background: transparent;
+    border: none;
     color: #6b7280;
     transition: all 0.2s ease;
+    border-radius: 4px;
   }
 
   :global(.content-copy-btn:hover) {
-    background: #e5e7eb;
+    background: rgba(0, 0, 0, 0.05);
     color: #374151;
+  }
+
+  :global(.brain-freeze-btn) {
+    color: #3b82f6 !important;
+  }
+
+  :global(.brain-freeze-btn:hover) {
+    background: rgba(59, 130, 246, 0.1) !important;
+    color: #1d4ed8 !important;
   }
 
   :global(.copy-all-sections-btn) {
@@ -865,5 +993,21 @@
     color: #374151;
     white-space: pre-wrap;
     user-select: text;
+  }
+
+  .promise-section-content {
+    padding: 16px;
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    text-align: center;
+  }
+
+  .promise-message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 8px;
   }
 </style> 

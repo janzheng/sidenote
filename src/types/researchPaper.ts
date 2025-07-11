@@ -6,8 +6,6 @@ export interface ResearchPaperAnalysis {
   extractedAt: string;
   extractionMethod?: string;
   isQuickAnalysis?: boolean;
-  readabilityScore?: string;
-  recommendedFor?: string[];
 
   // Comprehensive analysis fields
   keyFindings?: string[];
@@ -16,11 +14,6 @@ export interface ResearchPaperAnalysis {
   limitations?: string;
   futureWork?: string;
   practicalImplications?: string;
-  technicalDetails?: {
-    sampleSize?: string;
-    dataCollection?: string;
-    analysisApproach?: string;
-  };
 
   // Quick analysis fields
   tldr?: string;

@@ -3,6 +3,7 @@
   import ToggleDrawer from './ui/ToggleDrawer.svelte';
   import SectionReader from './ui/SectionReader.svelte';
   import CopyButton from './ui/CopyButton.svelte';
+  import CollapsibleContent from './ui/CollapsibleContent.svelte';
   import { researchPaperManager } from '../ui/researchPaperManager.svelte';
   import { settingsManager } from '../ui/settings.svelte';
   import type { TabData } from '../../types/tabData';
@@ -17,12 +18,16 @@
   // Component UI state
   let isExpanded = $state(false);
   let isCopied = $state(false);
+  let isLoading = $state(false); // Simple local loading state
+  let fakeLoadingProgress = $state('');
+  let fakeLoadingStep = $state(0);
+  let fakeLoadingInterval: number | null = $state(null);
+  let isQuickAnalysis = $state(false); // Track analysis type during loading
 
   // Derived states from tabData
   const url = $derived(tabData.content.url);
   const content = $derived(tabData.content);
   const researchPaper = $derived(tabData.analysis?.researchPaper);
-  const isExtracting = $derived(tabData.processing?.researchPaper?.isExtracting || false);
   const extractionError = $derived(tabData.processing?.researchPaper?.error);
   const extractionProgress = $derived(tabData.processing?.researchPaper?.progress);
   const citations = $derived(tabData.analysis?.citations);
@@ -37,30 +42,119 @@
     (url?.includes('biorxiv.org') || url?.includes('medrxiv.org')) && url?.includes('.full.pdf')
   );
 
-  // Handle research paper extraction
-  async function handleExtractResearchPaper() {
-    if (!url || researchPaperManager.isExtracting) {
-      return;
-    }
+  // Fake loading progress messages
+  const loadingSteps = [
+    'Analyzing document structure...',
+    'Identifying research sections...',
+    'Extracting key findings...',
+    'Generating insights...',
+    'Processing methodology...',
+    'Analyzing results and discussion...',
+    'Synthesizing practical implications...',
+    'Finalizing analysis...'
+  ];
 
-    await researchPaperManager.handleExtractResearchPaper(url, settingsManager.settings.userBackground, () => {
-      if (onRefresh) {
-        onRefresh();
-      }
-    });
+  const quickLoadingSteps = [
+    'Scanning document...',
+    'Extracting key insights...',
+    'Identifying practical implications...',
+    'Generating summary...'
+  ];
+
+  // Get current loading steps based on analysis type
+  const currentLoadingSteps = $derived(
+    isQuickAnalysis ? quickLoadingSteps : loadingSteps
+  );
+
+  // Start fake loading progress
+  function startFakeLoading(quick = false) {
+    isQuickAnalysis = quick;
+    fakeLoadingStep = 0;
+    fakeLoadingProgress = currentLoadingSteps[0];
+    
+    fakeLoadingInterval = setInterval(() => {
+      fakeLoadingStep = (fakeLoadingStep + 1) % currentLoadingSteps.length;
+      fakeLoadingProgress = currentLoadingSteps[fakeLoadingStep];
+    }, quick ? 2000 : 3000); // Faster progression for quick analysis
   }
 
-  // Handle quick research paper extraction
-  async function handleQuickExtractResearchPaper() {
-    if (!url || researchPaperManager.isExtracting) {
+  // Stop fake loading progress
+  function stopFakeLoading() {
+    if (fakeLoadingInterval) {
+      clearInterval(fakeLoadingInterval);
+      fakeLoadingInterval = null;
+    }
+    fakeLoadingProgress = '';
+    fakeLoadingStep = 0;
+    isQuickAnalysis = false;
+  }
+
+  // Watch for loading state changes
+  $effect(() => {
+    if (isLoading && !fakeLoadingInterval) {
+      startFakeLoading(isQuickAnalysis);
+    } else if (!isLoading && fakeLoadingInterval) {
+      stopFakeLoading();
+    }
+  });
+
+  // Cleanup on component destroy
+  $effect(() => {
+    return () => {
+      if (fakeLoadingInterval) {
+        clearInterval(fakeLoadingInterval);
+      }
+    };
+  });
+
+  // Handle research paper extraction (now full analysis)
+  async function handleExtractResearchPaper() {
+    if (!url || isLoading) {
       return;
     }
 
-    await researchPaperManager.handleQuickExtractResearchPaper(url, settingsManager.settings.userBackground, () => {
-      if (onRefresh) {
-        onRefresh();
+    isLoading = true;
+    isQuickAnalysis = false;
+
+    try {
+      // Start fake loading for comprehensive analysis
+      if (!fakeLoadingInterval) {
+        startFakeLoading(false);
       }
-    });
+
+      await researchPaperManager.handleExtractResearchPaper(url, settingsManager.settings.userBackground, () => {
+        if (onRefresh) {
+          onRefresh();
+        }
+      });
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  // Handle quick research paper extraction (now main button)
+  async function handleQuickExtractResearchPaper() {
+    if (!url || isLoading) {
+      return;
+    }
+
+    isLoading = true;
+    isQuickAnalysis = true;
+
+    try {
+      // Start fake loading for quick analysis
+      if (!fakeLoadingInterval) {
+        startFakeLoading(true);
+      }
+
+      await researchPaperManager.handleQuickExtractResearchPaper(url, settingsManager.settings.userBackground, () => {
+        if (onRefresh) {
+          onRefresh();
+        }
+      });
+    } finally {
+      isLoading = false;
+    }
   }
 
   // Handle PDF extraction
@@ -135,7 +229,7 @@
       placeholder="e.g., computer science, biology, economics..."
       rows="3"
       class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm resize-vertical"
-      disabled={isExtracting}
+      disabled={isLoading}
       oninput={() => settingsManager.updateSetting('userBackground', settingsManager.settings.userBackground)}
     ></textarea>
     <p class="text-xs text-gray-500 mt-1">
@@ -146,27 +240,27 @@
   <!-- Control Buttons -->
   <div class="flex gap-2 mb-4">
     <button 
-      onclick={handleExtractResearchPaper}
+      onclick={handleQuickExtractResearchPaper}
       class="flex-1 px-3 py-2 bg-gray-100 text-gray-900 rounded hover:bg-gray-200 transition-colors font-semibold flex items-center gap-2 justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-      disabled={isExtracting || !canExtract}
+      disabled={isLoading || !canExtract}
     >
-      {#if isExtracting}
+      {#if isLoading && isQuickAnalysis}
         <Icon icon="mdi:loading" class="animate-spin w-8 h-8" />
-        Analyzing...
+        Quick Analysis...
       {:else}
-        <Icon icon="solar:document-text-linear" class="w-8 h-8 text-blue-600" />
+        <Icon icon="mdi:brain-freeze" class="w-8 h-8 text-blue-600" />
         <span class="font-semibold px-2 py-1 text-blue-600">{hasResearchPaper ? 'Re-analyze Research Paper' : 'Analyze Research Paper'}</span>
       {/if}
     </button>
     
-    <!-- Quick Analysis Button -->
+    <!-- Full Analysis Button -->
     <button 
-      onclick={handleQuickExtractResearchPaper}
-      class="px-3 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded hover:bg-purple-100 transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-      disabled={isExtracting || !canExtract}
-      title="Quick Analysis - AI insights only (TL;DR, Key Insights, What's Next)"
+      onclick={handleExtractResearchPaper}
+      class="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+      disabled={isLoading || !canExtract}
+      title="Full Analysis - Extract all sections with complete content"
     >
-      {#if isExtracting}
+      {#if isLoading && !isQuickAnalysis}
         <Icon icon="mdi:loading" class="animate-spin w-5 h-5" />
       {:else}
         <Icon icon="mdi:magic-staff" class="w-5 h-5" />
@@ -187,8 +281,8 @@
   </div>
 
   <!-- Content Display -->
-  {#if extractionError || researchPaper || isExtracting}
-    <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded border min-h-[120px] max-h-[600px] overflow-y-auto">
+  {#if extractionError || researchPaper}
+    <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded border min-h-[120px] overflow-y-auto">
       {#if extractionError}
         <div class="text-red-600 dark:text-red-400 flex items-center gap-2">
           <Icon icon="mdi:alert-circle" class="w-6 h-6" />
@@ -197,75 +291,31 @@
             <div class="opacity-75">{extractionError}</div>
           </div>
         </div>
-      {:else if isExtracting}
-        <!-- Simplified loading state -->
-        <div class="text-center py-6 flex flex-col items-center gap-3">
-          <!-- Animated spinner -->
-          <div class="relative">
-            <Icon icon="mdi:autorenew" class="w-8 h-8 text-blue-600 animate-spin" />
-            <div class="absolute inset-0 rounded-full border-2 border-blue-200 border-t-transparent animate-pulse"></div>
-          </div>
-          
-          <!-- Progress text -->
-          <div class="font-medium text-blue-900">
-            {extractionProgress || 'Analyzing research paper...'}
-          </div>
-          
-          <!-- Time estimate -->
-          <div class="text-xs text-blue-600 opacity-60">
-            This may take 1-3 minutes
-          </div>
-        </div>
-        
-        <!-- Show partial results below the loading line if available -->
-        {#if researchPaper}
-          <div class="research-paper-content mt-4 pt-4 border-t border-gray-200">
-            <SectionReader analysisData={researchPaper} />
-          </div>
-        {/if}
       {:else if researchPaper}
         <div class="research-paper-content">
           <!-- Section Reader Component -->
-          <SectionReader analysisData={researchPaper} />
+          <SectionReader analysisData={researchPaper} url={url} onRefresh={onRefresh} />
 
           <!-- Citations Display -->
           {#if citations && (citations.bibtex || citations.apa)}
-            <div class="citations-frame mt-8">
-              <div class="citations-content">
-                <!-- BibTeX Citation -->
-                {#if citations.bibtex}
-                  <div class="citation-item mb-2">
-                    <div class="citation-header">
-                      <span class="citation-label">BibTeX</span>
-                      <CopyButton 
-                        copyFn={() => copyCitation('bibtex', citations.bibtex)}
-                        buttonClass="copy-btn"
-                        title="Copy BibTeX"
-                      />
-                    </div>
-                    <div class="citation-text">
-                      {citations.bibtex}
-                    </div>
-                  </div>
-                {/if}
+            <div class="citations-frame mt-8 space-y-4">
+              <!-- BibTeX Citation -->
+              {#if citations.bibtex}
+                <CollapsibleContent 
+                  title="BibTeX Citation" 
+                  content={citations.bibtex}
+                  emptyMessage="No BibTeX citation available"
+                />
+              {/if}
 
-                <!-- APA Citation -->
-                {#if citations.apa}
-                  <div class="citation-item">
-                    <div class="citation-header">
-                      <span class="citation-label">APA</span>
-                      <CopyButton 
-                        copyFn={() => copyCitation('apa', citations.apa)}
-                        buttonClass="copy-btn"
-                        title="Copy APA"
-                      />
-                    </div>
-                    <div class="citation-text">
-                      {citations.apa}
-                    </div>
-                  </div>
-                {/if}
-              </div>
+              <!-- APA Citation -->
+              {#if citations.apa}
+                <CollapsibleContent 
+                  title="APA Citation" 
+                  content={citations.apa}
+                  emptyMessage="No APA citation available"
+                />
+              {/if}
             </div>
           {/if}
         </div>
@@ -404,48 +454,5 @@
   .research-paper-content :global(th) {
     background: #f8fafc !important;
     font-weight: 600 !important;
-  }
-
-  .citations-content {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .citation-item {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .citation-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .citation-label {
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #6b7280;
-  }
-
-
-
-  .citation-text {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 4px;
-    padding: 12px;
-    font-family: 'SF Mono', Monaco, Consolas, monospace;
-    font-size: 12px;
-    line-height: 1.5;
-    color: #374151;
-    white-space: pre-wrap;
-    word-break: break-word;
-    max-height: 120px;
-    overflow-y: auto;
   }
 </style> 

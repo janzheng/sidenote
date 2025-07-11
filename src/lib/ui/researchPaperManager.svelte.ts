@@ -164,6 +164,46 @@ class ResearchPaperManager {
     }
   }
 
+  // Extract single section on demand
+  async handleExtractSingleSection(url: string | null, sectionName: string, userBackground?: string, onSuccess?: () => void) {
+    if (!url) {
+      return { success: false, error: 'No URL provided' };
+    }
+
+    try {
+      console.log(`🔍 Extracting single section: ${sectionName} for URL: ${url}`);
+      
+      const response = await chrome.runtime.sendMessage({
+        action: 'extractSingleSection',
+        url: url,
+        sectionName: sectionName,
+        userBackground: userBackground
+      });
+
+      if (response.success) {
+        console.log(`✅ Single section extraction successful: ${sectionName}`);
+        
+        // Call the success callback to refresh the panel
+        if (onSuccess) {
+          setTimeout(() => {
+            onSuccess();
+          }, 100);
+        }
+        
+        return { success: true, section: response.section };
+      } else {
+        console.error(`❌ Single section extraction failed for ${sectionName}:`, response.error);
+        return { success: false, error: response.error };
+      }
+    } catch (error) {
+      console.error(`❌ Single section extraction error for ${sectionName}:`, error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }
+
   // Get CSS classes for extraction button based on status
   getExtractionButtonClass() {
     if (this.state.extractionStatus === 'success') {
