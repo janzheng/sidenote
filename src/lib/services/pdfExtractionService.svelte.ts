@@ -174,15 +174,14 @@ export class PDFExtractionService {
           metadata.citations!.url = `https://arxiv.org/abs/${arxivId}`;
           metadata.citations!.pdf_url = `https://arxiv.org/pdf/${arxivId}.pdf`;
           
-          // Extract year from arXiv ID if possible (format: YYMM.NNNNN or YYYY.NNNNN)
-          const yearMatch = arxivId.match(/^(\d{4}|\d{2})/);
+          // Extract year from arXiv ID (format: YYMM.NNNNN where YY is 2-digit year)
+          // For 2503.04412 -> YY=25, MM=03 -> year should be 2025
+          const yearMatch = arxivId.match(/^(\d{2})(\d{2})\./);
           if (yearMatch) {
-            let year = yearMatch[1];
-            if (year.length === 2) {
-              // Convert YY to YYYY (assuming 2000s for now)
-              const numYear = parseInt(year);
-              year = numYear < 50 ? `20${year}` : `19${year}`;
-            }
+            const yy = parseInt(yearMatch[1]); // First 2 digits (25)
+            // Convert YY to YYYY: 00-30 = 2000-2030, 31-99 = 1931-1999
+            const year = yy <= 30 ? `20${yy.toString().padStart(2, '0')}` : `19${yy}`;
+            console.log('📄 Extracted year from arXiv ID:', `${yy} -> ${year}`);
             metadata.citations!.year = year;
             metadata.publishedDate = year;
           }
@@ -329,40 +328,185 @@ export class PDFExtractionService {
   /**
    * Generate canonical filename for PDF
    */
-  private static generateCanonicalFilename(url: string, metadata: PageMetadata): string {
+  static generateCanonicalFilename(url: string, metadata: PageMetadata): string {
     console.log('📄 Generating canonical filename for PDF');
     
-    // Check for arXiv ID first (highest priority for arXiv papers)
-    const arxivId = metadata.citations?.arxiv;
-    if (arxivId) {
-      console.log('📄 Using arXiv ID for filename:', arxivId);
-      return `${arxivId}.pdf`;
+    // Helper function to clean and truncate text for filenames
+    const cleanForFilename = (text: string, maxLength: number = 30): string => {
+      return text
+        .replace(/[^\w\s-]/g, '') // Remove special chars except word chars, spaces, hyphens
+        .replace(/\s+/g, '_') // Replace spaces with underscores
+        .replace(/_+/g, '_') // Collapse multiple underscores
+        .replace(/^_|_$/g, '') // Remove leading/trailing underscores
+        .substring(0, maxLength)
+        .toLowerCase();
+    };
+
+    // Helper function to extract meaningful title keywords
+    const extractTitleKeywords = (title: string): string => {
+      console.log('📄 DEBUG: Extracting title keywords from:', title);
+      if (!title || title === 'PDF Document') {
+        console.log('📄 DEBUG: Title is empty or generic, returning empty string');
+        return '';
+      }
+      
+      // Remove common academic prefixes/suffixes and clean up
+      let cleanTitle = title
+        .replace(/^(arXiv:|DOI:|PMC\s+)/i, '') // Remove prefixes
+        .replace(/\s*\(.*?\)\s*/g, ' ') // Remove parenthetical content
+        .replace(/[^\w\s-]/g, ' ') // Replace special chars with spaces
+        .replace(/\s+/g, ' ') // Collapse spaces
+        .trim();
+      
+      console.log('📄 DEBUG: Cleaned title:', cleanTitle);
+      
+      // Split into words and filter out common stop words
+      const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'up', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between', 'among', 'within', 'without', 'under', 'over', 'across', 'around', 'near', 'far', 'against', 'toward', 'towards', 'upon', 'concerning', 'regarding', 'via', 'per', 'using', 'based', 'analysis', 'study', 'research', 'paper', 'article', 'review', 'survey', 'approach', 'method', 'technique', 'algorithm', 'framework', 'model', 'system']);
+      
+      const words = cleanTitle.split(/\s+/)
+        .filter(word => word.length > 2 && !stopWords.has(word.toLowerCase()))
+        .slice(0, 4); // Take first 4 meaningful words
+      
+      console.log('📄 DEBUG: Filtered words:', words);
+      const result = words.join('_').toLowerCase();
+      console.log('📄 DEBUG: Title keywords result:', result);
+      return result;
+    };
+
+    // Helper function to get author last names
+    const getAuthorLastNames = (metadata: PageMetadata): string => {
+      console.log('📄 DEBUG: Getting author last names from metadata:', {
+        'metadata.citations?.authors': metadata.citations?.authors,
+        'metadata.author': metadata.author,
+        'authors type': typeof metadata.citations?.authors,
+        'authors isArray': Array.isArray(metadata.citations?.authors)
+      });
+      
+      const authors = metadata.citations?.authors || [];
+      if (!Array.isArray(authors) || authors.length === 0) {
+        console.log('📄 DEBUG: No authors array found, trying author field');
+        // Try to extract from author field if available
+        const authorField = metadata.author;
+        if (authorField && typeof authorField === 'string') {
+          console.log('📄 DEBUG: Found author field:', authorField);
+          // Split by common delimiters and extract last names
+          const authorNames = authorField.split(/[,;&]+/).map(name => name.trim());
+          const lastNames = authorNames.map(name => {
+            const parts = name.split(/\s+/);
+            return parts[parts.length - 1]; // Get last part as last name
+          }).filter(name => name.length > 1);
+          
+          if (lastNames.length > 0) {
+            const result = lastNames.slice(0, 2).join('_').toLowerCase(); // Max 2 authors
+            console.log('📄 DEBUG: Extracted from author field:', result);
+            return result;
+          }
+        }
+        console.log('📄 DEBUG: No usable author information found');
+        return '';
+      }
+      
+      console.log('📄 DEBUG: Processing authors array:', authors);
+      // Extract last names from authors array
+      const lastNames = authors.map(author => {
+        if (typeof author !== 'string') return '';
+        const parts = author.trim().split(/\s+/);
+        return parts[parts.length - 1]; // Get last part as last name
+      }).filter(name => name.length > 1);
+      
+      console.log('📄 DEBUG: Extracted last names:', lastNames);
+      
+      if (lastNames.length === 0) return '';
+      
+      // Use first author, or first two if multiple
+      let result = '';
+      if (lastNames.length === 1) {
+        result = cleanForFilename(lastNames[0], 15);
+      } else {
+        result = cleanForFilename(`${lastNames[0]}_${lastNames[1]}`, 20);
+      }
+      
+      console.log('📄 DEBUG: Final author result:', result);
+      return result;
+    };
+
+    // Build filename components
+    const components: string[] = [];
+    
+    console.log('📄 DEBUG: Starting filename generation with metadata:', {
+      title: metadata.title,
+      author: metadata.author,
+      citations: metadata.citations
+    });
+    
+    // 1. Try to get author last names first
+    const authorNames = getAuthorLastNames(metadata);
+    console.log('📄 DEBUG: Author names result:', authorNames);
+    if (authorNames) {
+      components.push(authorNames);
+      console.log('📄 DEBUG: Added author names to components');
+    } else {
+      console.log('📄 DEBUG: No author names found, skipping');
     }
     
-    // Check for other academic identifiers
+    // 2. Add title keywords
+    const titleKeywords = extractTitleKeywords(metadata.title || '');
+    console.log('📄 DEBUG: Title keywords result:', titleKeywords);
+    if (titleKeywords) {
+      components.push(titleKeywords);
+      console.log('📄 DEBUG: Added title keywords to components');
+    } else {
+      console.log('📄 DEBUG: No title keywords found, skipping');
+    }
+    
+    // 3. Add academic identifier as a suffix for uniqueness
+    let identifier = '';
+    const arxivId = metadata.citations?.arxiv;
     const doi = metadata.citations?.doi;
     const pmcid = metadata.citations?.pmcid;
     const bioRxivId = metadata.citations?.identifier;
     
-    if (doi) {
-      const doiSuffix = doi.split('/').pop()?.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20);
+    console.log('📄 DEBUG: Academic identifiers:', { arxivId, doi, pmcid, bioRxivId });
+    
+    if (arxivId) {
+      identifier = `arxiv_${arxivId.replace(/\./g, '_')}`;
+    } else if (doi) {
+      const doiSuffix = doi.split('/').pop()?.replace(/[^\w.-]/g, '_').substring(0, 15);
       if (doiSuffix) {
-        console.log('📄 Using DOI for filename:', doiSuffix);
-        return `doi_${doiSuffix}.pdf`;
+        identifier = `doi_${doiSuffix}`;
       }
+    } else if (pmcid) {
+      identifier = pmcid.toLowerCase();
+    } else if (bioRxivId) {
+      identifier = `biorxiv_${bioRxivId.replace(/[^\w.-]/g, '_')}`;
     }
     
-    if (pmcid) {
-      console.log('📄 Using PMC ID for filename:', pmcid);
-      return `${pmcid}.pdf`;
+    console.log('📄 DEBUG: Generated identifier:', identifier);
+    if (identifier) {
+      components.push(identifier);
+      console.log('📄 DEBUG: Added identifier to components');
     }
     
-    if (bioRxivId) {
-      console.log('📄 Using bioRxiv ID for filename:', bioRxivId);
-      return `${bioRxivId}.pdf`;
+    console.log('📄 DEBUG: Final components array:', components);
+    
+    // 4. If we have components, join them
+    if (components.length > 0) {
+      let filename = components.join('_');
+      
+      // Ensure filename isn't too long (max 100 chars before .pdf)
+      if (filename.length > 100) {
+        filename = filename.substring(0, 100);
+      }
+      
+      // Clean up any trailing underscores
+      filename = filename.replace(/_+$/, '');
+      
+      console.log('📄 Generated memorable filename:', `${filename}.pdf`);
+      return `${filename}.pdf`;
     }
     
-    // Fallback to URL-based extraction
+    // 5. Fallback to URL-based extraction if no metadata available
+    console.log('📄 DEBUG: No components found, falling back to URL-based extraction');
     try {
       const urlObj = new URL(url);
       
@@ -371,8 +515,8 @@ export class PDFExtractionService {
         const arxivMatch = url.match(/arxiv\.org\/(?:pdf|abs)\/([^\/\?]+)/);
         if (arxivMatch) {
           const arxivId = arxivMatch[1].replace(/\.pdf$/, '').replace(/v\d+$/, '');
-          console.log('📄 Extracted arXiv ID from URL:', arxivId);
-          return `${arxivId}.pdf`;
+          console.log('📄 FALLBACK: Using arXiv ID from URL:', arxivId);
+          return `arxiv_${arxivId}.pdf`;
         }
       }
       
@@ -381,8 +525,8 @@ export class PDFExtractionService {
         const bioMatch = url.match(/(\w+rxiv)\.org\/content\/.*?(\d{4}\.\d{2}\.\d{2}\.\d+)/);
         if (bioMatch) {
           const paperId = bioMatch[2];
-          console.log('📄 Extracted bioRxiv/medRxiv ID from URL:', paperId);
-          return `${paperId}.pdf`;
+          console.log('📄 Fallback: Using bioRxiv/medRxiv ID from URL:', paperId);
+          return `${bioMatch[1]}_${paperId}.pdf`;
         }
       }
       
@@ -391,7 +535,7 @@ export class PDFExtractionService {
       filename = filename.split('?')[0].split('#')[0];
       
       if (filename && filename.toLowerCase().endsWith('.pdf')) {
-        console.log('📄 Using URL filename:', filename);
+        console.log('📄 Fallback: Using URL filename:', filename);
         return filename;
       }
       
@@ -399,11 +543,11 @@ export class PDFExtractionService {
       const domain = urlObj.hostname.replace(/[^a-zA-Z0-9\-_]/g, '');
       const timestamp = new Date().toISOString().split('T')[0];
       const fallbackFilename = `${domain}_${timestamp}.pdf`;
-      console.log('📄 Using fallback filename:', fallbackFilename);
+      console.log('📄 Fallback: Using domain and timestamp:', fallbackFilename);
       return fallbackFilename;
       
     } catch (error) {
-      console.warn('📄 Error generating filename from URL:', error);
+      console.warn('📄 Error in filename fallback generation:', error);
       return 'document.pdf';
     }
   }
@@ -457,9 +601,6 @@ export class PDFExtractionService {
       // Extract metadata from URL first
       let metadata = this.extractMetadataFromUrl(url, title);
       
-      // Generate canonical filename
-      metadata.filename = this.generateCanonicalFilename(url, metadata);
-      
       // Add technical metadata
       metadata.contentType = 'pdf';
       metadata.domain = domain;
@@ -497,6 +638,9 @@ export class PDFExtractionService {
           console.warn('⚠️ Failed to enhance PDF metadata with content-based citations:', error);
         }
       }
+      
+      // ✅ SKIP FILENAME GENERATION: Let background script handle this after citation enhancement
+      // metadata.filename = this.generateCanonicalFilename(url, metadata);
       
       // ✅ FIX: Use enhanced title from metadata for content structure
       const finalTitle = metadata.title || 'PDF Document';
@@ -592,9 +736,6 @@ export class PDFExtractionService {
       // Extract metadata from URL first
       let metadata = this.extractMetadataFromUrl(url, title);
       
-      // Generate canonical filename
-      metadata.filename = this.generateCanonicalFilename(url, metadata);
-      
       // Add technical metadata
       metadata.contentType = 'pdf';
       metadata.domain = domain;
@@ -632,6 +773,9 @@ export class PDFExtractionService {
           console.warn('⚠️ Failed to enhance PDF metadata with content-based citations:', error);
         }
       }
+      
+      // ✅ SKIP FILENAME GENERATION: Let background script handle this after citation enhancement
+      // metadata.filename = this.generateCanonicalFilename(url, metadata);
       
       // ✅ FIX: Use enhanced title from metadata for content structure
       const finalTitle = metadata.title || 'PDF Document';

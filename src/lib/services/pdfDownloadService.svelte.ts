@@ -24,6 +24,7 @@ export class PDFDownloadService {
   
   /**
    * Generate intelligent filename based on citation data and metadata
+   * This now primarily relies on the enhanced filename from PDFCitationService
    */
   static generateIntelligentFilename(options: PDFDownloadOptions): string {
     const { url, title, tabData } = options;
@@ -34,171 +35,22 @@ export class PDFDownloadService {
       hasTabData: !!tabData,
       hasContent: !!tabData?.content,
       hasMetadata: !!tabData?.content?.metadata,
-      metadata: tabData?.content?.metadata 
+      hasEnhancedFilename: !!tabData?.content?.metadata?.filename
     });
     
     try {
-      // Priority 1: Use canonical filename from metadata if available
+      // Priority 1: Use enhanced filename from PDFCitationService if available
       const metadata = tabData?.content?.metadata;
       if (metadata?.filename) {
-        console.log('✅ Using canonical filename from metadata:', metadata.filename);
+        console.log('✅ Using enhanced filename from PDFCitationService:', metadata.filename);
         return metadata.filename;
       }
       
-      // Priority 2: Extract from metadata if available
-      if (metadata) {
-        console.log('📊 Found metadata:', metadata);
-        let filename = '';
-        
-        // Check for arXiv ID first (highest priority for arXiv papers)
-        const arxivId = metadata.citations?.arxiv;
-        if (arxivId) {
-          console.log('📄 Found arXiv ID:', arxivId);
-          
-          // For arXiv papers, prefer simple naming: arxivId.pdf or Author_Year_arxivId.pdf
-          
-          // Try to extract author from various metadata fields
-          const author = metadata.author || 
-                        metadata.citations?.authors?.[0] || 
-                        metadata.citations?.first_author;
-          
-          let authorPart = '';
-          if (author) {
-            const lastNameMatch = author.match(/([A-Za-z]+)(?:\s|,|$)/);
-            if (lastNameMatch && lastNameMatch[1].length > 2) {
-              authorPart = lastNameMatch[1];
-              console.log('👤 Found author:', authorPart);
-            }
-          }
-          
-          // Add year if available
-          let yearPart = '';
-          const year = metadata.citations?.year || 
-                       metadata.citations?.publication_date || 
-                       metadata.publishedDate;
-          
-          if (year) {
-            const yearMatch = year.toString().match(/(\d{4})/);
-            if (yearMatch) {
-              yearPart = yearMatch[1];
-              console.log('📅 Found year:', yearPart);
-            }
-          }
-          
-          // Generate filename based on available information
-          if (authorPart && yearPart) {
-            filename = `${authorPart}_${yearPart}_${arxivId}`;
-          } else if (authorPart) {
-            filename = `${authorPart}_${arxivId}`;
-          } else {
-            filename = arxivId;
-          }
-          
-          console.log('✅ Generated arXiv filename:', filename);
-          return `${filename}.pdf`;
-        }
-        
-        // Check for other academic identifiers
-        const doi = metadata.citations?.doi;
-        const pmcid = metadata.citations?.pmcid;
-        const bioRxivId = metadata.citations?.identifier;
-        
-        if (doi || pmcid || bioRxivId) {
-          // Try to extract author from various metadata fields
-          const author = metadata.author || 
-                        metadata.citations?.authors?.[0] || 
-                        metadata.citations?.first_author;
-          
-          if (author) {
-            const lastNameMatch = author.match(/([A-Za-z]+)(?:\s|,|$)/);
-            if (lastNameMatch) {
-              filename += lastNameMatch[1];
-              console.log('👤 Added author:', lastNameMatch[1]);
-            }
-          }
-          
-          // Add year if available
-          const year = metadata.citations?.year || 
-                       metadata.citations?.publication_date || 
-                       metadata.publishedDate;
-          
-          if (year) {
-            const yearMatch = year.toString().match(/(\d{4})/);
-            if (yearMatch) {
-              filename += `_${yearMatch[1]}`;
-              console.log('📅 Added year:', yearMatch[1]);
-            }
-          }
-          
-          // Add identifier
-          if (doi) {
-            const doiSuffix = doi.split('/').pop()?.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 15);
-            if (doiSuffix) {
-              filename += `_doi_${doiSuffix}`;
-              console.log('🔗 Added DOI:', doiSuffix);
-            }
-          } else if (pmcid) {
-            filename += `_${pmcid}`;
-            console.log('🔗 Added PMC ID:', pmcid);
-          } else if (bioRxivId) {
-            filename += `_${bioRxivId}`;
-            console.log('🔗 Added bioRxiv ID:', bioRxivId);
-          }
-          
-          if (filename) {
-            console.log('✅ Generated academic filename:', filename);
-            return `${filename}.pdf`;
-          }
-        }
-        
-        // Fallback to general metadata approach
-        // Try to extract author from various metadata fields
-        const author = metadata.author || 
-                      metadata.citations?.authors?.[0] || 
-                      metadata.citations?.first_author;
-        
-        if (author) {
-          const lastNameMatch = author.match(/([A-Za-z]+)(?:\s|,|$)/);
-          if (lastNameMatch) {
-            filename += lastNameMatch[1];
-            console.log('👤 Added author:', lastNameMatch[1]);
-          }
-        }
-        
-        // Try to extract year from various metadata fields
-        const year = metadata.citations?.year || 
-                     metadata.citations?.publication_date || 
-                     metadata.publishedDate;
-        
-        if (year) {
-          const yearMatch = year.toString().match(/(\d{4})/);
-          if (yearMatch) {
-            filename += `_${yearMatch[1]}`;
-            console.log('📅 Added year:', yearMatch[1]);
-          }
-        }
-        
-        // Add title keywords (first few meaningful words)
-        const titleSource = metadata.title || title || tabData?.content?.title;
-        if (titleSource) {
-          const titleWords = titleSource
-            .toLowerCase()
-            .replace(/[^a-zA-Z0-9\s]/g, '')
-            .split(/\s+/)
-            .filter((word: string) => word.length > 3 && !['the', 'and', 'for', 'with', 'from', 'this', 'that', 'using', 'based', 'arxiv'].includes(word))
-            .slice(0, 3)
-            .join('_');
-          
-          if (titleWords) {
-            filename += `_${titleWords}`;
-            console.log('📝 Added title words:', titleWords);
-          }
-        }
-        
-        if (filename) {
-          console.log('✅ Generated filename from metadata:', filename);
-          return `${filename}.pdf`;
-        }
+      // Priority 2: Simple fallback for arXiv papers
+      if (metadata?.citations?.arxiv) {
+        const arxivId = metadata.citations.arxiv;
+        console.log('📄 Using simple arXiv fallback:', `${arxivId}.pdf`);
+        return `${arxivId}.pdf`;
       }
       
       // Priority 3: Extract from arXiv URL pattern

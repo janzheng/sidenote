@@ -69,7 +69,10 @@ export async function handleContentExtraction(tabId: number, sendResponse: (resp
                 fullTabData.content.metadata
               );
               
-              // Update the content with enhanced metadata
+              // ✅ FILENAME ALREADY GENERATED: The PDF citation service already generated the filename during enhancement
+              console.log('📄📚 Filename already generated during metadata enhancement:', enhancedMetadata.filename);
+
+              // Update the content with enhanced metadata (including new filename)
               await backgroundDataController.saveData(tab.url!, {
                 content: {
                   ...fullTabData.content,

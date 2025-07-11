@@ -316,6 +316,41 @@ Return only the clean, properly formatted JSON metadata object, no explanatory t
         console.log('📄 Abstract extracted and set as description:', pdfCitations.abstract.substring(0, 100) + '...');
       }
 
+      // ✅ GENERATE FILENAME: Right here when we have all the enhanced citation data
+      if (pdfCitations.authors && pdfCitations.title && pdfCitations.authors.length > 0) {
+        console.log('📄 Generating filename with enhanced citation data...');
+        
+        // Get first author last name
+        const firstAuthor = pdfCitations.authors[0];
+        const lastName = firstAuthor.split(' ').pop()?.toLowerCase() || '';
+        
+        // Get 4-5 key words from title
+        const titleWords = pdfCitations.title
+          .toLowerCase()
+          .replace(/[^\w\s]/g, ' ')
+          .split(/\s+/)
+          .filter((word: string) => word.length > 2)
+          .filter((word: string) => !['the', 'and', 'with', 'for', 'from', 'that', 'this', 'are', 'was', 'were', 'been', 'have', 'has', 'had', 'will', 'would', 'could', 'should'].includes(word))
+          .slice(0, 5)
+          .join('_');
+        
+        // Get identifier
+        let identifier = '';
+        if (pdfCitations.arxiv) {
+          identifier = `arxiv_${pdfCitations.arxiv.replace(/\./g, '_')}`;
+        } else if (pdfCitations.doi) {
+          const doiSuffix = pdfCitations.doi.split('/').pop()?.replace(/[^\w.-]/g, '_').substring(0, 15);
+          identifier = `doi_${doiSuffix}`;
+        }
+        
+        // Build filename: lastname_titlewords_identifier.pdf
+        const filename = [lastName, titleWords, identifier].filter(Boolean).join('_') + '.pdf';
+        enhancedMetadata.filename = filename;
+        
+        console.log('📄 Generated intelligent filename:', filename);
+        console.log('📄 Components: lastName=' + lastName + ', titleWords=' + titleWords + ', identifier=' + identifier);
+      }
+
       return enhancedMetadata;
 
     } catch (error) {
