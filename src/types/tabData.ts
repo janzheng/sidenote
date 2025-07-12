@@ -8,6 +8,7 @@ import type { PageAssets } from './pageAssets';
 import type { Recipe } from './recipe';
 import type { SocialMediaThread } from './socialMedia';
 import type { TextToSpeech } from './textToSpeech';
+import type { MapsData } from './mapsData';
 
 export interface TabData {
   content: {
@@ -32,6 +33,7 @@ export interface TabData {
     recipe: Recipe | null;
     socialMediaThread: SocialMediaThread | null;
     textToSpeech: TextToSpeech | null;
+    mapsData: MapsData | null;
   };
 
   statuses: {
@@ -48,6 +50,7 @@ export interface TabData {
     recipe: { isExtracting: boolean; error: string | null };
     socialMediaThread: { isExtracting: boolean; isExpanding: boolean; error: string | null };
     textToSpeech: { isGenerating: boolean; error: string | null };
+    mapsData: { isExtracting: boolean; isControlling: boolean; error: string | null };
   };
   
   meta: {

@@ -3,6 +3,8 @@ import { extractContent } from './tasks/extractContent.svelte';
 import { extractPageAssets } from './tasks/extractPageAssets.svelte';
 import { extractTwitterThreadWithScroll } from './tasks/extractTwitterThreadWithScroll.svelte';
 import { extractLinkedInThreadWithScroll } from './tasks/extractLinkedInThreadWithScroll.svelte';
+import { extractMapsData } from './tasks/extractMapsData.svelte';
+import { controlMaps } from './tasks/controlMaps.svelte';
 
 // Import debug functions for testing
 import './tasks/debugScrollCapture.svelte';
@@ -33,6 +35,37 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ 
         success: false, 
         error: error instanceof Error ? error.message : 'Page assets extraction failed' 
+      });
+    });
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle Google Maps data extraction requests
+  if (message.action === 'extractMapsData') {
+    extractMapsData().then(result => {
+      sendResponse(result);
+    }).catch(error => {
+      console.error('🗺️ Maps data extraction failed:', error);
+      sendResponse({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Maps data extraction failed' 
+      });
+    });
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle Google Maps control requests
+  if (message.action === 'controlMaps') {
+    const { command } = message;
+    
+    controlMaps(command).then(result => {
+      sendResponse(result);
+    }).catch(error => {
+      console.error('🗺️ Maps control failed:', error);
+      sendResponse({ 
+        success: false, 
+        action: command?.action || 'unknown',
+        error: error instanceof Error ? error.message : 'Maps control failed' 
       });
     });
     return true; // Keep message channel open for async response

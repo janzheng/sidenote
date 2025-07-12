@@ -12,6 +12,7 @@
   import Citations from './lib/components/Citations.svelte';
   import AiChat from './lib/components/AiChat.svelte';
   import AiSummaryChat from './lib/components/AiSummaryChat.svelte';
+  import AiMapsChat from './lib/components/AiMapsChat.svelte';
   import AiResearchPaper from './lib/components/AiResearchPaper.svelte';
   import AiTextToSpeech from './lib/components/AiTextToSpeech.svelte';
   import TwitterThread from './lib/components/TwitterThread.svelte';
@@ -183,13 +184,11 @@
               </span>
             </p>
           {/if}
-          
           <div class="text-gray-600 space-y-1">
-          <p><strong>URL:</strong> {panelManager.url}</p>
+            <p><strong>URL:</strong> <span class="break-all">{panelManager.url}</span></p>
             <p><strong>Tab ID:</strong> {panelManager.tabId}</p>
             <p><strong>Word count:</strong> {panelManager.wordCount}</p>
           </div>
-          
           <!-- PDF Download Button -->
           {#if panelManager.url && (panelManager.url.toLowerCase().includes('.pdf') || 
                                    panelManager.url.toLowerCase().includes('arxiv.org/pdf/') ||
@@ -259,6 +258,19 @@
             summary={panelManager.content.analysis?.summary}
             chatMessages={panelManager.content.analysis?.chatMessages}
             isGenerating={panelManager.content.processing?.summary?.isStreaming || panelManager.content.processing?.chat?.isGenerating || false}
+            onRefresh={() => panelManager.refreshDataOnly()}
+          />
+        </div>
+      {/if}
+
+      <!-- AI Maps Control & Chat Component -->
+      {#if currentTab === 'content' && panelManager.content}
+        <div class="">
+          <AiMapsChat 
+            url={panelManager.url}
+            content={panelManager.content.content}
+            mapsData={panelManager.content.analysis?.mapsData}
+            isExtracting={panelManager.content.processing?.mapsData?.isExtracting || false}
             onRefresh={() => panelManager.refreshDataOnly()}
           />
         </div>

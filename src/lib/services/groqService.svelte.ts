@@ -1,9 +1,40 @@
-import type { ChatMessage } from '../../types/chatMessage';
+import type { ChatMessage, ToolCall } from '../../types/chatMessage';
 import type { GenerateTextOptions } from '../../types/generateTextOptions';
 import type { GenerateTextResponse } from '../../types/generateTextResponse';
 import { getCurrentSettings } from '../ui/settings.svelte';
 import { cleanAndParseJson } from '../utils/cleanAndParseJson';
 import { extractJsonFromResponse } from '../utils/extractJsonFromResponse';
+
+// Tool use types
+export interface ToolFunction {
+  name: string;
+  description: string;
+  parameters: {
+    type: 'object';
+    properties: Record<string, {
+      type: string;
+      description: string;
+      enum?: string[];
+    }>;
+    required: string[];
+  };
+}
+
+export interface Tool {
+  type: 'function';
+  function: ToolFunction;
+}
+
+export interface ToolCallResponse extends GenerateTextResponse {
+  toolCalls?: ToolCall[];
+  needsToolExecution?: boolean;
+}
+
+export interface ToolResult {
+  tool_call_id: string;
+  role: 'tool';
+  content: string;
+}
 
 /**
  * Simple, focused Groq API service that makes direct HTTP calls
@@ -49,6 +80,7 @@ export class GroqService {
         model: requestBody.model,
         temperature: requestBody.temperature,
         max_tokens: requestBody.max_tokens,
+        messages: messages,
         messages_count: messages.length
       });
 
@@ -86,6 +118,7 @@ export class GroqService {
 
       const data = await response.json();
       console.log('📥 Groq API response received:', {
+        message: data.choices[0].message,
         choices: data.choices?.length || 0,
         usage: data.usage
       });
@@ -113,6 +146,220 @@ export class GroqService {
       }
       
       return { success: false, error: 'Unknown error occurred' };
+    }
+  }
+
+  /**
+   * Generate text with tool use support using Groq API
+   */
+  static async generateTextWithTools(
+    messages: ChatMessage[],
+    tools: Tool[],
+    options: GenerateTextOptions = {}
+  ): Promise<ToolCallResponse> {
+    try {
+      console.log('🛠️ Starting Groq API call with tools');
+      console.log('📝 Messages to send:', messages.length, 'messages');
+      console.log('🔧 Tools available:', tools.map(t => t.function.name));
+
+      const settings = getCurrentSettings();
+      if (!settings.apiKey) {
+        return { 
+          success: false, 
+          error: 'Groq API key not configured. Please set it in settings.' 
+        };
+      }
+
+      const requestBody = {
+        model: options.model || this.DEFAULT_MODEL,
+        messages: messages,
+        tools: tools,
+        tool_choice: 'auto',
+        temperature: options.temperature ?? 0.1,
+        max_tokens: options.maxTokens || 4000,
+        top_p: options.topP ?? 0.9,
+        stop: options.stop || null,
+        stream: false
+      };
+
+      console.log('🔧 Request config:', {
+        model: requestBody.model,
+        temperature: requestBody.temperature,
+        max_tokens: requestBody.max_tokens,
+        messages: messages,
+        messages_count: messages.length,
+        tools_count: tools.length
+      });
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.TIMEOUT);
+
+      const response = await fetch(`${this.BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${settings.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Groq API error:', response.status, errorText);
+        
+        let errorMessage = `API request failed with status ${response.status}`;
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.error?.message) {
+            errorMessage = errorData.error.message;
+          }
+        } catch {
+          // Use generic error message
+        }
+
+        return { success: false, error: errorMessage };
+      }
+
+      const data = await response.json();
+      console.log('📥 Groq API response received:', {
+        message: data.choices[0].message,
+        choices: data.choices?.length || 0,
+        usage: data.usage,
+        hasToolCalls: !!data.choices?.[0]?.message?.tool_calls
+      });
+
+      if (!data.choices || data.choices.length === 0) {
+        return { success: false, error: 'No response generated' };
+      }
+
+      const responseMessage = data.choices[0].message;
+      const toolCalls = responseMessage.tool_calls;
+
+      if (toolCalls && toolCalls.length > 0) {
+        console.log('🛠️ Tool calls detected:', toolCalls.map((tc: any) => tc.function.name));
+        return {
+          success: true,
+          content: responseMessage.content || '',
+          toolCalls: toolCalls,
+          needsToolExecution: true,
+          usage: data.usage
+        };
+      } else {
+        // No tool calls, return regular response
+        return {
+          success: true,
+          content: responseMessage.content?.trim() || '',
+          needsToolExecution: false,
+          usage: data.usage
+        };
+      }
+
+    } catch (error) {
+      console.error('❌ Groq API call with tools failed:', error);
+      
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          return { success: false, error: 'Request timed out' };
+        }
+        return { success: false, error: error.message };
+      }
+      
+      return { success: false, error: 'Unknown error occurred' };
+    }
+  }
+
+  /**
+   * Execute a complete tool conversation flow
+   */
+  static async executeToolConversation(
+    initialMessages: ChatMessage[],
+    tools: Tool[],
+    toolExecutor: (toolCall: ToolCall) => Promise<string>,
+    options: GenerateTextOptions = {}
+  ): Promise<GenerateTextResponse & { conversationMessages?: ChatMessage[] }> {
+    try {
+      console.log('🔄 Starting tool conversation flow');
+      
+      const conversationMessages = [...initialMessages];
+      
+      // First API call with tools
+      const initialResponse = await this.generateTextWithTools(conversationMessages, tools, options);
+      
+      if (!initialResponse.success) {
+        return initialResponse;
+      }
+
+      if (!initialResponse.needsToolExecution || !initialResponse.toolCalls) {
+        // No tools needed, return the response directly
+        return {
+          success: true,
+          content: initialResponse.content,
+          conversationMessages,
+          usage: initialResponse.usage
+        };
+      }
+
+      // Add the assistant's response with tool calls to conversation
+      conversationMessages.push({
+        role: 'assistant',
+        content: initialResponse.content || null,
+        tool_calls: initialResponse.toolCalls
+      });
+
+      // Execute all tool calls
+      console.log('🛠️ Executing tool calls:', initialResponse.toolCalls.length);
+      
+      for (const toolCall of initialResponse.toolCalls) {
+        try {
+          console.log(`🔧 Executing tool: ${toolCall.function.name}`);
+          const toolResult = await toolExecutor(toolCall);
+          
+          // Add tool result to conversation
+          conversationMessages.push({
+            role: 'tool',
+            content: toolResult,
+            tool_call_id: toolCall.id
+          });
+          
+          console.log(`✅ Tool ${toolCall.function.name} executed successfully`);
+        } catch (toolError) {
+          console.error(`❌ Tool ${toolCall.function.name} failed:`, toolError);
+          
+          // Add error result to conversation
+          conversationMessages.push({
+            role: 'tool',
+            content: `Error executing ${toolCall.function.name}: ${toolError instanceof Error ? toolError.message : 'Unknown error'}`,
+            tool_call_id: toolCall.id
+          });
+        }
+      }
+
+      // Second API call with tool results
+      console.log('🔄 Making follow-up API call with tool results');
+      const finalResponse = await this.generateText(conversationMessages, options);
+      
+      if (!finalResponse.success) {
+        return finalResponse;
+      }
+
+      return {
+        success: true,
+        content: finalResponse.content,
+        conversationMessages,
+        usage: finalResponse.usage
+      };
+
+    } catch (error) {
+      console.error('❌ Tool conversation flow failed:', error);
+      
+      if (error instanceof Error) {
+        return { success: false, error: error.message };
+      }
+      
+      return { success: false, error: 'Tool conversation flow failed' };
     }
   }
 
@@ -326,3 +573,5 @@ export const generateTextFromPrompt = GroqService.generateTextFromPrompt.bind(Gr
 export const generateTextWithJsonParsing = GroqService.generateTextWithJsonParsing.bind(GroqService);
 export const generateTextFromPromptWithJsonParsing = GroqService.generateTextFromPromptWithJsonParsing.bind(GroqService);
 export const generateSpeech = GroqService.generateSpeech.bind(GroqService);
+export const generateTextWithTools = GroqService.generateTextWithTools.bind(GroqService);
+export const executeToolConversation = GroqService.executeToolConversation.bind(GroqService);

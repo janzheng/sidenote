@@ -18,6 +18,8 @@ import { handleLinkedInThreadExtractionWithScroll, getLinkedInThreadStatus } fro
 import { handleTwitterThreadExtractionWithScroll, getTwitterThreadStatus } from './tasks/handleTwitterThreadExtraction.svelte';
 import { handlePDFExtraction, getPDFExtractionStatus, generateCitations } from './tasks/handlePDFExtraction.svelte';
 import { handleTextToSpeechGeneration, handleTtsTextGeneration, handleTtsAudioGeneration, getTtsStatus } from './tasks/handleTextToSpeechGeneration.svelte';
+import { handleMapsExtraction, getMapsDataStatus } from './tasks/handleMapsExtraction.svelte';
+import { handleMapsControl, getMapsControlStatus } from './tasks/handleMapsControl.svelte';
 import { DataController } from '../lib/services/dataController.svelte';
 
 // Shared data controller instance for background context
@@ -325,6 +327,42 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'getTtsStatus') {
     const { url } = message;
     getTtsStatus(url).then(status => {
+      sendResponse({ success: true, status });
+    }).catch(error => {
+      sendResponse({ success: false, error: error.message });
+    });
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle Maps extraction requests
+  if (message.action === 'extractMapsData') {
+    const { url } = message;
+    handleMapsExtraction(url, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle Maps extraction status requests
+  if (message.action === 'getMapsDataStatus') {
+    const { url } = message;
+    getMapsDataStatus(url).then(status => {
+      sendResponse({ success: true, status });
+    }).catch(error => {
+      sendResponse({ success: false, error: error.message });
+    });
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle Maps control requests
+  if (message.action === 'controlMaps') {
+    const { url, command } = message;
+    handleMapsControl(url, command, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle Maps control status requests
+  if (message.action === 'getMapsControlStatus') {
+    const { url } = message;
+    getMapsControlStatus(url).then(status => {
       sendResponse({ success: true, status });
     }).catch(error => {
       sendResponse({ success: false, error: error.message });

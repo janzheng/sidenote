@@ -247,7 +247,9 @@ export class DataController {
         threadgirlResults: null,
         pageAssets: null,
         recipe: null,
-        socialMediaThread: null
+        socialMediaThread: null,
+        textToSpeech: null,
+        mapsData: null
       },
       statuses: {
         bookmarkStatus: 'not-bookmarked'
@@ -260,7 +262,9 @@ export class DataController {
         threadgirl: { isProcessing: false, error: null },
         pageAssets: { isExtracting: false, error: null },
         recipe: { isExtracting: false, error: null },
-        socialMediaThread: { isExtracting: false, isExpanding: false, error: null }
+        socialMediaThread: { isExtracting: false, isExpanding: false, error: null },
+        textToSpeech: { isGenerating: false, error: null },
+        mapsData: { isExtracting: false, isControlling: false, error: null }
       },
       meta: {
         contentId: this.generateContentId(url),
