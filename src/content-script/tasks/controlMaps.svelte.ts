@@ -413,6 +413,114 @@ async function panTo(coordinates: Coordinates): Promise<MapsControlResult> {
 }
 
 /**
+ * Add a waypoint to the current route
+ */
+async function addWaypoint(waypoint: string, position?: number): Promise<MapsControlResult> {
+  try {
+    console.log('🗺️ Attempting to add waypoint:', waypoint);
+    
+    // First, ensure we're in directions mode
+    const directionsBox = document.querySelector('#omnibox-directions');
+    if (!directionsBox || (directionsBox as HTMLElement).style.display === 'none') {
+      return {
+        success: false,
+        action: 'add_waypoint',
+        error: 'No active directions found. Please start directions first.'
+      };
+    }
+    
+    // Look for the "Add destination" or "+" button
+    const addDestinationSelectors = [
+      '[data-value="add-destination"]',
+      '[aria-label*="Add destination"]',
+      '[aria-label*="Add stop"]',
+      'button[data-value="directions.add-stop"]',
+      '.directions-add-stop',
+      '.directions-waypoint-add'
+    ];
+    
+    for (const selector of addDestinationSelectors) {
+      const addButton = await waitForElement(selector, 2000);
+      if (addButton) {
+        console.log('🗺️ Found add destination button');
+        simulateClick(addButton);
+        
+        // Wait for new input field to appear
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Find the new waypoint input field
+        const waypointInputSelectors = [
+          '#directions-searchbox input:last-child',
+          '.directions-waypoint-input:last-child',
+          'input[placeholder*="waypoint"]',
+          'input[aria-label*="waypoint"]'
+        ];
+        
+        for (const inputSelector of waypointInputSelectors) {
+          const waypointInput = await waitForElement(inputSelector, 2000) as HTMLInputElement;
+          if (waypointInput) {
+            console.log('🗺️ Found waypoint input field');
+            simulateTyping(waypointInput, waypoint);
+            
+            // Press Enter to confirm
+            const enterEvent = new KeyboardEvent('keydown', {
+              key: 'Enter',
+              code: 'Enter',
+              keyCode: 13,
+              which: 13,
+              bubbles: true
+            });
+            waypointInput.dispatchEvent(enterEvent);
+            
+            return {
+              success: true,
+              action: 'add_waypoint',
+              result: `Successfully added waypoint "${waypoint}" to the route`
+            };
+          }
+        }
+        
+        return {
+          success: false,
+          action: 'add_waypoint',
+          error: 'Could not find waypoint input field after clicking add button'
+        };
+      }
+    }
+    
+    // Fallback: Try to construct a multi-destination URL
+    const currentUrl = new URL(window.location.href);
+    
+    // If we have a directions URL, try to add the waypoint to it
+    if (currentUrl.pathname.includes('/dir/')) {
+      // This is a more complex URL manipulation that would need the current origin and destination
+      console.log('🗺️ Attempting URL-based waypoint addition (fallback)');
+      
+      // For now, return a message suggesting manual addition
+      return {
+        success: false,
+        action: 'add_waypoint',
+        error: 'Could not automatically add waypoint. Please manually click "Add destination" and enter the waypoint.'
+      };
+    }
+    
+    return {
+      success: false,
+      action: 'add_waypoint',
+      error: 'Could not find add destination button or waypoint input'
+    };
+    
+  } catch (error) {
+    console.error('🗺️ Failed to add waypoint:', error);
+    return {
+      success: false,
+      action: 'add_waypoint',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+/**
  * Clear/exit current directions to return to normal map view
  */
 async function clearDirections(): Promise<MapsControlResult> {
@@ -567,6 +675,16 @@ export async function controlMaps(command: MapsControlCommand): Promise<MapsCont
       
       case 'clear_directions':
         return await clearDirections();
+      
+      case 'add_waypoint':
+        if (!command.params?.waypoint) {
+          return {
+            success: false,
+            action: command.action,
+            error: 'Waypoint address is required'
+          };
+        }
+        return await addWaypoint(command.params.waypoint, command.params.position);
       
       default:
         return {

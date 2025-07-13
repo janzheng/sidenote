@@ -15,6 +15,7 @@ export interface SearchResult {
   address: string;
   coordinates: Coordinates;
   rating?: number;
+  reviewCount?: number;
   priceLevel?: number;
   types: string[];
   placeId?: string;
@@ -22,6 +23,11 @@ export interface SearchResult {
   website?: string;
   openingHours?: string[];
   photos?: string[];
+  status?: string;
+  isCurrentlySelected?: boolean;
+  isNearbyPlace?: boolean;
+  searchResultIndex?: number;
+  nearbyIndex?: number;
 }
 
 export interface RouteStep {
@@ -29,6 +35,22 @@ export interface RouteStep {
   distance: string;
   duration: string;
   coordinates: Coordinates[];
+}
+
+export interface TravelMode {
+  mode: string;
+  duration: string;
+  isSelected: boolean;
+  additionalInfo?: string;
+  index: number;
+}
+
+export interface RouteOption {
+  duration: string;
+  distance: string;
+  routeType: string;
+  description?: string;
+  index: number;
 }
 
 export interface RouteData {
@@ -47,14 +69,11 @@ export interface RouteData {
   distance: string;
   duration: string;
   steps: RouteStep[];
-  routeType: 'driving' | 'walking' | 'transit' | 'cycling';
+  routeType: 'driving' | 'walking' | 'transit' | 'cycling' | string;
   extractedAt: number;
-  routeOptions?: {
-    duration: string;
-    distance: string;
-    routeType: string;
-    index: number;
-  }[];
+  routeOptions?: RouteOption[];
+  travelModes?: TravelMode[];
+  selectedTravelMode?: string;
 }
 
 export interface TrafficInfo {
@@ -83,7 +102,7 @@ export interface MapsData {
   // Metadata
   url: string;
   extractedAt: number;
-  extractionMethod: 'dom-scraping' | 'url-parsing';
+  extractionMethod: 'dom-scraping' | 'url-parsing' | 'enhanced-dom-scraping';
 }
 
 export interface MapsExtractionResult {
@@ -100,7 +119,7 @@ export interface MapsControlResult {
 }
 
 export interface MapsControlCommand {
-  action: 'zoom_in' | 'zoom_out' | 'search' | 'get_directions' | 'change_map_type' | 'pan_to' | 'clear_directions';
+  action: 'zoom_in' | 'zoom_out' | 'search' | 'get_directions' | 'change_map_type' | 'pan_to' | 'clear_directions' | 'add_waypoint';
   params?: {
     query?: string;
     destination?: string;
@@ -108,5 +127,7 @@ export interface MapsControlCommand {
     coordinates?: Coordinates;
     mapType?: 'roadmap' | 'satellite' | 'hybrid' | 'terrain';
     zoomLevel?: number;
+    waypoint?: string;
+    position?: number;
   };
 } 

@@ -87,7 +87,7 @@ export class ReActAgent {
   async runAgent(
     userMessage: string,
     pageContent?: string,
-    maxIterations: number = 5,
+    maxIterations: number = 25,
     customTools?: AgentTool[],
     customContext?: string,
     customSystemPrompt?: string
@@ -169,14 +169,22 @@ export class ReActAgent {
           {
             model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
             temperature: 0.4, // Balanced temperature for reasoning while reducing tool-happy behavior
-            maxTokens: 2000
+            maxTokens: 4000 // Increased for more detailed responses
           }
         );
 
-        if (!response.success || !response.content) {
+        if (!response.success) {
           this.push({
             type: 'comment',
-            text: sanitize(`❌ Agent error: ${response.error || 'No response'}`)
+            text: sanitize(`❌ Agent error: ${response.error || 'No response from AI'}`)
+          });
+          break;
+        }
+
+        if (!response.content || response.content.trim() === '') {
+          this.push({
+            type: 'comment',
+            text: sanitize(`❌ Agent returned empty response. This might be due to content filtering or model issues.`)
           });
           break;
         }
@@ -249,11 +257,26 @@ export class ReActAgent {
         toolParams = JSON.parse(actionInputMatch[1]);
       } catch {
         // If not JSON, treat as simple string parameter
-        toolParams = { input: actionInputMatch[1].trim() };
+        const inputValue = actionInputMatch[1].trim();
+        
+        // For specific tools, map the input to the expected parameter name
+        if (toolName === 'plan_multi_destination_trip') {
+          toolParams = { destinations: inputValue };
+        } else if (toolName === 'update_multi_destination_trip') {
+          toolParams = { action: 'clear_and_replan', destinations: inputValue };
+        } else if (toolName === 'get_directions_to') {
+          toolParams = { destination: inputValue };
+        } else if (toolName === 'find_places_nearby') {
+          toolParams = { query: inputValue };
+        } else if (toolName === 'web_search') {
+          toolParams = { query: inputValue };
+        } else {
+          toolParams = { input: inputValue };
+        }
       }
 
       // Simple heuristic: discourage search for very short/simple queries
-      if (toolName === 'search_web' && toolParams.query) {
+      if (toolName === 'web_search' && toolParams.query) {
         const query = toolParams.query.toLowerCase();
         const simplePatterns = [
           /^what is \w+\??$/,  // "what is react?"
@@ -276,6 +299,8 @@ export class ReActAgent {
       }
 
       console.log(`🔧 Executing tool: ${toolName} with params:`, toolParams);
+      console.log(`🔧 Raw Action Input: "${actionInputMatch[1]}"`);
+      console.log(`🔧 Params type: ${typeof toolParams}, keys:`, Object.keys(toolParams));
 
       // Execute the tool
       const startTime = Date.now();
@@ -400,8 +425,8 @@ EXAMPLES OF WHEN **NOT** TO USE TOOLS:
 
 EXAMPLES OF WHEN **TO USE TOOLS**:
 - "What's the weather in Paris right now?" → Use get_weather_by_location
-- "Search for the latest React 19 features" → Use search_web
-- "Find recent news about AI" → Use search_web
+- "Search for the latest React 19 features" → Use web_search
+- "Find recent news about AI" → Use web_search
 
 AVAILABLE TOOLS:
 ${toolsPrompt}
@@ -411,6 +436,11 @@ ${toolsPrompt}
 - If the user hasn't provided a location for weather, ASK for it first
 - Never use placeholders like "[location]" or "[city]" in tool calls
 - If information is missing, ask the user to clarify before calling tools
+
+🚨 **CRITICAL USER INTERACTION RULE:**
+- **NEVER assume user consent**: If you ask "Would you like me to..." or "Should I..." or "Do you want..." - ALWAYS wait for the user's explicit response
+- **STOP after asking questions**: When you ask the user a question, provide a "Final Answer" and wait for their reply
+- **Don't auto-execute**: Never automatically execute tools after asking permission questions
 
 FORMAT EXAMPLES:
 
@@ -428,9 +458,19 @@ Action Input: {"location": "San Francisco, CA"}
 Thought: Now I have the current weather data, I can provide the final answer.
 Final Answer: The weather in San Francisco is currently 22°C and sunny.
 
+**Asking User Permission (wait for response):**
+Thought: The user might want me to search for more information, but I should ask first.
+Final Answer: I found some basic information about React. Would you like me to search for the latest React 19 features and updates?
+
+**User Response to Question:**
+User: "Yes, please search for React 19 features"
+Thought: The user has explicitly requested a search for React 19 features. Now I can execute the search tool.
+Action: web_search
+Action Input: {"query": "React 19 features updates new"}
+
 ${pageContent ? `\nCURRENT PAGE CONTENT:\n${pageContent.slice(0, 2000)}${pageContent.length > 2000 ? '...' : ''}` : ''}
 
-Remember: Think step by step, answer directly when possible, use tools only when necessary for current/specific data.`;
+Remember: Think step by step, answer directly when possible, use tools only when necessary for current/specific data. Always wait for user confirmation when asking permission questions.`;
   }
 }
 

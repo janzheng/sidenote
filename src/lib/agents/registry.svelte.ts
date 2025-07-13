@@ -8,14 +8,14 @@ export const schemas: Record<string, z.ZodTypeAny> = {};
 export const AgentContent = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('text'),
-    content: z.string().max(10000) // 10KB limit
+    content: z.string().max(100000) // 100KB limit
   }),
   z.object({
     type: z.literal('component'),
     name: z.string(),
     props: z.record(z.string(), z.any()).refine(
-      (props: Record<string, any>) => JSON.stringify(props).length <= 10240, // 10KB limit
-      { message: "Props must be under 10KB when serialized" }
+      (props: Record<string, any>) => JSON.stringify(props).length <= 102400, // 100KB limit
+      { message: "Props must be under 100KB when serialized" }
     )
   }),
   z.object({

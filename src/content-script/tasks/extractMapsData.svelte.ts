@@ -1,4 +1,4 @@
-import type { MapsData, MapsExtractionResult, Coordinates, MapBounds, SearchResult, RouteData } from '../../types/mapsData';
+import type { MapsData, MapsExtractionResult, Coordinates, MapBounds, SearchResult, RouteData, RouteStep } from '../../types/mapsData';
 
 /**
  * Check if current page is Google Maps
@@ -57,10 +57,16 @@ function extractSearchQuery(): string | null {
     const query = urlParams.get('q');
     if (query) return query;
     
-    // Try search input field
-    const searchInput = document.querySelector('input[data-value]') as HTMLInputElement;
+    // Try main search input
+    const searchInput = document.querySelector('#searchboxinput') as HTMLInputElement;
     if (searchInput && searchInput.value) {
       return searchInput.value;
+    }
+    
+    // Try other search input selectors
+    const altSearchInput = document.querySelector('input[data-value]') as HTMLInputElement;
+    if (altSearchInput && altSearchInput.value) {
+      return altSearchInput.value;
     }
     
     // Try aria-label search
@@ -77,214 +83,656 @@ function extractSearchQuery(): string | null {
 }
 
 /**
- * Extract visible search results from DOM
+ * Extract the currently selected/viewed place name from the side panel
+ */
+function extractCurrentPlaceName(): string | null {
+  try {
+    console.log('🏢 Extracting current place name...');
+    
+    // Primary selector for place title in side panel
+    const titleSelectors = [
+      'h1.DUwDvf.lfPIob',           // Main place title
+      'h1.DUwDvf lfPIob',
+      'h1.DUwDvf',
+      '.DUwDvf.lfPIob',
+      '.lfPIob',
+      'h1[data-attrid="title"]',
+      '.section-hero-header-title',
+      '.section-hero-header-title-title',
+      '[data-value]:first-child h1',
+      'h1.fontHeadlineLarge'
+    ];
+    
+    for (const selector of titleSelectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        const name = element.textContent?.trim();
+        if (name && name.length > 0 && name.length < 200) {
+          console.log('🏢 Found place name:', name);
+          return name;
+        }
+      }
+    }
+    
+    console.log('🏢 No place name found in side panel');
+    return null;
+  } catch (error) {
+    console.warn('Failed to extract current place name:', error);
+    return null;
+  }
+}
+
+/**
+ * Extract detailed information about the currently selected place
+ */
+function extractCurrentPlaceDetails(): SearchResult | null {
+  try {
+    console.log('🏢 Extracting current place details...');
+    
+    const name = extractCurrentPlaceName();
+    if (!name) {
+      return null;
+    }
+    
+    // Extract rating
+    let rating: number | undefined;
+    let reviewCount: number | undefined;
+    
+    const ratingSelectors = [
+      '.F7nice .ceNzKf',           // Rating number
+      '.MW4etd',                   // Star rating
+      '[data-value*="stars"]',
+      '[aria-label*="stars"]'
+    ];
+    
+    for (const selector of ratingSelectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        const text = element.textContent?.trim() || '';
+        const ariaLabel = element.getAttribute('aria-label') || '';
+        const fullText = `${text} ${ariaLabel}`;
+        
+        const ratingMatch = fullText.match(/(\d+\.?\d*)/);
+        if (ratingMatch) {
+          rating = parseFloat(ratingMatch[1]);
+          break;
+        }
+      }
+    }
+    
+    // Extract review count
+    const reviewSelectors = [
+      '.F7nice .UY7F9',           // Review count
+      '.UY7F9',
+      '[data-value*="review"]'
+    ];
+    
+    for (const selector of reviewSelectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        const text = element.textContent?.trim() || '';
+        const reviewMatch = text.match(/\(?(\d+)\)?/);
+        if (reviewMatch) {
+          reviewCount = parseInt(reviewMatch[1]);
+          break;
+        }
+      }
+    }
+    
+    // Extract address
+    let address = '';
+    const addressSelectors = [
+      '.Io6YTe.fontBodyMedium',    // Address in place details
+      '.QSFF4d.fontBodyMedium',
+      '[data-item-id="address"]',
+      '.section-info-line'
+    ];
+    
+    for (const selector of addressSelectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        const candidateAddress = element.textContent?.trim() || '';
+        if (candidateAddress && candidateAddress.length > 5) {
+          address = candidateAddress;
+          break;
+        }
+      }
+    }
+    
+    // Extract phone number
+    let phoneNumber: string | undefined;
+    const phoneSelectors = [
+      '[data-item-id="phone:tel"]',
+      '[href^="tel:"]',
+      '.section-info-phone'
+    ];
+    
+    for (const selector of phoneSelectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        phoneNumber = element.textContent?.trim() || element.getAttribute('href')?.replace('tel:', '') || undefined;
+        if (phoneNumber) break;
+      }
+    }
+    
+    // Extract website
+    let website: string | undefined;
+    const websiteSelectors = [
+      '[data-item-id="authority"]',
+      '[data-value*=".com"]',
+      '[href*=".com"]:not([href*="google.com"])'
+    ];
+    
+    for (const selector of websiteSelectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        website = element.getAttribute('href') || element.textContent?.trim() || undefined;
+        if (website && website.includes('.')) break;
+      }
+    }
+    
+    // Extract opening hours
+    const openingHours: string[] = [];
+    const hoursSelectors = [
+      '.t39EBf.GUrTXd',           // Hours section
+      '[data-item-id="oh"]',
+      '.section-open-hours-container'
+    ];
+    
+    for (const selector of hoursSelectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        const hoursText = element.textContent?.trim();
+        if (hoursText) {
+          openingHours.push(hoursText);
+          break;
+        }
+      }
+    }
+    
+    // Extract price level
+    let priceLevel: number | undefined;
+    const priceSelectors = [
+      '.mgr77e .fontBodyMedium',   // Price level
+      '[data-value*="$"]',
+      '[aria-label*="$"]'
+    ];
+    
+    for (const selector of priceSelectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        const text = element.textContent?.trim() || '';
+        const dollarCount = (text.match(/\$/g) || []).length;
+        if (dollarCount > 0) {
+          priceLevel = dollarCount;
+          break;
+        }
+      }
+    }
+    
+    // Extract business type
+    const types: string[] = [];
+    const typeSelectors = [
+      '.DkEaL',                   // Business type
+      '.mgr77e span:first-child',
+      '[data-value*="Restaurant"]',
+      '[data-value*="Store"]'
+    ];
+    
+    for (const selector of typeSelectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        const typeText = element.textContent?.trim() || '';
+        if (typeText && typeText.length > 0 && typeText.length < 50) {
+          types.push(typeText);
+        }
+      }
+    }
+    
+    const result: SearchResult = {
+      name,
+      address,
+      coordinates: extractCoordinatesFromUrl() || { lat: 0, lng: 0 },
+      rating,
+      reviewCount,
+      priceLevel,
+      types,
+      phoneNumber,
+      website,
+      openingHours: openingHours.length > 0 ? openingHours : undefined,
+      isCurrentlySelected: true
+    };
+    
+    console.log('🏢 Extracted current place details:', result);
+    return result;
+    
+  } catch (error) {
+    console.warn('Failed to extract current place details:', error);
+    return null;
+  }
+}
+
+/**
+ * Extract search results from the left sidebar using proper Google Maps selectors
  */
 function extractSearchResults(): SearchResult[] {
   const results: SearchResult[] = [];
   
   try {
-    // Look for place result cards (active search results)
-    const resultElements = document.querySelectorAll('[data-result-index], [role="article"], .section-result');
+    console.log('🔍 Starting enhanced search results extraction...');
+    
+    // Main search results container selectors
+    const containerSelectors = [
+      '.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd',  // Main results feed
+      '.section-listbox',
+      '.section-scrollbox',
+      '[role="main"] .Nv2PK'
+    ];
+    
+    let container: Element | null = null;
+    for (const selector of containerSelectors) {
+      container = document.querySelector(selector);
+      if (container) {
+        console.log('🔍 Found results container:', selector);
+        break;
+      }
+    }
+    
+    if (!container) {
+      console.log('🔍 No results container found');
+      return results;
+    }
+    
+    // Individual result selectors
+    const resultElements = container.querySelectorAll('.Nv2PK, [data-result-index], .section-result');
+    console.log('🔍 Found', resultElements.length, 'result elements');
     
     resultElements.forEach((element, index) => {
       try {
-        const nameElement = element.querySelector('[data-value], .section-result-title, .fontHeadlineSmall');
-        const addressElement = element.querySelector('.section-result-location, [data-value]:nth-of-type(2)');
-        const ratingElement = element.querySelector('[data-value*="."], .section-result-rating');
+        // Extract name
+        const nameSelectors = [
+          '.qBF1Pd.fontHeadlineSmall',    // Primary name selector
+          '.qBF1Pd',
+          '.fontHeadlineSmall',
+          '.section-result-title',
+          'h3',
+          'h4'
+        ];
         
-        if (nameElement) {
-          const name = nameElement.textContent?.trim() || `Place ${index + 1}`;
-          const address = addressElement?.textContent?.trim() || '';
-          
-          // Try to extract rating
-          let rating: number | undefined;
-          if (ratingElement) {
-            const ratingText = ratingElement.textContent?.trim();
-            const ratingMatch = ratingText?.match(/(\d+\.?\d*)/);
-            if (ratingMatch) {
-              rating = parseFloat(ratingMatch[1]);
-            }
+        let name = '';
+        for (const selector of nameSelectors) {
+          const nameElement = element.querySelector(selector);
+          if (nameElement) {
+            name = nameElement.textContent?.trim() || '';
+            if (name && name.length > 0) break;
           }
-          
-          results.push({
-            name,
-            address,
-            coordinates: { lat: 0, lng: 0 }, // Will be updated if we can extract from URL
-            rating,
-            types: [],
-            placeId: element.getAttribute('data-cid') || undefined
-          });
         }
+        
+        if (!name || name.length === 0) {
+          return; // Skip if no name found
+        }
+        
+        // Extract rating
+        let rating: number | undefined;
+        let reviewCount: number | undefined;
+        
+        const ratingElement = element.querySelector('.MW4etd');
+        if (ratingElement) {
+          const ratingText = ratingElement.textContent?.trim() || '';
+          const ratingMatch = ratingText.match(/(\d+\.?\d*)/);
+          if (ratingMatch) {
+            rating = parseFloat(ratingMatch[1]);
+          }
+        }
+        
+        // Extract review count
+        const reviewElement = element.querySelector('.UY7F9');
+        if (reviewElement) {
+          const reviewText = reviewElement.textContent?.trim() || '';
+          const reviewMatch = reviewText.match(/\(?(\d+)\)?/);
+          if (reviewMatch) {
+            reviewCount = parseInt(reviewMatch[1]);
+          }
+        }
+        
+        // Extract address and type from .W4Efsd spans
+        let address = '';
+        let businessType = '';
+        let status = '';
+        
+        const infoSpans = element.querySelectorAll('.W4Efsd span');
+        infoSpans.forEach((span, spanIndex) => {
+          const text = span.textContent?.trim() || '';
+          const style = span.getAttribute('style') || '';
+          
+          // Status (Open/Closed) - usually green text
+          if (style.includes('color: rgba(25,134,57,1.00)') || text.toLowerCase().includes('open')) {
+            status = text;
+          }
+          // Business type - usually first span
+          else if (spanIndex === 0 && text.length > 0 && text.length < 50) {
+            businessType = text;
+          }
+          // Address - usually contains street indicators
+          else if (text.includes('Ave') || text.includes('Street') || text.includes('St') || 
+                   text.includes('Road') || text.includes('Rd') || text.includes('Blvd') || 
+                   text.includes('Dr') || text.includes('Drive') || text.match(/\d+/)) {
+            address = text;
+          }
+        });
+        
+        // Extract price level
+        let priceLevel: number | undefined;
+        const priceElement = element.querySelector('[data-value*="$"], [aria-label*="$"]');
+        if (priceElement) {
+          const priceText = priceElement.textContent?.trim() || '';
+          const dollarCount = (priceText.match(/\$/g) || []).length;
+          if (dollarCount > 0) {
+            priceLevel = dollarCount;
+          }
+        }
+        
+        const result: SearchResult = {
+          name,
+          address,
+          coordinates: { lat: 0, lng: 0 }, // Will be populated if coordinates are available
+          rating,
+          reviewCount,
+          priceLevel,
+          types: businessType ? [businessType] : [],
+          status,
+          placeId: element.getAttribute('data-cid') || undefined,
+          searchResultIndex: index
+        };
+        
+        results.push(result);
+        console.log('✅ Extracted search result:', name, rating ? `(${rating}⭐)` : '');
+        
       } catch (error) {
-        console.warn('Failed to extract result:', error);
+        console.warn('Failed to extract search result:', error);
       }
     });
+    
+    console.log('🔍 Total search results extracted:', results.length);
+    return results;
+    
   } catch (error) {
     console.warn('Failed to extract search results:', error);
+    return [];
   }
-  
-  return results;
 }
 
 /**
- * Extract nearby visible places from the map (when no active search)
+ * Extract "People also search for" nearby places
  */
 function extractNearbyPlaces(): SearchResult[] {
-  const places: SearchResult[] = [];
+  const nearby: SearchResult[] = [];
   
   try {
-    // Look for place markers and labels on the map
-    const placeSelectors = [
-      // Specific place markers and labels
-      '[data-place-id]',
-      '[data-cid]',
-      '[jsaction*="pane.place"]',
-      '[data-value*="Restaurant"]',
-      '[data-value*="Pizza"]',
-      '[data-value*="Coffee"]',
-      '[data-value*="Market"]',
-      '[data-value*="Store"]',
-      '[data-value*="Shop"]',
-      '[data-value*="Bank"]',
-      '[data-value*="Hotel"]',
-      '[data-value*="Gas"]',
-      '[data-value*="Pharmacy"]',
-      // Map labels that might contain business names
-      '[role="button"][aria-label]',
-      '.place-name',
-      '.poi-info-window'
-    ];
+    console.log('🏘️ Extracting nearby places...');
     
-    placeSelectors.forEach(selector => {
-      const elements = document.querySelectorAll(selector);
-      elements.forEach((element, index) => {
-        try {
-          const ariaLabel = element.getAttribute('aria-label');
-          const dataValue = element.getAttribute('data-value');
-          const textContent = element.textContent?.trim();
-          
-          // Extract place name from various sources
-          let name = '';
-          if (ariaLabel && ariaLabel.length > 0 && ariaLabel.length < 100) {
-            name = ariaLabel;
-          } else if (dataValue && dataValue.length > 0 && dataValue.length < 100) {
-            name = dataValue;
-          } else if (textContent && textContent.length > 0 && textContent.length < 100) {
-            name = textContent;
+    // Check if "People also search for" section exists
+    const nearbyHeader = document.querySelector('h2.etbuEf');
+    if (!nearbyHeader || !nearbyHeader.textContent?.includes('People also search for')) {
+      console.log('🏘️ No "People also search for" section found');
+      return nearby;
+    }
+    
+    // Find the carousel container
+    const carouselContainer = nearbyHeader.closest('.section-layout')?.querySelector('.fp2VUc');
+    if (!carouselContainer) {
+      console.log('🏘️ No carousel container found');
+      return nearby;
+    }
+    
+    // Extract each nearby place card
+    const nearbyCards = carouselContainer.querySelectorAll('.Ymd7jc.Lnaw4c');
+    console.log('🏘️ Found', nearbyCards.length, 'nearby place cards');
+    
+    nearbyCards.forEach((card, index) => {
+      try {
+        // Extract name
+        const nameElement = card.querySelector('.GgK1If.fontTitleSmall, .GgK1If');
+        const name = nameElement?.textContent?.trim() || '';
+        
+        if (!name) return;
+        
+        // Extract rating
+        let rating: number | undefined;
+        const ratingElement = card.querySelector('.MW4etd');
+        if (ratingElement) {
+          const ratingText = ratingElement.textContent?.trim() || '';
+          const ratingMatch = ratingText.match(/(\d+\.?\d*)/);
+          if (ratingMatch) {
+            rating = parseFloat(ratingMatch[1]);
           }
-          
-                     // Filter out non-place elements and UI components
-           if (name && 
-               !name.includes('Google Maps') && 
-               !name.includes('Search') &&
-               !name.includes('Menu') &&
-               !name.includes('Zoom') &&
-               !name.includes('Layer') &&
-               !name.includes('Collapse') &&
-               !name.includes('Directions') &&
-               !name.includes('Delete') &&
-               !name.includes('side panel') &&
-               !name.includes('Things to do') &&
-               !name.includes('Hotels') &&
-               !name.includes('Restaurants') &&
-               !name.includes('Museums') &&
-               !name.includes('Transit') &&
-               !name.includes('Pharmacies') &&
-               !name.includes('ATMs') &&
-               !name.includes('Button') &&
-               !name.includes('Close') &&
-               !name.includes('Open') &&
-               name.length > 2 &&
-               name.length < 50) {
-            
-            // Check if we already have this place
-            const exists = places.some(p => p.name === name);
-            if (!exists) {
-              places.push({
-                name,
-                address: '',
-                coordinates: { lat: 0, lng: 0 },
-                rating: undefined,
-                types: [],
-                placeId: element.getAttribute('data-cid') || element.getAttribute('data-place-id') || undefined
-              });
-            }
-          }
-        } catch (error) {
-          console.warn('Failed to extract nearby place:', error);
         }
-      });
+        
+        // Extract review count
+        let reviewCount: number | undefined;
+        const reviewElement = card.querySelector('.UY7F9');
+        if (reviewElement) {
+          const reviewText = reviewElement.textContent?.trim() || '';
+          const reviewMatch = reviewText.match(/\(?(\d+)\)?/);
+          if (reviewMatch) {
+            reviewCount = parseInt(reviewMatch[1]);
+          }
+        }
+        
+        // Extract business type (usually the last .Q5g20 element)
+        const typeElements = card.querySelectorAll('.Q5g20');
+        const businessType = typeElements.length > 0 ? 
+          typeElements[typeElements.length - 1].textContent?.trim() || '' : '';
+        
+        const result: SearchResult = {
+          name,
+          address: '',
+          coordinates: { lat: 0, lng: 0 },
+          rating,
+          reviewCount,
+          types: businessType ? [businessType] : [],
+          isNearbyPlace: true,
+          nearbyIndex: index
+        };
+        
+        nearby.push(result);
+        console.log('✅ Extracted nearby place:', name, rating ? `(${rating}⭐)` : '');
+        
+      } catch (error) {
+        console.warn('Failed to extract nearby place:', error);
+      }
     });
+    
+    console.log('🏘️ Total nearby places extracted:', nearby.length);
+    return nearby;
+    
   } catch (error) {
     console.warn('Failed to extract nearby places:', error);
+    return [];
   }
-  
-  return places.slice(0, 10); // Limit to 10 places
 }
 
 /**
- * Extract current route information from DOM
+ * Extract comprehensive directions/route information
  */
 function extractRouteData(): RouteData | null {
   try {
-    console.log('🗺️ Attempting to extract route data...');
+    console.log('🗺️ Extracting route/directions data...');
     
-    // Check if we're on a directions page by looking at the URL
+    // Check if directions are active
+    const directionsBox = document.querySelector('#omnibox-directions');
+    const isDirectionsActive = directionsBox && 
+      (directionsBox as HTMLElement).style.display !== 'none';
+    
+    // Also check URL for directions
     const url = window.location.href;
-    const hasDirections = url.includes('/dir/') || url.includes('dirflg=') || url.includes('destination=');
+    const hasDirectionsInUrl = url.includes('/dir/') || url.includes('dirflg=') || url.includes('destination=');
     
-    if (!hasDirections) {
-      console.log('🗺️ No directions detected in URL');
+    if (!isDirectionsActive && !hasDirectionsInUrl) {
+      console.log('🗺️ No active directions found');
       return null;
     }
     
-    // Multiple approaches to find route information
     let origin = { address: '', coordinates: { lat: 0, lng: 0 } };
     let destination = { address: '', coordinates: { lat: 0, lng: 0 } };
     let duration = '';
     let distance = '';
     let routeOptions: any[] = [];
+    let selectedTravelMode = '';
+    let travelModes: any[] = [];
     
-    // Approach 1: Look for input fields in the directions panel
-    const originInput = document.querySelector('input[placeholder*="starting point"], input[placeholder*="origin"], input[aria-label*="starting point"]') as HTMLInputElement;
-    const destinationInput = document.querySelector('input[placeholder*="destination"], input[aria-label*="destination"]') as HTMLInputElement;
+    // Extract from/to addresses and waypoints from input boxes with enhanced selectors
+    const fromInputSelectors = [
+      '#directions-searchbox-0 .searchboxinput',
+      '#directions-searchbox-0 input',
+      'input[placeholder*="starting point"]',
+      'input[aria-label*="Starting point"]',
+      'input[data-value]:first-of-type'
+    ];
     
-    if (originInput && originInput.value) {
-      origin.address = originInput.value.trim();
-      console.log('🗺️ Found origin from input:', origin.address);
+    const toInputSelectors = [
+      '#directions-searchbox-1 .searchboxinput', 
+      '#directions-searchbox-1 input',
+      'input[placeholder*="destination"]',
+      'input[aria-label*="Destination"]',
+      'input[data-value]:last-of-type'
+    ];
+    
+    // Extract waypoints (intermediate stops)
+    const waypoints: { address: string; coordinates: { lat: number; lng: number } }[] = [];
+    const waypointSelectors = [
+      '#directions-searchbox input:not(:first-child):not(:last-child)', // Middle inputs
+      '.directions-waypoint-input',
+      '[aria-label*="waypoint"]',
+      '[placeholder*="waypoint"]'
+    ];
+    
+    // Look for waypoint inputs (Google Maps creates them dynamically)
+    for (const selector of waypointSelectors) {
+      const waypointInputs = document.querySelectorAll(selector) as NodeListOf<HTMLInputElement>;
+      waypointInputs.forEach((input, index) => {
+        const value = input.value?.trim() || input.getAttribute('aria-label')?.trim();
+        if (value && !value.includes('Starting point') && !value.includes('Destination')) {
+          waypoints.push({
+            address: value,
+            coordinates: { lat: 0, lng: 0 } // Could be populated from geocoding
+          });
+          console.log('🗺️ Found waypoint', index + 1, ':', value);
+        }
+      });
     }
     
-    if (destinationInput && destinationInput.value) {
-      destination.address = destinationInput.value.trim();
-      console.log('🗺️ Found destination from input:', destination.address);
+    // Extract starting point
+    for (const selector of fromInputSelectors) {
+      const fromInput = document.querySelector(selector) as HTMLInputElement;
+      if (fromInput) {
+        const value = fromInput.value?.trim() || fromInput.getAttribute('aria-label')?.replace('Starting point ', '').trim();
+        if (value) {
+          origin.address = value;
+          console.log('🗺️ Found origin:', origin.address);
+          break;
+        }
+      }
     }
     
-    // Approach 2: Look for route options in the sidebar
-    const routeElements = document.querySelectorAll('[data-trip-index], [data-value*="min"], div[role="button"]:has([data-value*="min"])');
+    // Extract destination
+    for (const selector of toInputSelectors) {
+      const toInput = document.querySelector(selector) as HTMLInputElement;
+      if (toInput) {
+        const value = toInput.value?.trim() || toInput.getAttribute('aria-label')?.replace('Destination ', '').trim();
+        if (value) {
+          destination.address = value;
+          console.log('🗺️ Found destination:', destination.address);
+          break;
+        }
+      }
+    }
+    
+    // Extract travel mode buttons and their timing information
+    const travelModeSelectors = [
+      '.oya4hc', // Travel mode buttons
+      '[data-travel_mode]',
+      '[data-value*="travel"]',
+      '.directions-travel-mode'
+    ];
+    
+    for (const selector of travelModeSelectors) {
+      const modeElements = document.querySelectorAll(selector);
+      if (modeElements.length > 0) {
+        console.log('🗺️ Found travel mode elements:', modeElements.length);
+        
+        modeElements.forEach((element, index) => {
+          try {
+            const modeButton = element.querySelector('button') || element;
+            const modeType = element.getAttribute('data-travel_mode') || 
+                           element.getAttribute('data-value') || 
+                           modeButton.getAttribute('data-tooltip') ||
+                           modeButton.getAttribute('aria-label') || 
+                           'unknown';
+            
+            // Check if this mode is selected
+            const isSelected = element.classList.contains('selected') || 
+                             element.classList.contains('active') ||
+                             element.getAttribute('aria-selected') === 'true';
+            
+            if (isSelected) {
+              selectedTravelMode = modeType;
+            }
+            
+            // Extract timing information for this mode
+            const timeElement = element.querySelector('.Fl2iee, .directions-time, [data-value*="min"], [data-value*="hour"]');
+            const timeText = timeElement?.textContent?.trim() || '';
+            
+            // Extract any additional info (like "fastest route", "via highway", etc.)
+            const infoElement = element.querySelector('.directions-mode-info, .route-info');
+            const additionalInfo = infoElement?.textContent?.trim() || '';
+            
+            const travelMode = {
+              mode: modeType,
+              duration: timeText,
+              isSelected,
+              additionalInfo,
+              index
+            };
+            
+            travelModes.push(travelMode);
+            console.log('🗺️ Found travel mode:', travelMode);
+          } catch (error) {
+            console.warn('Failed to extract travel mode:', error);
+          }
+        });
+        break; // Found travel modes, no need to try other selectors
+      }
+    }
+    
+    // Extract route options and timing (alternative routes)
+    const routeElements = document.querySelectorAll('[data-trip-index], .section-directions-trip, .directions-route-option');
     
     routeElements.forEach((element, index) => {
       try {
-        const timeElement = element.querySelector('[data-value*="min"], [data-value*="hour"]') || element;
-        const distanceElement = element.querySelector('[data-value*="km"], [data-value*="mi"], [data-value*="miles"]');
+        // Extract time and distance
+        const timeElement = element.querySelector('[data-value*="min"], [data-value*="hour"], .section-directions-trip-duration, .route-duration');
+        const distanceElement = element.querySelector('[data-value*="km"], [data-value*="mi"], .section-directions-trip-distance, .route-distance');
         
         const timeText = timeElement?.textContent?.trim() || '';
         const distanceText = distanceElement?.textContent?.trim() || '';
         
-        // Look for time patterns like "17 min", "1 hour 20 min"
-        const timeMatch = timeText.match(/(\d+)\s*(min|hour|hr)/i);
-        const distanceMatch = distanceText.match(/(\d+\.?\d*)\s*(km|mi|miles)/i);
+        // Extract route description (e.g., "Fastest route", "Via I-280", etc.)
+        const descriptionElement = element.querySelector('.route-description, .directions-route-description');
+        const description = descriptionElement?.textContent?.trim() || '';
         
-        if (timeMatch) {
+        if (timeText || distanceText) {
           const routeOption = {
             duration: timeText,
             distance: distanceText,
-            routeType: 'driving',
+            routeType: selectedTravelMode || 'driving',
+            description,
             index: index
           };
           
           routeOptions.push(routeOption);
           
-          // Use the first route as the main route
+          // Use first route as main route
           if (index === 0) {
             duration = timeText;
             distance = distanceText;
@@ -297,7 +745,49 @@ function extractRouteData(): RouteData | null {
       }
     });
     
-    // Approach 3: Try to extract from URL parameters
+    // Extract route steps with enhanced selectors
+    const steps: RouteStep[] = [];
+    const stepSelectors = [
+      '.section-directions-step',
+      '.directions-step',
+      '.directions-step-content',
+      '[data-step-index]'
+    ];
+    
+    for (const selector of stepSelectors) {
+      const stepElements = document.querySelectorAll(selector);
+      if (stepElements.length > 0) {
+        console.log('🗺️ Found step elements:', stepElements.length);
+        
+        stepElements.forEach((stepElement, index) => {
+          try {
+            const instructionElement = stepElement.querySelector('.directions-step-instruction') || stepElement;
+            const stepText = instructionElement.textContent?.trim() || '';
+            
+            // Extract step distance and duration
+            const stepDistanceElement = stepElement.querySelector('.directions-step-distance');
+            const stepDurationElement = stepElement.querySelector('.directions-step-duration');
+            
+            const stepDistance = stepDistanceElement?.textContent?.trim() || '';
+            const stepDuration = stepDurationElement?.textContent?.trim() || '';
+            
+            if (stepText && stepText.length > 0) {
+              steps.push({
+                instruction: stepText,
+                distance: stepDistance,
+                duration: stepDuration,
+                coordinates: []
+              });
+            }
+          } catch (error) {
+            console.warn('Failed to extract route step:', error);
+          }
+        });
+        break; // Found steps, no need to try other selectors
+      }
+    }
+    
+    // Extract from URL if inputs are empty
     if (!origin.address || !destination.address) {
       try {
         const urlParams = new URLSearchParams(window.location.search);
@@ -306,63 +796,45 @@ function extractRouteData(): RouteData | null {
         if (dirParam) {
           const parts = dirParam.split('/');
           if (parts.length >= 2) {
-            origin.address = decodeURIComponent(parts[0]);
-            destination.address = decodeURIComponent(parts[1]);
-            console.log('🗺️ Extracted from URL params:', { origin: origin.address, destination: destination.address });
+            if (!origin.address) origin.address = decodeURIComponent(parts[0]);
+            if (!destination.address) destination.address = decodeURIComponent(parts[1]);
+            console.log('🗺️ Extracted from URL:', { origin: origin.address, destination: destination.address });
           }
         }
       } catch (error) {
-        console.warn('Failed to extract from URL params:', error);
+        console.warn('Failed to extract from URL:', error);
       }
     }
     
-    // Approach 4: Look for text content in the directions panel
-    if (!origin.address || !destination.address) {
-      const directionsPanel = document.querySelector('[data-value="directions"], .directions-panel, [role="main"]');
-      if (directionsPanel) {
-        const textElements = directionsPanel.querySelectorAll('[data-value]');
-        
-        textElements.forEach((element, index) => {
-          const text = element.textContent?.trim() || '';
-          
-          // Skip common UI elements
-          if (text && 
-              !text.includes('Search') && 
-              !text.includes('Menu') && 
-              !text.includes('Button') &&
-              !text.includes('Close') &&
-              text.length > 3 && 
-              text.length < 100) {
-            
-            if (index === 0 && !origin.address) {
-              origin.address = text;
-            } else if (index === 1 && !destination.address) {
-              destination.address = text;
-            }
-          }
-        });
-      }
-    }
-    
-    // Only return route data if we have meaningful information
-    if (origin.address || destination.address || duration || routeOptions.length > 0) {
+    // Only return if we have meaningful data
+    if (origin.address || destination.address || duration || routeOptions.length > 0 || travelModes.length > 0 || waypoints.length > 0) {
       const routeData: RouteData = {
         origin,
         destination,
+        waypoints: waypoints.length > 0 ? waypoints : undefined,
         distance,
         duration,
-        steps: [], // Could be extracted from detailed directions
-        routeType: 'driving',
+        steps,
+        routeType: selectedTravelMode || 'driving',
         extractedAt: Date.now(),
-        routeOptions // Add route options for multiple routes
+        routeOptions,
+        travelModes,
+        selectedTravelMode
       };
       
-      console.log('🗺️ Successfully extracted route data:', routeData);
+      console.log('🗺️ Successfully extracted enhanced route data with waypoints:', {
+        origin: origin.address,
+        destination: destination.address,
+        waypoints: waypoints.length,
+        travelModes: travelModes.length,
+        routeOptions: routeOptions.length
+      });
       return routeData;
     }
     
     console.log('🗺️ No meaningful route data found');
     return null;
+    
   } catch (error) {
     console.warn('🗺️ Failed to extract route data:', error);
     return null;
@@ -416,11 +888,54 @@ function extractMapType(): 'roadmap' | 'satellite' | 'hybrid' | 'terrain' {
 }
 
 /**
+ * Wait for elements to load with timeout
+ */
+function waitForElements(selectors: string[], timeout: number = 3000): Promise<Element[]> {
+  return new Promise((resolve) => {
+    const elements: Element[] = [];
+    let timeoutId: number;
+    
+    const checkElements = () => {
+      for (const selector of selectors) {
+        const element = document.querySelector(selector);
+        if (element && !elements.includes(element)) {
+          elements.push(element);
+        }
+      }
+      
+      if (elements.length > 0) {
+        clearTimeout(timeoutId);
+        resolve(elements);
+      }
+    };
+    
+    // Check immediately
+    checkElements();
+    
+    // Set up observer for dynamic content
+    const observer = new MutationObserver(() => {
+      checkElements();
+    });
+    
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+    
+    // Timeout fallback
+    timeoutId = setTimeout(() => {
+      observer.disconnect();
+      resolve(elements);
+    }, timeout);
+  });
+}
+
+/**
  * Extract comprehensive Google Maps data from the current page
  */
 export async function extractMapsData(): Promise<MapsExtractionResult> {
   try {
-    console.log('🗺️ Starting Google Maps data extraction');
+    console.log('🗺️ Starting comprehensive Google Maps data extraction');
     
     if (!isGoogleMapsPage()) {
       return {
@@ -431,22 +946,43 @@ export async function extractMapsData(): Promise<MapsExtractionResult> {
     
     const currentUrl = window.location.href;
     
-    // Extract all available data
+    // Wait for key elements to load
+    console.log('🗺️ Waiting for Maps elements to load...');
+    await waitForElements([
+      '#pane',
+      '.m6QErb',
+      '.section-layout',
+      '#omnibox-directions'
+    ], 2000);
+    
+    // Extract all data components
     const currentLocation = extractCoordinatesFromUrl();
     const searchQuery = extractSearchQuery();
+    const currentPlace = extractCurrentPlaceDetails();
     const searchResults = extractSearchResults();
     const nearbyPlaces = extractNearbyPlaces();
     const currentRoute = extractRouteData();
     const zoomLevel = extractZoomLevel();
     const mapType = extractMapType();
     
-    // Combine search results with nearby places
-    const allPlaces = [...searchResults];
+    // Combine all places data
+    const allPlaces: SearchResult[] = [];
     
-    // If no search results, use nearby places
-    if (searchResults.length === 0 && nearbyPlaces.length > 0) {
-      allPlaces.push(...nearbyPlaces);
+    // Add current place if available
+    if (currentPlace) {
+      allPlaces.push(currentPlace);
     }
+    
+    // Add search results
+    allPlaces.push(...searchResults);
+    
+    // Add nearby places
+    allPlaces.push(...nearbyPlaces);
+    
+    // Remove duplicates based on name
+    const uniquePlaces = allPlaces.filter((place, index, self) => 
+      index === self.findIndex(p => p.name === place.name)
+    );
     
     const mapsData: MapsData = {
       currentLocation,
@@ -454,24 +990,26 @@ export async function extractMapsData(): Promise<MapsExtractionResult> {
       mapType,
       zoomLevel,
       searchQuery,
-      searchResults: allPlaces,
-      selectedPlace: allPlaces.length > 0 ? allPlaces[0] : null,
+      searchResults: uniquePlaces,
+      selectedPlace: currentPlace || (uniquePlaces.length > 0 ? uniquePlaces[0] : null),
       currentRoute,
       trafficInfo: null, // Could be extracted from traffic layer
       url: currentUrl,
       extractedAt: Date.now(),
-      extractionMethod: 'dom-scraping'
+      extractionMethod: 'enhanced-dom-scraping'
     };
     
-    console.log('🗺️ Maps data extracted successfully:', {
+    console.log('🗺️ Enhanced Maps data extracted successfully:', {
       hasLocation: !!currentLocation,
       searchQuery,
+      currentPlace: currentPlace?.name,
       searchResultsCount: searchResults.length,
       nearbyPlacesCount: nearbyPlaces.length,
-      totalPlacesCount: allPlaces.length,
+      totalPlacesCount: uniquePlaces.length,
       hasRoute: !!currentRoute,
       zoomLevel,
-      mapType
+      mapType,
+      extractionMethod: 'enhanced-dom-scraping'
     });
     
     return {
@@ -480,10 +1018,10 @@ export async function extractMapsData(): Promise<MapsExtractionResult> {
     };
     
   } catch (error) {
-    console.error('🗺️ Maps data extraction failed:', error);
+    console.error('🗺️ Enhanced Maps data extraction failed:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Maps data extraction failed'
+      error: error instanceof Error ? error.message : 'Enhanced Maps data extraction failed'
     };
   }
 } 

@@ -36,8 +36,8 @@ class ReactAgentManager {
     try {
       console.log('🤖 Starting ReAct agent with message:', userMessage);
 
-      // Run the agent
-      await reactAgent.runAgent(userMessage, pageContent);
+      // Run the agent with increased iteration limit
+      await reactAgent.runAgent(userMessage, pageContent, 25);
 
       if (onSuccess) {
         onSuccess();

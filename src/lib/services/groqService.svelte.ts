@@ -45,7 +45,7 @@ export class GroqService {
   private static readonly DEFAULT_MODEL = 'meta-llama/llama-4-maverick-17b-128e-instruct';
   private static readonly DEFAULT_TTS_MODEL = 'playai-tts';
   private static readonly DEFAULT_TTS_VOICE = 'Arista-PlayAI';
-  private static readonly TIMEOUT = 60000; // 60 seconds
+  private static readonly TIMEOUT = 120000; // 120 seconds (2 minutes)
 
   /**
    * Generate text using Groq API
@@ -565,6 +565,132 @@ export class GroqService {
       'Nasser-PlayAI'
     ];
   }
+
+  /**
+   * Search the web using Groq's compound-beta model with agentic tooling
+   */
+  static async searchWeb(
+    query: string,
+    options: {
+      excludeDomains?: string[];
+      includeDomains?: string[];
+      country?: string;
+      model?: 'compound-beta' | 'compound-beta-mini';
+    } = {}
+  ): Promise<{ success: boolean; content?: string; executedTools?: any[]; error?: string }> {
+    try {
+      console.log('🔍 Starting web search with compound-beta model');
+      console.log('🔍 Query:', query);
+      console.log('🔍 Options:', options);
+
+      const settings = getCurrentSettings();
+      if (!settings.apiKey) {
+        return { 
+          success: false, 
+          error: 'Groq API key not configured. Please set it in settings.' 
+        };
+      }
+
+      const model = options.model || 'compound-beta-mini';
+      
+      const requestBody: any = {
+        model: model,
+        messages: [
+          {
+            role: 'user',
+            content: query
+          }
+        ]
+      };
+
+      // Add search settings if provided
+      const searchSettings: any = {};
+      if (options.excludeDomains && options.excludeDomains.length > 0) {
+        searchSettings.exclude_domains = options.excludeDomains;
+      }
+      if (options.includeDomains && options.includeDomains.length > 0) {
+        searchSettings.include_domains = options.includeDomains;
+      }
+      if (options.country) {
+        searchSettings.country = options.country;
+      }
+
+      if (Object.keys(searchSettings).length > 0) {
+        requestBody.search_settings = searchSettings;
+      }
+
+      console.log('🔍 Request config:', {
+        model: requestBody.model,
+        query: query,
+        search_settings: requestBody.search_settings
+      });
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.TIMEOUT);
+
+      const response = await fetch(`${this.BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${settings.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Groq web search API error:', response.status, errorText);
+        
+        let errorMessage = `Web search API request failed with status ${response.status}`;
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.error?.message) {
+            errorMessage = errorData.error.message;
+          }
+        } catch {
+          // Use generic error message
+        }
+
+        return { success: false, error: errorMessage };
+      }
+
+      const data = await response.json();
+      console.log('🔍 Web search response received:', {
+        content: data.choices[0]?.message?.content,
+        executedTools: data.choices[0]?.message?.executed_tools,
+        choices: data.choices?.length || 0,
+        usage: data.usage
+      });
+
+      if (!data.choices || data.choices.length === 0) {
+        return { success: false, error: 'No search results generated' };
+      }
+
+      const content = data.choices[0].message?.content || '';
+      const executedTools = data.choices[0].message?.executed_tools || [];
+      
+      return {
+        success: true,
+        content: content.trim(),
+        executedTools
+      };
+
+    } catch (error) {
+      console.error('❌ Groq web search API call failed:', error);
+      
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          return { success: false, error: 'Web search request timed out' };
+        }
+        return { success: false, error: error.message };
+      }
+      
+      return { success: false, error: 'Unknown web search error occurred' };
+    }
+  }
 }
 
 // Export the static methods as functions for backward compatibility
@@ -575,3 +701,4 @@ export const generateTextFromPromptWithJsonParsing = GroqService.generateTextFro
 export const generateSpeech = GroqService.generateSpeech.bind(GroqService);
 export const generateTextWithTools = GroqService.generateTextWithTools.bind(GroqService);
 export const executeToolConversation = GroqService.executeToolConversation.bind(GroqService);
+export const searchWeb = GroqService.searchWeb.bind(GroqService);

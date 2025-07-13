@@ -220,14 +220,14 @@ export class MapsToolsService {
         // Wait for extraction to complete
         await new Promise(resolve => setTimeout(resolve, 1000));
         
-        // Now get the actual Maps data and analyze it
+                // Now get the actual Maps data and analyze it
         const mapsDataResponse = await chrome.runtime.sendMessage({
           action: 'getMapsDataStatus',
           url: url
         });
-
-        if (mapsDataResponse.success && mapsDataResponse.mapsData) {
-          const mapsData = mapsDataResponse.mapsData;
+        
+        if (mapsDataResponse.success && mapsDataResponse.status && mapsDataResponse.status.mapsData) {
+          const mapsData = mapsDataResponse.status.mapsData;
           console.log('📊 Analyzing extracted Maps data:', mapsData);
           
           let analysis = `Successfully searched for "${query}" on Google Maps! `;
@@ -235,9 +235,9 @@ export class MapsToolsService {
           // Analyze search results if available
           if (mapsData.searchResults && mapsData.searchResults.length > 0) {
             const results = mapsData.searchResults;
-            const topResults = results.slice(0, 5); // Focus on top 5
+            const topResults = results; // Show all results instead of limiting to 5
             
-            analysis += `I found ${results.length} places. Here are the top options:\n\n`;
+            analysis += `I found ${results.length} places. Here are the options:\n\n`;
             
             topResults.forEach((place: any, index: number) => {
               analysis += `**${index + 1}. ${place.name}**\n`;
@@ -438,8 +438,8 @@ export class MapsToolsService {
           url: url
         });
 
-        if (response.success && response.mapsData) {
-          const mapsData = response.mapsData;
+        if (response.success && response.status && response.status.mapsData) {
+          const mapsData = response.status.mapsData;
           console.log('📊 Analyzing Maps data:', mapsData);
           
           let analysis = '';
@@ -447,13 +447,13 @@ export class MapsToolsService {
           // Analyze search results if available
           if (mapsData.searchResults && mapsData.searchResults.length > 0) {
             const results = mapsData.searchResults;
-            const topResults = results.slice(0, 5); // Focus on top 5
+            const topResults = results; // Show all results instead of limiting to 5
             
             analysis += `Great! I found ${results.length} places`;
             if (mapsData.searchQuery) {
               analysis += ` for "${mapsData.searchQuery}"`;
             }
-            analysis += `. Here are the top options:\n\n`;
+            analysis += `. Here are the options:\n\n`;
             
                          topResults.forEach((place: any, index: number) => {
               analysis += `**${index + 1}. ${place.name}**\n`;

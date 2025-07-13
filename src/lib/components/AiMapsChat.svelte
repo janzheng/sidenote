@@ -211,14 +211,11 @@
     
     if (data.searchResults && data.searchResults.length > 0) {
       formatted += `\n**Search Results (${data.searchResults.length}):**\n`;
-      data.searchResults.slice(0, 5).forEach((result, index) => {
+      data.searchResults.forEach((result, index) => {
         formatted += `${index + 1}. **${result.name}**\n`;
         if (result.address) formatted += `   📍 ${result.address}\n`;
         if (result.rating) formatted += `   ⭐ ${result.rating}\n`;
       });
-      if (data.searchResults.length > 5) {
-        formatted += `   ... and ${data.searchResults.length - 5} more results\n`;
-      }
     }
     
     if (data.currentRoute) {
@@ -227,6 +224,48 @@
       formatted += `🎯 **To:** ${data.currentRoute.destination.address}\n`;
       formatted += `📏 **Distance:** ${data.currentRoute.distance}\n`;
       formatted += `⏱️ **Duration:** ${data.currentRoute.duration}\n`;
+      
+      if (data.currentRoute.selectedTravelMode) {
+        formatted += `🚶 **Travel Mode:** ${data.currentRoute.selectedTravelMode}\n`;
+      }
+      
+      if (data.currentRoute.travelModes && data.currentRoute.travelModes.length > 0) {
+        formatted += `\n**Available Travel Modes:**\n`;
+        data.currentRoute.travelModes.forEach((mode, index) => {
+          const selectedIcon = mode.isSelected ? '✅' : '⚪';
+          formatted += `${selectedIcon} **${mode.mode}:** ${mode.duration}`;
+          if (mode.additionalInfo) formatted += ` (${mode.additionalInfo})`;
+          formatted += `\n`;
+        });
+      }
+      
+      if (data.currentRoute.routeOptions && data.currentRoute.routeOptions.length > 1) {
+        formatted += `\n**Route Options:**\n`;
+        data.currentRoute.routeOptions.forEach((option, index) => {
+          formatted += `${index + 1}. **${option.duration}** - ${option.distance}`;
+          if (option.description) formatted += ` (${option.description})`;
+          formatted += `\n`;
+        });
+      }
+      
+      if (data.currentRoute.waypoints && data.currentRoute.waypoints.length > 0) {
+        formatted += `\n**Waypoints (${data.currentRoute.waypoints.length}):**\n`;
+        data.currentRoute.waypoints.forEach((waypoint, index) => {
+          formatted += `${index + 1}. ${waypoint.address}\n`;
+        });
+      }
+      
+      if (data.currentRoute.steps && data.currentRoute.steps.length > 0) {
+        formatted += `\n**Route Steps (${data.currentRoute.steps.length}):**\n`;
+        data.currentRoute.steps.slice(0, 3).forEach((step, index) => {
+          formatted += `${index + 1}. ${step.instruction}`;
+          if (step.distance) formatted += ` (${step.distance})`;
+          formatted += `\n`;
+        });
+        if (data.currentRoute.steps.length > 3) {
+          formatted += `... and ${data.currentRoute.steps.length - 3} more steps\n`;
+        }
+      }
     }
     
     formatted += `\n*Extracted at: ${new Date(data.extractedAt).toLocaleString()}*`;
