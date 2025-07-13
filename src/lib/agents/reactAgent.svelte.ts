@@ -168,8 +168,9 @@ export class ReActAgent {
           conversation,
           {
             model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
-            temperature: 0.4, // Balanced temperature for reasoning while reducing tool-happy behavior
-            maxTokens: 4000 // Increased for more detailed responses
+            // model: 'qwen/qwen3-32b',
+            temperature: 0.2, // Balanced temperature for reasoning while reducing tool-happy behavior
+            maxTokens: 6000 // Increased for more detailed responses
           }
         );
 
@@ -184,8 +185,16 @@ export class ReActAgent {
         if (!response.content || response.content.trim() === '') {
           this.push({
             type: 'comment',
-            text: sanitize(`❌ Agent returned empty response. This might be due to content filtering or model issues.`)
+            text: sanitize(`❌ Agent returned empty response. This might be due to content filtering or model issues. Try rephrasing your request or use simpler language.`)
           });
+          
+          // Try to recover by asking a simpler question
+          if (iteration === 1) {
+            this.push({
+              type: 'text',
+              content: 'Let me try to help you with a simpler approach. Could you tell me what specific location or type of places you\'re interested in?'
+            });
+          }
           break;
         }
 
@@ -270,6 +279,14 @@ export class ReActAgent {
           toolParams = { query: inputValue };
         } else if (toolName === 'web_search') {
           toolParams = { query: inputValue };
+        } else if (toolName === 'validate_multi_destination_route') {
+          // For validation tool, if we get a simple string, try to parse it as destinations
+          // The LLM should provide proper JSON, but this is a fallback
+          toolParams = { 
+            destinations: inputValue, 
+            expected_region: 'International',
+            fix_errors: true 
+          };
         } else {
           toolParams = { input: inputValue };
         }

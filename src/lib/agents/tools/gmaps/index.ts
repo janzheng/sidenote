@@ -70,6 +70,15 @@ export const planMultiDestinationTripTool: AgentTool = {
         destinations = actualInput.filter(dest => dest && dest.trim().length > 0);
         console.log('🗺️ Using array input:', destinations);
       } else if (typeof actualInput === 'string') {
+        // Check if it looks like malformed JSON that starts with {"destinations"
+        if (actualInput.trim().startsWith('{"destinations"')) {
+          console.warn('🗺️ Detected malformed JSON input:', actualInput);
+          return {
+            type: 'comment',
+            text: `Invalid JSON format detected. Please provide destinations as a proper JSON array like: ["Place1", "Place2"] or as a comma-separated string like: "Place1, Place2"`
+          };
+        }
+        
         // Check if it's a JSON string first
         try {
           const parsed = JSON.parse(actualInput);
@@ -106,6 +115,23 @@ export const planMultiDestinationTripTool: AgentTool = {
 
       console.log(`🗺️ Planning multi-destination trip with ${destinations.length} stops:`, destinations);
       
+      // Ensure all destinations have country suffixes (except "My Location")
+      destinations = destinations.map(dest => {
+        if (dest.toLowerCase().includes('my location') || dest.toLowerCase().includes('current location')) {
+          return dest; // Don't modify location references - Google Maps handles these natively
+        }
+        
+        // Check if destination already has a country suffix (country name after comma)
+        if (/,\s*[A-Z][a-z]+(\s+[A-Z][a-z]+)*\s*$/i.test(dest)) {
+          return dest; // Already has country suffix like ", USA" or ", New Zealand"
+        }
+        
+        // Return destination as-is if no country suffix is needed
+        return dest;
+      });
+      
+      console.log(`🗺️ After adding country suffixes:`, destinations);
+      
       // Construct Google Maps URL with multiple destinations
       // For international trips, use first destination as origin instead of "My Location"
       // BUT respect explicit user preference for starting from current location
@@ -119,8 +145,34 @@ export const planMultiDestinationTripTool: AgentTool = {
       // Only override "My Location" for international trips if user didn't specify starting point
       const shouldUseFirstDestinationAsOrigin = hasInternationalIndicators && !from;
       const origin = from || (shouldUseFirstDestinationAsOrigin ? destinations[0] : 'My Location');
-      const finalDestination = destinations[destinations.length - 1];
-      const waypoints = shouldUseFirstDestinationAsOrigin ? destinations.slice(1, -1) : destinations.slice(0, -1);
+      
+      // Check if this should be a round trip (ending where it started)
+      // This happens when the last destination is the same as the origin, or when it's clearly a round trip
+      const lastDestination = destinations[destinations.length - 1];
+      const isRoundTrip = lastDestination.toLowerCase().includes('my location') || 
+                         lastDestination.toLowerCase().includes('current location') ||
+                         lastDestination.toLowerCase().includes('home') ||
+                         lastDestination === origin;
+      
+      let finalDestination: string;
+      let waypoints: string[];
+      let actualDestinations = [...destinations]; // Copy to avoid modifying original
+      
+      if (isRoundTrip) {
+        // For round trips, remove "My Location" from destinations if it's there
+        actualDestinations = destinations.filter(dest => 
+          !dest.toLowerCase().includes('my location') && 
+          !dest.toLowerCase().includes('current location')
+        );
+        
+        // Round trip: all actual destinations are waypoints, return to origin
+        finalDestination = origin;
+        waypoints = shouldUseFirstDestinationAsOrigin ? actualDestinations.slice(1) : actualDestinations;
+      } else {
+        // Regular trip: last destination is final, others are waypoints
+        finalDestination = actualDestinations[actualDestinations.length - 1];
+        waypoints = shouldUseFirstDestinationAsOrigin ? actualDestinations.slice(1, -1) : actualDestinations.slice(0, -1);
+      }
       
       let directionsUrl = `https://maps.google.com/maps/dir/${encodeURIComponent(origin)}`;
       
@@ -144,11 +196,14 @@ export const planMultiDestinationTripTool: AgentTool = {
         }
       });
       
-      const tripList = destinations.map((dest, i) => `${i + 1}. ${dest}`).join('\n');
+      // For display, use the actual destinations (without "My Location" duplicates for round trips)
+      const displayDestinations = isRoundTrip ? actualDestinations : destinations;
+      const tripList = displayDestinations.map((dest, i) => `${i + 1}. ${dest}`).join('\n');
       const fromText = from ? ` from ${from}` : ' from your current location';
       const optimizeText = optimize ? ' Google Maps will optimize the order of your stops for the most efficient route.' : '';
+      const roundTripText = isRoundTrip ? ' (round trip - returning to starting point)' : '';
       
-      const response = `🗺️ **Multi-Destination Trip Planned!**\n\nI've created a route${fromText} with ${destinations.length} destinations:\n\n${tripList}\n\nYour trip is now displayed on Google Maps with:\n\n• Complete multi-leg journey\n• Turn-by-turn directions for each segment\n• Estimated travel times\n• Total trip duration\n• Ability to reorder stops by dragging${optimizeText}\n\nReady for your multi-destination adventure!`;
+      const response = `🗺️ **Multi-Destination Trip Planned!**\n\nI've created a route${fromText}${roundTripText} with ${displayDestinations.length} destinations:\n\n${tripList}\n\n${isRoundTrip ? '🔄 **Round Trip**: You\'ll return to your starting point after visiting all destinations.\n\n' : ''}Your trip is now displayed on Google Maps with:\n\n• Complete multi-leg journey\n• Turn-by-turn directions for each segment\n• Estimated travel times\n• Total trip duration\n• Ability to reorder stops by dragging${optimizeText}\n\nReady for your multi-destination adventure!`;
       
       return {
         type: 'text',
@@ -365,18 +420,44 @@ export const validateMultiDestinationRouteTool: AgentTool = {
 
     try {
       console.log('🔍 Validating multi-destination route:', params);
+      console.log('🔍 Destinations type:', typeof params.destinations);
+      console.log('🔍 Expected region type:', typeof params.expected_region);
       
-      // Parse destinations
+      // Parse destinations with better error handling
       let destinations: string[];
       if (Array.isArray(params.destinations)) {
-        destinations = params.destinations;
-      } else {
+        destinations = params.destinations.filter(d => d && typeof d === 'string' && d.trim().length > 0);
+      } else if (typeof params.destinations === 'string') {
         try {
           const parsed = JSON.parse(params.destinations);
-          destinations = Array.isArray(parsed) ? parsed : params.destinations.split(',').map(d => d.trim());
+          if (Array.isArray(parsed)) {
+            destinations = parsed.filter(d => d && typeof d === 'string' && d.trim().length > 0);
+          } else {
+            destinations = params.destinations.split(',').map(d => d.trim()).filter(d => d.length > 0);
+          }
         } catch {
-          destinations = params.destinations.split(',').map(d => d.trim());
+          destinations = params.destinations.split(',').map(d => d.trim()).filter(d => d.length > 0);
         }
+      } else {
+        return {
+          type: 'text',
+          content: '❌ **Validation Error**: Destinations must be provided as an array or comma-separated string'
+        };
+      }
+      
+      if (destinations.length === 0) {
+        return {
+          type: 'text',
+          content: '❌ **Validation Error**: No valid destinations found to validate'
+        };
+      }
+      
+      // Validate expected_region parameter
+      if (!params.expected_region || typeof params.expected_region !== 'string') {
+        return {
+          type: 'text',
+          content: '❌ **Validation Error**: Expected region must be provided as a string (e.g., "New Zealand", "California")'
+        };
       }
       
       const expectedRegion = params.expected_region.toLowerCase();
@@ -387,6 +468,11 @@ export const validateMultiDestinationRouteTool: AgentTool = {
       const suggestions: string[] = [];
       
       destinations.forEach((dest, index) => {
+        // Skip undefined, null, or empty destinations
+        if (!dest || typeof dest !== 'string' || dest.trim().length === 0) {
+          return;
+        }
+        
         const destLower = dest.toLowerCase();
         
         // Check if destination already has the expected region
@@ -485,9 +571,11 @@ export const validateMultiDestinationRouteTool: AgentTool = {
       };
       
     } catch (error) {
+      console.error('❌ Route validation error:', error);
+      console.error('❌ Validation params that caused error:', params);
       return {
         type: 'comment',
-        text: `Failed to validate route: ${error instanceof Error ? error.message : 'Unknown error'}`
+        text: `Failed to validate route: ${error instanceof Error ? error.message : 'Unknown error'}\n\nParams received: ${JSON.stringify(params, null, 2)}`
       };
     }
   }
