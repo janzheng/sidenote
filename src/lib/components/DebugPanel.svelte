@@ -2,7 +2,6 @@
   import Icon from "@iconify/svelte";
   import ContentStructure from "./ui/ContentStructure.svelte";
   import CollapsibleContent from "./ui/CollapsibleContent.svelte";
-  import ToggleDrawer from "./ui/ToggleDrawer.svelte";
   import CopyButton from "./ui/CopyButton.svelte";
   import AiReActAgent from "./AiReActAgent.svelte";
   import type { PanelManager } from "../ui/panelManager.svelte";
@@ -110,7 +109,7 @@
 
     <!-- Enhanced Metadata Section -->
     {#if panelManager.hasSchemaData || panelManager.imageCount > 0 || panelManager.internalLinkCount > 0}
-      <ToggleDrawer
+      <CollapsibleContent
         title="Enhanced Metadata"
         subtitle={[
           panelManager.imageCount > 0 ? `${panelManager.imageCount} images` : null,
@@ -119,67 +118,46 @@
           panelManager.ogTitle ? 'Open Graph' : null,
           panelManager.twitterCard ? 'Twitter' : null
         ].filter(Boolean).join(' • ')}
+        content={JSON.stringify({
+          schemaData: panelManager.schemaData,
+          images: panelManager.images,
+          links: panelManager.links,
+          headings: panelManager.headings,
+          openGraph: {
+            title: panelManager.ogTitle,
+            description: panelManager.ogDescription,
+            image: panelManager.ogImage,
+            type: panelManager.ogType
+          },
+          twitterCard: {
+            card: panelManager.twitterCard,
+            title: panelManager.twitterTitle,
+            description: panelManager.twitterDescription,
+            image: panelManager.twitterImage
+          }
+        }, null, 2)}
+        itemCount="{Object.keys({
+          schemaData: panelManager.schemaData,
+          images: panelManager.images,
+          links: panelManager.links,
+          headings: panelManager.headings,
+          openGraph: {
+            title: panelManager.ogTitle,
+            description: panelManager.ogDescription,
+            image: panelManager.ogImage,
+            type: panelManager.ogType
+          },
+          twitterCard: {
+            card: panelManager.twitterCard,
+            title: panelManager.twitterTitle,
+            description: panelManager.twitterDescription,
+            image: panelManager.twitterImage
+          }
+        }).length} fields"
+        emptyMessage="No enhanced metadata available"
         metadataOnNewRow={true}
-      >
-        {#snippet children()}
-          {#if isLoading}
-            <div class="flex items-center justify-center h-32">
-              <div class="flex items-center gap-2 text-gray-600">
-                <Icon icon="mdi:loading" class="animate-spin w-5 h-5" />
-                <span>Loading...</span>
-              </div>
-            </div>
-          {:else}
-            <div class="bg-gray-50 p-3 rounded border min-h-[120px] overflow-y-auto">
-              <pre class="whitespace-pre-wrap text-sm text-gray-700 max-h-96 overflow-y-auto font-mono">{JSON.stringify({
-                schemaData: panelManager.schemaData,
-                images: panelManager.images,
-                links: panelManager.links,
-                headings: panelManager.headings,
-                openGraph: {
-                  title: panelManager.ogTitle,
-                  description: panelManager.ogDescription,
-                  image: panelManager.ogImage,
-                  type: panelManager.ogType
-                },
-                twitterCard: {
-                  card: panelManager.twitterCard,
-                  title: panelManager.twitterTitle,
-                  description: panelManager.twitterDescription,
-                  image: panelManager.twitterImage
-                }
-              }, null, 2)}</pre>
-            </div>
-            
-            <!-- Copy button -->
-            <div class="flex justify-end mt-2">
-              <CopyButton 
-                content={JSON.stringify({
-                  schemaData: panelManager.schemaData,
-                  images: panelManager.images,
-                  links: panelManager.links,
-                  headings: panelManager.headings,
-                  openGraph: {
-                    title: panelManager.ogTitle,
-                    description: panelManager.ogDescription,
-                    image: panelManager.ogImage,
-                    type: panelManager.ogType
-                  },
-                  twitterCard: {
-                    card: panelManager.twitterCard,
-                    title: panelManager.twitterTitle,
-                    description: panelManager.twitterDescription,
-                    image: panelManager.twitterImage
-                  }
-                }, null, 2)}
-                buttonClass="px-3 py-1 text-gray-600 hover:text-blue-600 border border-gray-300 rounded transition-colors text-sm flex items-center gap-1"
-                iconClass="w-4 h-4"
-                title="Copy enhanced metadata"
-              />
-            </div>
-          {/if}
-        {/snippet}
-      </ToggleDrawer>
+        {isLoading}
+      />
     {/if}
 
     <CollapsibleContent

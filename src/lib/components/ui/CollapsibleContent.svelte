@@ -5,6 +5,7 @@
   
   interface Props {
     title: string;
+    subtitle?: string;
     content: string;
     itemCount?: number | string;
     emptyMessage?: string;
@@ -16,10 +17,12 @@
     showRefresh?: boolean;
     showCopy?: boolean;
     renderAsMarkdown?: boolean;
+    metadataOnNewRow?: boolean;
   }
   
   let { 
     title, 
+    subtitle = '',
     content, 
     itemCount = "", 
     emptyMessage = "No content available", 
@@ -30,7 +33,8 @@
     refreshTitle = "Refresh",
     showRefresh = false,
     showCopy = true,
-    renderAsMarkdown = false
+    renderAsMarkdown = false,
+    metadataOnNewRow = false
   }: Props = $props();
   
   const displayCount = $derived(typeof itemCount === 'number' ? itemCount : itemCount);
@@ -55,21 +59,43 @@
 <div class="mb-6">
   <!-- Header with title and buttons -->
   <div class="flex items-center justify-between mb-3">
-    <button 
-      onclick={handleToggle}
-      class="flex items-center gap-2 text-lg font-semibold text-gray-800 hover:text-gray-600 transition-colors"
-    >
-      <Icon 
-        icon="mdi:chevron-right" 
-        class="w-5 h-5 transition-transform duration-200 {isExpanded ? 'rotate-90' : ''}" 
-      />
-      {title}
-      {#if displayCount}
-        <span class="text-sm font-normal text-gray-500">
-          ({displayCount}{typeof itemCount === 'number' && itemCount === 1 ? ' entry' : typeof itemCount === 'number' ? ' entries' : ''})
-        </span>
+    <div class="flex-1 min-w-0 {metadataOnNewRow ? 'space-y-1' : ''}">
+      <button 
+        onclick={handleToggle}
+        class="flex items-center gap-2 text-lg font-semibold text-gray-800 hover:text-gray-600 transition-colors"
+      >
+        <Icon 
+          icon="mdi:chevron-right" 
+          class="w-5 h-5 transition-transform duration-200 {isExpanded ? 'rotate-90' : ''}" 
+        />
+        {title}
+        {#if displayCount && !metadataOnNewRow}
+          <span class="text-sm font-normal text-gray-500">
+            ({displayCount}{typeof itemCount === 'number' && itemCount === 1 ? ' entry' : typeof itemCount === 'number' ? ' entries' : ''})
+          </span>
+        {/if}
+        {#if subtitle && !metadataOnNewRow}
+          <span class="text-sm font-normal text-gray-500">
+            {subtitle}
+          </span>
+        {/if}
+      </button>
+      
+      {#if metadataOnNewRow && (subtitle || displayCount)}
+        <div class="flex items-center gap-2 ml-7">
+          {#if displayCount}
+            <span class="text-sm text-gray-500">
+              ({displayCount}{typeof itemCount === 'number' && itemCount === 1 ? ' entry' : typeof itemCount === 'number' ? ' entries' : ''})
+            </span>
+          {/if}
+          {#if subtitle}
+            <span class="text-sm text-gray-500">
+              {subtitle}
+            </span>
+          {/if}
+        </div>
       {/if}
-    </button>
+    </div>
     
     <div class="flex gap-2">
       {#if showRefresh && onRefresh}

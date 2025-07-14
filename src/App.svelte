@@ -76,8 +76,6 @@
             <Icon icon="mdi:loading" class="animate-spin" />
           {:else if panelManager.isBookmarked}
             <Icon icon="mdi:check" />
-          {:else if bookmarkManager.quickBookmarkStatus === 'success'}
-            <Icon icon="mdi:check" />
           {:else if bookmarkManager.quickBookmarkStatus === 'error'}
             <Icon icon="mdi:alert" />
           {:else}

@@ -1,6 +1,12 @@
 // Tab-scoped panel manager - each side panel instance manages its own state
 // No global singleton, no cross-tab contamination
 
+import { bookmarkManager } from './bookmarkManager.svelte';
+import { summaryManager } from './summaryManager.svelte';
+import { chatManager } from './chatManager.svelte';
+import { threadgirlManager } from './threadgirlManager.svelte';
+import { contentStructureManager } from './contentStructureManager.svelte';
+
 export interface PanelState {
   content: any | null;
   isLoading: boolean;
@@ -452,6 +458,16 @@ export class PanelManager {
           return;
         }
         
+        // Reset bookmark manager state when switching tabs/URLs
+        if (tab.url !== this.state.url) {
+          console.log('🔄 URL changed, resetting manager states');
+          bookmarkManager.reset();
+          summaryManager.reset();
+          chatManager.reset();
+          threadgirlManager.reset();
+          contentStructureManager.reset();
+        }
+        
         // Update tab info
         this.state.tabId = tab.id!;
         this.state.url = tab.url;
@@ -560,6 +576,13 @@ export class PanelManager {
         console.log('✅ Data refreshed successfully');
         console.log('🔄 Loaded bookmark status:', response.data?.statuses?.bookmarkStatus);
         this.state.content = response.data;
+        
+        // Reset bookmark manager state after loading new data to ensure UI consistency
+        bookmarkManager.reset();
+        summaryManager.reset();
+        chatManager.reset();
+        threadgirlManager.reset();
+        contentStructureManager.reset();
       } else {
         console.log('ℹ️ No existing data found for URL');
         console.log('🔄 Response:', response);
