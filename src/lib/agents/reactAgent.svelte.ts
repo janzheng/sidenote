@@ -167,7 +167,8 @@ export class ReActAgent {
         const response = await GroqService.generateText(
           conversation,
           {
-            model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
+            model: 'moonshotai/kimi-k2-instruct',
+            // model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
             // model: 'qwen/qwen3-32b',
             temperature: 0.2, // Balanced temperature for reasoning while reducing tool-happy behavior
             maxTokens: 6000 // Increased for more detailed responses
@@ -400,11 +401,44 @@ export class ReActAgent {
       return false; // End the loop
     }
 
+    // Check if this looks like a complete response without "Final Answer:" prefix
+    // This handles cases where the LLM provides a complete answer but doesn't use the exact format
+    const looksLikeCompleteResponse = (
+      // Contains conclusive language
+      /(?:ready to|perfect!|here's|all set|complete|finished|done)/i.test(responseText) ||
+      // Contains emojis suggesting completion
+      /[🎯🚀✅🎉🗺️💯]/.test(responseText) ||
+      // Ends with encouraging action language
+      /(?:start your|enjoy your|begin your|ready for|waiting for you|let's go)/i.test(responseText) ||
+      // Contains detailed structured content (like lists or formatted text)
+      (/\*\*.*?\*\*/.test(responseText) && responseText.length > 200)
+    );
+
+    // Also check if response contains no questions or requests for more info
+    const containsQuestions = /\?(?!\s*$)/.test(responseText) || /(?:would you like|do you want|should i|would you prefer)/i.test(responseText);
+
+    if (looksLikeCompleteResponse && !containsQuestions) {
+      console.log('🎯 Detected complete response without "Final Answer:" prefix, terminating');
+      this.push({
+        type: 'text',
+        content: responseText
+      });
+      return false; // End the loop
+    }
+
     // If no clear action or final answer, add as text and continue
     this.push({
       type: 'text',
       content: responseText
     });
+
+    // If the response doesn't contain thinking, action, or final answer patterns,
+    // and is substantial (>100 chars), it's likely a complete response
+    if (responseText.length > 100 && 
+        !responseText.match(/(?:Thought|Think|Thinking|Action|Final Answer):/i)) {
+      console.log('🎯 Substantial response without ReAct patterns, likely complete');
+      return false; // End the loop
+    }
 
     return true; // Continue for now
   }
@@ -432,7 +466,8 @@ TOOL USAGE RULES:
 - **DON'T use tools for**: General questions, explanations, advice, common knowledge
 - Always think before acting
 - Use the exact format: "Thought: [your reasoning]" then "Action: [tool_name]" then "Action Input: [parameters]"
-- When you have enough information, provide a "Final Answer: [response]"
+- **CRITICAL**: When you have enough information, ALWAYS provide a "Final Answer: [response]" to end the conversation
+- **NEVER continue generating** after providing a complete response unless the user asks a follow-up question
 
 EXAMPLES OF WHEN **NOT** TO USE TOOLS:
 - "Tell me a joke" → Answer directly
@@ -472,7 +507,7 @@ Action Input: {"location": "San Francisco, CA"}
 
 [Tool execution happens here]
 
-Thought: Now I have the current weather data, I can provide the final answer.
+Thought: Now I have the current weather data, I can provide the final answer. IMPORTANT: I must use "Final Answer:" to terminate properly.
 Final Answer: The weather in San Francisco is currently 22°C and sunny.
 
 **Asking User Permission (wait for response):**
@@ -487,7 +522,7 @@ Action Input: {"query": "React 19 features updates new"}
 
 ${pageContent ? `\nCURRENT PAGE CONTENT:\n${pageContent.slice(0, 2000)}${pageContent.length > 2000 ? '...' : ''}` : ''}
 
-Remember: Think step by step, answer directly when possible, use tools only when necessary for current/specific data. Always wait for user confirmation when asking permission questions.`;
+Remember: Think step by step, answer directly when possible, use tools only when necessary for current/specific data. Always wait for user confirmation when asking permission questions. **ALWAYS use "Final Answer:" to properly terminate your response.**`;
   }
 }
 

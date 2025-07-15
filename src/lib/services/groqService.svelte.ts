@@ -42,7 +42,8 @@ export interface ToolResult {
  */
 export class GroqService {
   private static readonly BASE_URL = 'https://api.groq.com/openai/v1';
-  private static readonly DEFAULT_MODEL = 'meta-llama/llama-4-maverick-17b-128e-instruct';
+  // private static readonly DEFAULT_MODEL = 'meta-llama/llama-4-maverick-17b-128e-instruct';
+  private static readonly DEFAULT_MODEL = 'moonshotai/kimi-k2-instruct';
   private static readonly DEFAULT_TTS_MODEL = 'playai-tts';
   private static readonly DEFAULT_TTS_VOICE = 'Arista-PlayAI';
   private static readonly TIMEOUT = 120000; // 120 seconds (2 minutes)

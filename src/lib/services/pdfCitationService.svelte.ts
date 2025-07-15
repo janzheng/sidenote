@@ -19,7 +19,8 @@ export interface PDFCitationExtractionResult {
 export class PDFCitationService {
   private static readonly MAX_CONTENT_LENGTH = 6000;
   // private static readonly MODEL = 'llama-3.1-8b-instant';
-  private static readonly MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
+  // private static readonly MODEL = 'meta-llama/llama-4-maverick-17b-128e-instruct';
+  private static readonly MODEL = 'moonshotai/kimi-k2-instruct';
 
   /**
    * Extract citation metadata from PDF content using AI

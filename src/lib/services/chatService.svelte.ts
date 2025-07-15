@@ -96,7 +96,8 @@ ${text.substring(0, 100000)}${text.length > 100000 ? '...\n\n[Content truncated 
         conversationHistory,
         {
           // model: 'llama-3.1-8b-instant',
-          model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
+          // model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
+          model: 'moonshotai/kimi-k2-instruct',
           temperature: 0.3,
           maxTokens: 8192,
           topP: 0.9

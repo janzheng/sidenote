@@ -465,7 +465,8 @@ export class ResearchPaperService {
       userPrompt,
       systemPrompt,
       {
-        model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
+        // model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
+        model: 'moonshotai/kimi-k2-instruct',
         temperature: isSyntheticSection ? 0.3 : 0.1,
         maxTokens: 130000, // Use full context window
         topP: 0.9
@@ -725,7 +726,8 @@ Return a JSON object with the sections array in the order they appear in the pap
       userPrompt,
       systemPrompt,
       {
-        model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
+        // model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
+        model: 'moonshotai/kimi-k2-instruct',
         temperature: 0.1,
         maxTokens: 130000, // Use full context
         topP: 0.9
