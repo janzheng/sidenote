@@ -6,6 +6,7 @@ import { summaryManager } from './summaryManager.svelte';
 import { chatManager } from './chatManager.svelte';
 import { threadgirlManager } from './threadgirlManager.svelte';
 import { contentStructureManager } from './contentStructureManager.svelte';
+import { normalizeUrl } from '../utils/contentId';
 
 export interface PanelState {
   content: any | null;
@@ -381,6 +382,17 @@ export class PanelManager {
       if (changeInfo.url) {
         console.log('🔄 Tab URL changed:', tabId, 'URL:', changeInfo.url);
         
+        // Check if this is just an anchor link navigation
+        const normalizedNewUrl = normalizeUrl(changeInfo.url);
+        const normalizedCurrentUrl = this.state.url ? normalizeUrl(this.state.url) : null;
+        
+        if (normalizedCurrentUrl && normalizedNewUrl === normalizedCurrentUrl) {
+          console.log('🔄 Anchor link navigation detected, skipping refresh');
+          // Still update the URL in state to reflect the new hash
+          this.state.url = changeInfo.url;
+          return;
+        }
+        
         // Check if this is the active tab in our window
         if (tab.active) {
           try {
@@ -452,15 +464,26 @@ export class PanelManager {
           return;
         }
         
-        // Check if URL actually changed
-        if (tab.url === this.state.url && tab.url === this.lastExtractedUrl) {
+        // Check if URL actually changed (using normalized URLs for content comparison)
+        const normalizedTabUrl = normalizeUrl(tab.url);
+        const normalizedStateUrl = this.state.url ? normalizeUrl(this.state.url) : null;
+        const normalizedLastExtracted = this.lastExtractedUrl ? normalizeUrl(this.lastExtractedUrl) : null;
+        
+        if (tab.url === this.state.url && normalizedTabUrl === normalizedLastExtracted) {
           console.log('🔄 URL unchanged, skipping extraction');
           return;
         }
         
-        // Reset bookmark manager state when switching tabs/URLs
-        if (tab.url !== this.state.url) {
+        // Reset bookmark manager state when switching tabs/URLs (only for different normalized URLs)
+        if (normalizedStateUrl && normalizedTabUrl !== normalizedStateUrl) {
           console.log('🔄 URL changed, resetting manager states');
+          bookmarkManager.reset();
+          summaryManager.reset();
+          chatManager.reset();
+          threadgirlManager.reset();
+          contentStructureManager.reset();
+        } else if (!normalizedStateUrl) {
+          console.log('🔄 Initial URL set, resetting manager states');
           bookmarkManager.reset();
           summaryManager.reset();
           chatManager.reset();
@@ -498,8 +521,11 @@ export class PanelManager {
       return;
     }
 
-    // Check if we already extracted this URL
-    if (this.state.url === this.lastExtractedUrl && this.state.content) {
+    // Check if we already extracted this URL (using normalized URL for comparison)
+    const normalizedCurrentUrl = normalizeUrl(this.state.url);
+    const normalizedLastExtracted = this.lastExtractedUrl ? normalizeUrl(this.lastExtractedUrl) : null;
+    
+    if (normalizedCurrentUrl === normalizedLastExtracted && this.state.content) {
       console.log('🔄 Content already extracted for this URL, skipping');
       return;
     }
@@ -577,8 +603,8 @@ export class PanelManager {
         console.log('🔄 Loaded bookmark status:', response.data?.statuses?.bookmarkStatus);
         this.state.content = response.data;
         
-        // Reset bookmark manager state after loading new data to ensure UI consistency
-        bookmarkManager.reset();
+        // Reset manager states after loading new data to ensure UI consistency
+        // Note: Don't reset bookmarkManager as it maintains its own state independently
         summaryManager.reset();
         chatManager.reset();
         threadgirlManager.reset();

@@ -31,7 +31,8 @@ export const THREADGIRL_MODELS: ThreadgirlModel[] = [
   { name: "Llama 3.1 8B Instant", id: "llama-3.1-8b-instant", provider: "groq" },
   { name: "Llama 3.3 70B Versatile", id: "llama-3.3-70b-versatile", provider: "groq" },
   { name: "Llama 4 Maverick 17B", id: "meta-llama/llama-4-maverick-17b-128e-instruct", provider: "groq" },
-  { name: "Llama 4 Scout 17B", id: "meta-llama/llama-4-scout-17b-16e-instruct", provider: "groq" }
+  { name: "Llama 4 Scout 17B", id: "meta-llama/llama-4-scout-17b-16e-instruct", provider: "groq" },
+  { name: "Kimi K2", id: "moonshotai/kimi-k2-instruct", provider: "groq" }
 ];
 
 export class ThreadgirlService {
