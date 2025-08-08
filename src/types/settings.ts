@@ -3,6 +3,7 @@ export interface Settings {
   jinaApiKey: string;
   systemPrompt: string;
   debugMode: boolean;
+  autoRefresh: boolean;
   sheetUrl: string;
   sheetName: string;
   userBackground: string;

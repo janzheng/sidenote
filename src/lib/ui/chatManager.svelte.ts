@@ -41,12 +41,21 @@ class ChatManager {
 
     try {
       console.log('💬 Sending chat message for:', url);
+      // Optimistically append the user's message so it shows up immediately,
+      // but keep a copy of the previous history to send to the background
+      const trimmedMessage = message.trim();
+      const previousHistory = this.state.messages;
+      const optimisticUserMessage: ChatMessage = {
+        role: 'user',
+        content: trimmedMessage
+      };
+      this.state.messages = [...previousHistory, optimisticUserMessage];
       
       const response = await chrome.runtime.sendMessage({
         action: 'sendChatMessage',
         url: url,
-        message: message.trim(),
-        chatHistory: this.state.messages,
+        message: trimmedMessage,
+        chatHistory: previousHistory,
         customSystemPrompt: customSystemPrompt
       });
 

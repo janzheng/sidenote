@@ -1,5 +1,6 @@
 <script lang="ts">
   import { settingsManager } from '../ui/settings.svelte';
+  import AutoRefreshToggle from './ui/AutoRefreshToggle.svelte';
 </script>
 
 <div class="h-full flex flex-col pt-16 bg-gray-50">
@@ -188,6 +189,25 @@
         </div>
       </div>
       
+      <!-- Behavior Settings -->
+      <div class="bg-gray-50 p-4 rounded border border-gray-200">
+        <h3 class="text-md font-medium mb-3 text-gray-700">Behavior Settings</h3>
+        <div class="space-y-4">
+          <div>
+            <span class="block font-medium text-gray-700 mb-3">Auto Refresh</span>
+            <div class="flex items-center gap-3">
+              <AutoRefreshToggle size="md" showText={true} />
+              <div class="flex-1">
+                <p class="text-gray-600 text-sm">
+                  When enabled, the sidebar automatically refreshes content when you switch tabs or navigate to new pages. 
+                  When disabled, content stays locked to the current page, allowing you to keep summaries from one page while browsing others.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Personalization -->
       <div class="bg-gray-50 p-4 rounded border border-gray-200">
         <h3 class="text-md font-medium mb-3 text-gray-700">Personalization</h3>

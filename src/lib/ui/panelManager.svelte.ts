@@ -6,6 +6,7 @@ import { summaryManager } from './summaryManager.svelte';
 import { chatManager } from './chatManager.svelte';
 import { threadgirlManager } from './threadgirlManager.svelte';
 import { contentStructureManager } from './contentStructureManager.svelte';
+import { settingsManager } from './settings.svelte';
 import { normalizeUrl } from '../utils/contentId';
 
 export interface PanelState {
@@ -334,7 +335,7 @@ export class PanelManager {
       }
     }
     
-    // Schedule initial refresh
+    // Schedule initial refresh (always on initialization, regardless of autoRefresh setting)
     this.scheduleRefresh('initialization');
   }
 
@@ -362,6 +363,12 @@ export class PanelManager {
     chrome.tabs.onActivated.addListener(async (activeInfo) => {
       console.log('🔄 Tab activated:', activeInfo.tabId, 'in window:', activeInfo.windowId);
       
+      // Check autoRefresh setting
+      if (!settingsManager.settings.autoRefresh) {
+        console.log('🔄 AutoRefresh disabled, skipping tab activation refresh');
+        return;
+      }
+      
       // Check if this activation is in our current window
       try {
         const currentWindow = await chrome.windows.getCurrent();
@@ -381,6 +388,12 @@ export class PanelManager {
       // Only process meaningful changes
       if (changeInfo.url) {
         console.log('🔄 Tab URL changed:', tabId, 'URL:', changeInfo.url);
+        
+        // Check autoRefresh setting
+        if (!settingsManager.settings.autoRefresh) {
+          console.log('🔄 AutoRefresh disabled, skipping URL change refresh');
+          return;
+        }
         
         // Check if this is just an anchor link navigation
         const normalizedNewUrl = normalizeUrl(changeInfo.url);
@@ -407,6 +420,12 @@ export class PanelManager {
         }
       } else if (changeInfo.status === 'complete') {
         console.log('🔄 Tab loading complete:', tabId);
+        
+        // Check autoRefresh setting
+        if (!settingsManager.settings.autoRefresh) {
+          console.log('🔄 AutoRefresh disabled, skipping load complete refresh');
+          return;
+        }
         
         // Only refresh if we haven't extracted content for this URL yet
         if (tab.active && tab.url && tab.url !== this.lastExtractedUrl) {

@@ -696,14 +696,6 @@
     list-style-type: disc;
   }
 
-  .insights-list li {
-    margin-bottom: 4px;
-  }
-
-  .insights-list li:last-child {
-    margin-bottom: 0;
-  }
-
   .empty-state {
     display: flex;
     flex-direction: column;

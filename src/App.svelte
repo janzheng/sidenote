@@ -20,6 +20,7 @@
   import PageAssets from './lib/components/PageAssets.svelte';
   import PageScreenshots from './lib/components/PageScreenshots.svelte';
   import PDFDownloadButton from './lib/components/ui/PDFDownloadButton.svelte';
+  import AutoRefreshToggle from './lib/components/ui/AutoRefreshToggle.svelte';
   
   import Icon from "@iconify/svelte";
   
@@ -125,6 +126,13 @@
             <span class="text-sm leading-none">Back</span>
           {/if}
         </button>
+      </div>
+    </div>
+    
+    <!-- Secondary Button Row -->
+    <div class="pb-2 flex-shrink-0 mt-2">
+      <div class="flex items-center justify-start">
+        <AutoRefreshToggle size="md" showText={false} showOffHint={true} />
       </div>
     </div>
   </header>

@@ -3,7 +3,7 @@ import { contentDataController } from '../../lib/services/dataController.svelte'
 import { PDFExtractionService } from '../../lib/services/pdfExtractionService.svelte';
 
 import TurndownService from 'turndown';
-import { gfm } from 'turndown-plugin-gfm';
+import { strikethrough, taskListItems } from 'turndown-plugin-gfm';
 
 export interface ContentExtractionResult {
   success: boolean;
@@ -35,8 +35,13 @@ function createTurndownService(): TurndownService {
     preformattedCode: false
   });
 
-  // Add GitHub Flavored Markdown support
-  turndownService.use(gfm);
+  // Add selective GitHub Flavored Markdown support (exclude tables to avoid parentNode issues)
+  try {
+    turndownService.use(strikethrough);
+    turndownService.use(taskListItems);
+  } catch (e) {
+    console.warn('Turndown GFM selective plugins failed to load:', e);
+  }
 
   // Custom rules for better content extraction
   turndownService.addRule('removeScript', {
@@ -192,7 +197,14 @@ export async function extractContent(): Promise<ContentExtractionResult> {
     
     // Create Turndown service
     const turndownService = createTurndownService();
-    const markdown = turndownService.turndown(document.documentElement.outerHTML);
+    let markdown = '';
+    try {
+      // Prefer body HTML to avoid full-document edge cases (head/html nodes)
+      markdown = turndownService.turndown(document.body.innerHTML);
+    } catch (mdErr) {
+      console.warn('Turndown failed, falling back to plain text:', mdErr);
+      markdown = document.body.innerText || '';
+    }
     
     // Calculate word count
     const wordCount = document.body.innerText.split(/\s+/).filter(word => word.length > 0).length;

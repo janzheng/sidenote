@@ -372,8 +372,8 @@
                     <span class="text-gray-400 ml-auto text-xs">
                       {formatTime(Date.now())}
                     </span>
-                    <CopyButton 
-                      copyFn={() => handleCopyMessage(message.content)}
+                      <CopyButton 
+                      copyFn={() => handleCopyMessage(message.content ?? '')}
                       buttonClass="p-1 rounded transition-colors opacity-0 group-hover:opacity-100"
                       iconClass="w-4 h-4 text-gray-400 hover:text-gray-600"
                       title="Copy message"
@@ -390,7 +390,7 @@
                     <!-- AI messages as markdown -->
                     <div class="w-full">
                       <div class="text-gray-900 break-words prose prose-sm max-w-none markdown-content">
-                        {@html renderMarkdown(message.content)}
+                        {@html renderMarkdown(message.content ?? '')}
                         {#if isGenerating || chatManager.isGenerating}
                           <span class="inline-block w-2 h-4 bg-green-600 animate-pulse ml-1"></span>
                         {/if}

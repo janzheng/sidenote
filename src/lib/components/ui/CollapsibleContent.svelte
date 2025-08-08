@@ -136,14 +136,14 @@
             <span>Loading...</span>
           </div>
         </div>
-             {:else if hasContent}
-         {#if renderAsMarkdown}
-           <div class="text-gray-700 prose prose-sm max-w-none markdown-content">
-             {@html renderMarkdown(content)}
-           </div>
-         {:else}
-           <pre class="whitespace-pre-wrap text-sm text-gray-700 max-h-96 overflow-y-auto font-mono">{content}</pre>
-         {/if}
+      {:else if hasContent}
+        {#if renderAsMarkdown}
+          <div class="text-gray-700 prose prose-sm max-w-none markdown-content">
+            {@html renderMarkdown(content)}
+          </div>
+        {:else}
+          <pre class="whitespace-pre-wrap text-sm text-gray-700 max-h-96 overflow-y-auto font-mono">{content}</pre>
+        {/if}
       {:else}
         <div class="text-gray-500 italic text-sm">{emptyMessage}</div>
       {/if}
