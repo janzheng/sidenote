@@ -30,6 +30,61 @@ const TWITTER_SELECTORS = {
   SIDEBAR_CONTENT: '[data-testid="sidebarColumn"]',
   WHO_TO_FOLLOW: '[aria-label*="Who to follow"]'
 };
+/**
+ * Extract translateY from inline style transform of a virtualized cell
+ */
+function getTranslateY(el: HTMLElement): number | null {
+  const style = el.getAttribute('style') || '';
+  // transform: translateY(1318px);
+  const match = style.match(/translateY\(([-\d.]+)px\)/);
+  if (match) {
+    return parseFloat(match[1]);
+  }
+  // transform: translate3d(0px, 1318px, 0px)
+  const match3d = style.match(/translate3d\([^,]+,\s*([-\d.]+)px,\s*[^)]+\)/);
+  if (match3d) {
+    return parseFloat(match3d[1]);
+  }
+  // Fallback: try computed style transform matrix
+  const cs = window.getComputedStyle(el).transform;
+  if (cs && cs !== 'none') {
+    const m = cs.match(/matrix\([^,]+,[^,]+,[^,]+,[^,]+,\s*[-\d.]+,\s*([-\d.]+)\)/);
+    if (m) return parseFloat(m[1]);
+  }
+  return null;
+}
+
+function getElementVirtualYFromParents(el: HTMLElement): number | null {
+  let current: HTMLElement | null = el;
+  let steps = 0;
+  while (current && steps < 8) {
+    const y = getTranslateY(current);
+    if (typeof y === 'number') return y;
+    current = current.parentElement as HTMLElement | null;
+    steps++;
+  }
+  return null;
+}
+
+/**
+ * Find the earliest (smallest Y) Discover more cell within a container
+ */
+function findDiscoverMoreBoundaryY(container: Element): number | null {
+  const cells = container.querySelectorAll('[data-testid="cellInnerDiv"]');
+  let minY: number | null = null;
+  cells.forEach((cell) => {
+    const text = cell.textContent || '';
+    if (text.includes('Discover more') || text.includes('Sourced from across X')) {
+      const y = getTranslateY(cell as HTMLElement);
+      if (typeof y === 'number') {
+        if (minY === null || y < minY) {
+          minY = y;
+        }
+      }
+    }
+  });
+  return minY;
+}
 
 export async function extractTwitterThreadWithScroll(
   maxScrolls: number = 150, // Increased from 100 to be more thorough 
@@ -60,7 +115,8 @@ export async function extractTwitterThreadWithScroll(
     let domOrderCounter = 0;
     
     // Extract initial tweets
-    const initialTweets = await extractNewTweetsFromDOM(domOrderCounter, processedTweetIds);
+    const initialStructure = analyzePageStructure();
+    const initialTweets = await extractNewTweetsFromDOM(domOrderCounter, processedTweetIds, initialStructure);
     allExtractedTweets.push(...initialTweets);
     domOrderCounter += initialTweets.length;
     
@@ -93,7 +149,8 @@ export async function extractTwitterThreadWithScroll(
         
         // Extract ONLY new tweets that we haven't processed yet
         const beforeCount = allExtractedTweets.length;
-        const newTweets = await extractNewTweetsFromDOM(domOrderCounter, processedTweetIds);
+        const structureAnalysis = analyzePageStructure();
+        const newTweets = await extractNewTweetsFromDOM(domOrderCounter, processedTweetIds, structureAnalysis);
         allExtractedTweets.push(...newTweets);
         domOrderCounter += newTweets.length;
         const afterCount = allExtractedTweets.length;
@@ -149,7 +206,8 @@ export async function extractTwitterThreadWithScroll(
     // One final expansion and extraction to catch any remaining content
     const finalExpansions = await expandAllTwitterContent(50);
     totalExpansions += finalExpansions;
-    const finalTweets = await extractNewTweetsFromDOM(domOrderCounter, processedTweetIds);
+    const finalStructure = analyzePageStructure();
+    const finalTweets = await extractNewTweetsFromDOM(domOrderCounter, processedTweetIds, finalStructure);
     allExtractedTweets.push(...finalTweets);
     
     const totalCollectedTweets = allExtractedTweets.length;
@@ -262,6 +320,8 @@ export async function extractTwitterThreadWithScroll(
 function analyzePageStructure(): {
   mainThreadContainer: Element | null;
   discoverMoreBoundary: Element | null;
+  discoverMoreCell: Element | null;
+  discoverMoreY: number | null;
   threadBoundaries: Element[];
   recommendationSections: Element[];
 } {
@@ -276,24 +336,24 @@ function analyzePageStructure(): {
   
   // Find the "Discover more" boundary
   let discoverMoreBoundary: Element | null = null;
+  let discoverMoreCell: Element | null = null;
+  let discoverMoreY: number | null = null;
   
-  // Look for explicit "Discover more" text
-  const textElements = mainThreadContainer.querySelectorAll('*');
-  for (const element of textElements) {
-    const text = element.textContent || '';
-    if (text.includes('Discover more') || text.includes('Sourced from across X')) {
-      // Find the closest container that looks like a section boundary
-      let container = element;
-      while (container && container.parentElement) {
-        if (container.getAttribute('data-testid') === 'cellInnerDiv' || 
-            container.tagName === 'SECTION' ||
-            container.getAttribute('role') === 'region') {
-          discoverMoreBoundary = container;
+  // Use virtualized cell translateY to find the boundary reliably
+  discoverMoreY = findDiscoverMoreBoundaryY(mainThreadContainer);
+  if (discoverMoreY !== null) {
+    // Best-effort: pick the first matching cell as the boundary element
+    const allCells = mainThreadContainer.querySelectorAll('[data-testid="cellInnerDiv"]');
+    for (const cell of Array.from(allCells)) {
+      const text = cell.textContent || '';
+      if (text.includes('Discover more') || text.includes('Sourced from across X')) {
+        const y = getTranslateY(cell as HTMLElement);
+        if (typeof y === 'number' && y === discoverMoreY) {
+          discoverMoreBoundary = cell;
+          discoverMoreCell = cell;
           break;
         }
-        container = container.parentElement;
       }
-      if (discoverMoreBoundary) break;
     }
   }
   
@@ -316,13 +376,13 @@ function analyzePageStructure(): {
   sidebarContent.forEach(section => recommendationSections.push(section));
   whoToFollow.forEach(section => recommendationSections.push(section));
   
-  if (discoverMoreBoundary) {
-    recommendationSections.push(discoverMoreBoundary);
-  }
+  // Do not treat the main "Discover more" boundary as generic recommendations.
+  // We'll classify tweets below it separately as 'discover_more'.
   
   console.log('📊 Structure analysis results:', {
     mainThreadContainer: !!mainThreadContainer,
     discoverMoreBoundary: !!discoverMoreBoundary,
+    discoverMoreY,
     threadBoundaries: threadBoundaries.length,
     recommendationSections: recommendationSections.length
   });
@@ -330,6 +390,8 @@ function analyzePageStructure(): {
   return {
     mainThreadContainer,
     discoverMoreBoundary,
+    discoverMoreCell,
+    discoverMoreY,
     threadBoundaries,
     recommendationSections
   };
@@ -338,31 +400,7 @@ function analyzePageStructure(): {
 /**
  * Check if tweet is valid thread content (not recommendations)
  */
-function isValidThreadTweet(tweetElement: HTMLElement, structureAnalysis: ReturnType<typeof analyzePageStructure>): boolean {
-  // Check if tweet is in a recommendation section
-  for (const recSection of structureAnalysis.recommendationSections) {
-    if (recSection.contains(tweetElement)) {
-      // Double-check: is this actually promotional content?
-      const text = tweetElement.textContent || '';
-      if (text.includes('Who to follow') || text.includes('Trending') || text.includes('Promoted')) {
-        console.log('🚫 Tweet filtered: confirmed promotional content');
-        return false;
-      }
-    }
-  }
-  
-  // Check if tweet is after the discover more boundary
-  if (structureAnalysis.discoverMoreBoundary) {
-    const tweetRect = tweetElement.getBoundingClientRect();
-    const boundaryRect = structureAnalysis.discoverMoreBoundary.getBoundingClientRect();
-    
-    // Filter if significantly after the boundary
-    if (tweetRect.top > boundaryRect.bottom + 100) {
-      console.log('🚫 Tweet filtered: well after discover more boundary');
-      return false;
-    }
-  }
-  
+function isValidThreadTweet(tweetElement: HTMLElement): boolean {
   // Filter out obvious promotional content
   const tweetText = tweetElement.textContent || '';
   const promotionalPatterns = [
@@ -394,6 +432,38 @@ function isValidThreadTweet(tweetElement: HTMLElement, structureAnalysis: Return
   }
   
   return true;
+}
+
+/**
+ * Classify a tweet element relative to page structure
+ */
+function classifyTweetSection(
+  tweetElement: HTMLElement,
+  structureAnalysis: ReturnType<typeof analyzePageStructure>
+): 'main' | 'discover_more' | 'recommendations' {
+  // Recommendation sections (sidebar, who to follow, explicit rec blocks)
+  for (const recSection of structureAnalysis.recommendationSections) {
+    if (recSection.contains(tweetElement)) {
+      return 'recommendations';
+    }
+  }
+
+  // Discover more boundary within main column using virtual list translateY
+  if (structureAnalysis.discoverMoreY !== null || structureAnalysis.discoverMoreBoundary) {
+    const tweetCell = tweetElement.closest('[data-testid="cellInnerDiv"]') as HTMLElement | null;
+    const tweetY = tweetCell ? (getTranslateY(tweetCell) ?? getElementVirtualYFromParents(tweetCell)) : getElementVirtualYFromParents(tweetElement) ?? tweetElement.getBoundingClientRect().top;
+    const boundaryY = structureAnalysis.discoverMoreY ?? structureAnalysis.discoverMoreBoundary?.getBoundingClientRect().bottom ?? null;
+    if (boundaryY !== null && tweetY !== null && tweetY >= boundaryY) {
+      try {
+        const idLink = tweetElement.querySelector('a[href*="/status/"]') as HTMLAnchorElement | null;
+        const id = idLink?.href?.match(/\/status\/(\d+)/)?.[1] ?? 'unknown';
+        console.log(`🔎 classifyTweetSection: tweet ${id} Y=${tweetY} >= boundaryY=${boundaryY} → discover_more`);
+      } catch {}
+      return 'discover_more';
+    }
+  }
+
+  return 'main';
 }
 
 /**
@@ -495,7 +565,8 @@ function generateUniqueKey(identifier: TweetIdentifier): string {
  */
 async function extractNewTweetsFromDOM(
   startingDomOrder: number, 
-  processedTweetIds: Set<string>
+  processedTweetIds: Set<string>,
+  structureAnalysis: ReturnType<typeof analyzePageStructure>
 ): Promise<ExtractedTweetData[]> {
   const tweetElements = document.querySelectorAll(TWITTER_SELECTORS.TWEETS);
   const extractedTweets: ExtractedTweetData[] = [];
@@ -513,11 +584,16 @@ async function extractNewTweetsFromDOM(
       }
       
       // Apply structural filtering
-      if (!isValidThreadTweet(tweetElement, analyzePageStructure())) {
+      if (!isValidThreadTweet(tweetElement)) {
+        continue;
+      }
+      const section = classifyTweetSection(tweetElement, structureAnalysis);
+      if (section === 'recommendations') {
+        // Skip right rail/explicit recs
         continue;
       }
       
-      const tweetData = await extractSingleTweetWithIdentifier(tweetElement, domOrderCounter);
+      const tweetData = await extractSingleTweetWithIdentifier(tweetElement, domOrderCounter, section);
       if (tweetData) {
         // Mark this tweet as processed using multiple identifiers
         processedTweetIds.add(quickId);
@@ -726,7 +802,8 @@ function findElementByText(container: Element, searchText: string): Element | nu
  */
 async function extractSingleTweetWithIdentifier(
   element: Element,
-  domOrder: number
+  domOrder: number,
+  section: 'main' | 'discover_more' | 'recommendations'
 ): Promise<ExtractedTweetData | null> {
   try {
     // Generate a unique element ID for this DOM element
@@ -785,7 +862,9 @@ async function extractSingleTweetWithIdentifier(
       mentions,
       isRoot: domOrder === 0,
       platform: 'twitter',
-      author
+      author,
+      section,
+      isDiscoverMore: section === 'discover_more'
     };
 
     return {

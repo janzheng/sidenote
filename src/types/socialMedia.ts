@@ -79,6 +79,13 @@ export interface SocialMediaPost {
   parentId?: string;
   threadPosition?: number;
   
+  // Section classification within page/thread
+  // main: part of the main conversation; discover_more: below the "Discover more" boundary within the primary column;
+  // recommendations: content from sidebars or explicit recommendation sections (e.g., Who to follow)
+  section?: 'main' | 'discover_more' | 'recommendations';
+  // Convenience flag for quickly checking if content is from the Discover more section
+  isDiscoverMore?: boolean;
+  
   // Platform-specific data
   platform: SocialMediaPlatform;
   platformData?: Record<string, any>;
