@@ -359,6 +359,46 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Keep message channel open for async response
   }
 
+  // Navigate current tab (used by side panel link clicks to navigate the Maps tab)
+  if (message.action === 'navigateToUrl') {
+    const { url, currentTabUrl } = message;
+    try {
+      // Prefer the tab that matches the side panel's source URL, else any Maps tab in current window, else active tab
+      chrome.tabs.query({}, (tabs) => {
+        const equalsMatch = currentTabUrl ? tabs.find(t => t.url === currentTabUrl) : undefined;
+        const mapsMatch = tabs.find(t => (t.url || '').includes('/maps'));
+        const activeMatch = tabs.find(t => t.active);
+        const targetTab = equalsMatch || mapsMatch || activeMatch;
+
+        if (targetTab && targetTab.id) {
+          chrome.tabs.update(targetTab.id, { url }, () => {
+            if (chrome.runtime.lastError) {
+              console.warn('navigateToUrl tabs.update failed:', chrome.runtime.lastError.message, 'tab:', targetTab.id, 'url:', url);
+              // Fallback: ask content script to navigate in-page
+              chrome.tabs.sendMessage(targetTab.id!, { action: 'navigateToUrl', url }, () => {
+                if (chrome.runtime.lastError) {
+                  console.warn('navigateToUrl sendMessage fallback failed:', chrome.runtime.lastError.message);
+                  sendResponse({ success: false, error: chrome.runtime.lastError.message });
+                } else {
+                  sendResponse({ success: true, method: 'content-script' });
+                }
+              });
+            } else {
+              console.log('navigateToUrl tabs.update succeeded for tab', targetTab.id, '→', url);
+              sendResponse({ success: true, method: 'tabs.update' });
+            }
+          });
+        } else {
+          sendResponse({ success: false, error: 'No suitable tab found to navigate' });
+        }
+      });
+      return true; // Keep channel open for async response
+    } catch (error) {
+      sendResponse({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
+      return true;
+    }
+  }
+
   // Handle Maps control status requests
   if (message.action === 'getMapsControlStatus') {
     const { url } = message;

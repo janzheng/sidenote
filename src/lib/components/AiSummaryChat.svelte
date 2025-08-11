@@ -190,7 +190,9 @@
   // Render markdown safely
   function renderMarkdown(content: string): string {
     try {
+      console.log('🔍 [aiSummaryChat] renderMarkdown raw content:', content);
       const result = marked.parse(content);
+      console.log('🔍 [aiSummaryChat] renderMarkdown result:', result);
       return typeof result === 'string' ? result : content;
     } catch (error) {
       console.warn('Markdown rendering error:', error);
@@ -389,7 +391,7 @@
                   {:else}
                     <!-- AI messages as markdown -->
                     <div class="w-full">
-                      <div class="text-gray-900 break-words prose prose-sm max-w-none markdown-content">
+                      <div class="aiSummaryChat text-gray-900 break-words prose prose-sm max-w-none markdown-content">
                         {@html renderMarkdown(message.content ?? '')}
                         {#if isGenerating || chatManager.isGenerating}
                           <span class="inline-block w-2 h-4 bg-green-600 animate-pulse ml-1"></span>

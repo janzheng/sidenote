@@ -12,6 +12,109 @@
   import SearchResults from './agent/SearchResults.svelte';
   import StatusCard from './agent/StatusCard.svelte';
 
+  // Configure marked: sanitize links and render with GFM + soft breaks
+  function tryExtractUrlFromJson(input: string): string | null {
+    try {
+      const parsed = JSON.parse(input);
+      if (typeof parsed === 'string') return parsed;
+      if (parsed && typeof parsed.url === 'string') return parsed.url;
+      if (parsed && typeof parsed.href === 'string') return parsed.href;
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  function coerceHrefToString(href: unknown): string | null {
+    if (typeof href === 'string') return href;
+    if (href && typeof href === 'object') {
+      try {
+        const maybeHref = (href as any).href ?? String(href);
+        if (typeof maybeHref === 'string') return maybeHref;
+      } catch {}
+    }
+    return null;
+  }
+
+  function sanitizeQuery(raw: string): string {
+    let s = (raw || '').trim();
+    if (!s) return s;
+    try {
+      const plusDecoded = s.replace(/\+/g, ' ');
+      s = decodeURIComponent(plusDecoded);
+    } catch {}
+    s = s.replace(/\s+/g, ' ').trim();
+    return s;
+  }
+
+  function normalizeLinkHref(href: unknown, text: string): string {
+    let url = coerceHrefToString(href)?.trim() || '';
+    if (!url || url === '[object Object]') {
+      const q = sanitizeQuery(text || '');
+      return q ? `https://www.google.com/maps/search/${encodeURIComponent(q).replace(/%20/g, '+')}` : '#';
+    }
+    if (url.startsWith('{') || url.startsWith('[')) {
+      const extracted = tryExtractUrlFromJson(url);
+      if (extracted) url = extracted.trim();
+    }
+    if (!/^https?:\/\//i.test(url) || url.startsWith('chrome-extension://')) {
+      const q = sanitizeQuery(text || '');
+      return q ? buildMapsSearchUrl(q) : '#';
+    }
+    // For standard http(s) links, return as-is to avoid accidental double-encoding
+    return url;
+  }
+
+
+  function buildMapsSearchUrl(q: string): string {
+    const encoded = encodeURIComponent(q).replace(/%20/g, '+');
+    // ReAct agent doesn't have mapsData; use plain search URL
+    return `https://www.google.com/maps/search/${encoded}`;
+  }
+
+  function escapeHtml(s: string): string {
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\"/g, '&quot;')
+      .replace(/'/g, '&#x27;');
+  }
+
+  const linkRenderer = {
+    link(href: unknown, title: unknown, text: string) {
+      const finalHref = normalizeLinkHref(href, text);
+      const titleAttr = typeof title === 'string' && title ? ` title="${title}"` : '';
+      const hasValidText = typeof text === 'string' && !!text.trim() && text.trim().toLowerCase() !== 'undefined';
+      let label: string | null = hasValidText ? text : null;
+      if (!label && typeof finalHref === 'string' && finalHref !== '#') {
+        const derived = (() => {
+          try {
+            const u = new URL(finalHref, 'https://www.google.com');
+            const m = u.pathname.match(/\/maps\/search\/(.+)$/);
+            if (m && m[1]) {
+              const raw = m[1].split('?')[0];
+              return decodeURIComponent(raw.replace(/\+/g, ' ')).trim();
+            }
+            const q = u.searchParams.get('q');
+            if (q) return decodeURIComponent(q.replace(/\+/g, ' ')).trim();
+          } catch {}
+          return null;
+        })();
+        if (derived) label = derived;
+      }
+      if (!label) label = 'Open in Google Maps';
+      if (finalHref === '#') {
+        const safeLabel = escapeHtml(label);
+        return `<a href="#"${titleAttr}>${safeLabel}</a>`;
+      }
+      // Add data attribute so we can optionally delegate navigation
+      return `<a href="${finalHref}" data-navigate="maps"${titleAttr}>${escapeHtml(label)}</a>`;
+    }
+  } as any;
+  marked.use({ renderer: linkRenderer });
+  marked.use({ gfm: true, breaks: true });
+
   interface Props {
     url: string | null;
     content: any;
@@ -51,6 +154,105 @@
         }
       });
     }
+  });
+
+  function extractCandidateName(li: HTMLElement, anchor: HTMLAnchorElement): string | null {
+    try {
+      const parts: string[] = [];
+      li.childNodes.forEach((node) => {
+        if (node === anchor) return;
+        if (node.nodeType === Node.TEXT_NODE) {
+          parts.push((node.textContent || '').trim());
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          parts.push(((node as Element).textContent || '').trim());
+        }
+      });
+      const combined = parts.join(' ').replace(/\s+/g, ' ').trim();
+      if (!combined) return null;
+      const name = combined.split(/\s[—–-]\s|[—–-]/)[0]?.trim();
+      if (!name || name.toLowerCase() === 'undefined' || name.length < 2) return null;
+      return name;
+    } catch {
+      return null;
+    }
+  }
+
+  function repairInvalidLinks(root: HTMLElement | undefined) {
+    if (!root) return;
+    const anchors = root.querySelectorAll<HTMLAnchorElement>('.aiReActAgent a');
+    anchors.forEach((a) => {
+      const href = a.getAttribute('href') || '';
+      const label = (a.textContent || '').trim();
+      // Decode percent-encoded labels for readability
+      if (/%[0-9a-fA-F]{2}/.test(label)) {
+        const cleaned = sanitizeQuery(label);
+        if (cleaned && cleaned !== label) {
+          a.textContent = cleaned;
+        }
+      }
+      const needsRepair = !href || href === '#' || href.startsWith('chrome-extension://') || !/^https?:\/\//i.test(href) || label.toLowerCase() === 'undefined' || label === '' || label === 'Open in Google Maps';
+      if (!needsRepair) return;
+      const li = a.closest('li') as HTMLElement | null;
+      const candidate = li ? extractCandidateName(li, a) : null;
+      if (candidate) {
+        a.textContent = candidate;
+        a.setAttribute('href', buildMapsSearchUrl(candidate));
+        a.setAttribute('data-navigate', 'maps');
+        return;
+      }
+      // Attempt to repair malformed Google Maps links that are double-encoded
+      try {
+        const u = new URL(href, 'https://www.google.com');
+        const isGmaps = /(^|\.)google\.(com|[a-z\.]+)$/i.test(u.hostname) && u.pathname.startsWith('/maps');
+        if (isGmaps) {
+          let q: string | null = null;
+          const m = u.pathname.match(/\/maps\/search\/(.+)$/);
+          if (m && m[1]) {
+            let raw = m[1].split('/@')[0].split('?')[0];
+            try { raw = decodeURIComponent(raw); } catch {}
+            try { raw = decodeURIComponent(raw); } catch {}
+            q = sanitizeQuery(raw.replace(/\+/g, ' '));
+          }
+          if (!q) {
+            const qp = u.searchParams.get('q');
+            if (qp) {
+              let raw = qp;
+              try { raw = decodeURIComponent(raw); } catch {}
+              try { raw = decodeURIComponent(raw); } catch {}
+              q = sanitizeQuery(raw.replace(/\+/g, ' '));
+            }
+          }
+          if (!q && label) q = sanitizeQuery(label);
+          if (q) {
+            a.setAttribute('href', buildMapsSearchUrl(q));
+            a.setAttribute('data-navigate', 'maps');
+          }
+        }
+      } catch {}
+    });
+  }
+
+  $effect(() => {
+    if (!contentContainer || displayContent.length === 0) return;
+    setTimeout(() => repairInvalidLinks(contentContainer), 0);
+  });
+
+  // Intercept in-panel map links to navigate the active tab
+  $effect(() => {
+    if (!contentContainer) return;
+    const handleLinkClick = (event: MouseEvent) => {
+      const targetEl = event.target as HTMLElement | null;
+      const anchor = targetEl?.closest('a') as HTMLAnchorElement | null;
+      if (!anchor) return;
+      const href = anchor.getAttribute('href') || '';
+      if (!href || href.startsWith('#') || href.toLowerCase().startsWith('javascript:')) return;
+      const wantsMapsNav = anchor.getAttribute('data-navigate') === 'maps' || href.includes('/maps/search/') || href.includes('/maps/dir/');
+      if (!wantsMapsNav) return;
+      event.preventDefault();
+      chrome.runtime.sendMessage({ action: 'navigateToUrl', url: href }, () => {});
+    };
+    contentContainer.addEventListener('click', handleLinkClick);
+    return () => contentContainer?.removeEventListener('click', handleLinkClick);
   });
 
   // Refocus input after operations complete
@@ -143,7 +345,9 @@
   // Render markdown safely
   function renderMarkdown(content: string): string {
     try {
+      console.log('🔍 [aiReActAgent] renderMarkdown raw content:', content);
       const result = marked.parse(content);
+      console.log('🔍 [aiReActAgent] renderMarkdown result:', result);
       return typeof result === 'string' ? result : content;
     } catch (error) {
       console.warn('Markdown rendering error:', error);
@@ -397,7 +601,7 @@
                      {:else}
                        <!-- Fallback for unknown components -->
                        <div class={getContentStyle(item)}>
-                         <div class="text-gray-900 break-words prose prose-sm max-w-none markdown-content">
+                         <div class="aiReActAgent text-gray-900 break-words prose prose-sm max-w-none markdown-content">
                            {@html renderMarkdown(renderAgentContent(item))}
                          </div>
                        </div>
@@ -406,7 +610,7 @@
                  {:else}
                  <!-- Render other content types as before -->
                  <div class={getContentStyle(item)}>
-                   <div class="text-gray-900 break-words prose prose-sm max-w-none markdown-content">
+                   <div class="aiReActAgent text-gray-900 break-words prose prose-sm max-w-none markdown-content">
                      {@html renderMarkdown(renderAgentContent(item))}
                    </div>
                  </div>

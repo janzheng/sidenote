@@ -123,23 +123,41 @@ export class TwitterExtractionService {
    * Generate markdown format with engagement metrics (like the old version)
    */
   static generateMarkdown(thread: TwitterThread): string {
+    // Default behavior: filter out tweets marked as part of the Discover more section
+    const filteredThreadPosts = thread.posts
+      .filter(post => post.id !== thread.rootPost.id)
+      .filter(post => post.section !== 'discover_more' && !post.isDiscoverMore);
+
+    const includedPosts = [thread.rootPost, ...filteredThreadPosts];
+
     let markdown = `# Twitter Thread\n\n`;
-    
+
     // Thread metadata
     markdown += `**URL:** ${thread.url}\n`;
     markdown += `**Extracted:** ${new Date(thread.extractedAt).toLocaleString()}\n`;
-    markdown += `**Total Posts:** ${thread.posts.length}\n`;
-    
-    // Calculate total engagement
-    const totalEngagement = thread.totalEngagement.likes + thread.totalEngagement.reposts + thread.totalEngagement.replies;
+    markdown += `**Total Posts:** ${includedPosts.length}\n`;
+
+    // Calculate total engagement across included posts
+    const aggregated = includedPosts.reduce(
+      (acc, p) => {
+        acc.likes += p.engagement?.likes ?? 0;
+        acc.reposts += p.engagement?.reposts ?? 0;
+        acc.replies += p.engagement?.replies ?? 0;
+        acc.views += p.engagement?.views ?? 0;
+        return acc;
+      },
+      { likes: 0, reposts: 0, replies: 0, views: 0 }
+    );
+
+    const totalEngagement = aggregated.likes + aggregated.reposts + aggregated.replies;
     if (totalEngagement > 0) {
-      markdown += `**Total Engagement:** ${this.formatEngagement(totalEngagement)} (${this.formatEngagement(thread.totalEngagement.likes)} likes, ${this.formatEngagement(thread.totalEngagement.reposts)} retweets, ${this.formatEngagement(thread.totalEngagement.replies)} replies)\n`;
+      markdown += `**Total Engagement:** ${this.formatEngagement(totalEngagement)} (${this.formatEngagement(aggregated.likes)} likes, ${this.formatEngagement(aggregated.reposts)} retweets, ${this.formatEngagement(aggregated.replies)} replies)\n`;
     }
-    
-    if (thread.totalEngagement.views && thread.totalEngagement.views > 0) {
-      markdown += `**Total Views:** ${this.formatEngagement(thread.totalEngagement.views)}\n`;
+
+    if (aggregated.views > 0) {
+      markdown += `**Total Views:** ${this.formatEngagement(aggregated.views)}\n`;
     }
-    
+
     markdown += `\n---\n\n`;
 
     // Root post
@@ -149,19 +167,17 @@ export class TwitterExtractionService {
       markdown += `\n---\n\n`;
     }
 
-    // Thread posts (replies, quotes, etc.)
-    const threadPosts = thread.posts.filter(post => post.id !== thread.rootPost.id);
-    
-    if (threadPosts.length > 0) {
-      markdown += `## Thread Posts (${threadPosts.length})\n\n`;
-      
-             threadPosts.forEach((post, index) => {
-         const author = post.author;
-         const postType = post.isRoot ? 'Root' : 'Reply'; // Simplified type detection
-         markdown += `### ${index + 1}. ${postType}\n\n`;
-         markdown += this.formatPostMarkdown(post, author, false);
-         markdown += `\n`;
-       });
+    // Thread posts (replies, quotes, etc.) — filtered to exclude Discover more
+    if (filteredThreadPosts.length > 0) {
+      markdown += `## Thread Posts (${filteredThreadPosts.length})\n\n`;
+
+      filteredThreadPosts.forEach((post, index) => {
+        const author = post.author;
+        const postType = post.isRoot ? 'Root' : 'Reply';
+        markdown += `### ${index + 1}. ${postType}\n\n`;
+        markdown += this.formatPostMarkdown(post, author, false);
+        markdown += `\n`;
+      });
     }
 
     // Quality assessment
@@ -175,9 +191,9 @@ export class TwitterExtractionService {
 
     // Thread statistics
     markdown += `\n---\n\n## Statistics\n\n`;
-    markdown += `- **Posts:** ${thread.posts.length}\n`;
-    markdown += `- **Unique Authors:** ${new Set(thread.posts.map(p => p.author.id)).size}\n`;
-    
+    markdown += `- **Posts:** ${includedPosts.length}\n`;
+    markdown += `- **Unique Authors:** ${new Set(includedPosts.map(p => p.author.id)).size}\n`;
+
     return markdown.trim();
   }
 

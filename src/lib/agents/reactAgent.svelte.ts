@@ -167,6 +167,7 @@ export class ReActAgent {
         const response = await GroqService.generateText(
           conversation,
           {
+            // model: 'openai/gpt-oss-120b',
             model: 'moonshotai/kimi-k2-instruct',
             // model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
             // model: 'qwen/qwen3-32b',

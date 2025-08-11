@@ -71,6 +71,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Keep message channel open for async response
   }
 
+  // Background-assisted navigation fallback (when tabs.update fails)
+  if (message.action === 'navigateToUrl') {
+    try {
+      const { url } = message;
+      if (typeof url === 'string' && url) {
+        window.location.href = url;
+        sendResponse({ success: true, method: 'window.location' });
+      } else {
+        sendResponse({ success: false, error: 'Invalid URL' });
+      }
+    } catch (error) {
+      sendResponse({ success: false, error: error instanceof Error ? error.message : 'Navigation failed' });
+    }
+    return true;
+  }
+
   // Handle Twitter thread extraction with automatic scrolling
   if (message.action === 'extractTwitterThreadWithScroll') {
     const { maxScrolls = 100, scrollDelay = 300 } = message;
