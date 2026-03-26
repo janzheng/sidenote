@@ -128,6 +128,33 @@ export class SettingsManager {
   private async initialize() {
     console.log('⚙️ Initializing settings manager');
     await this.loadSettings();
+
+    // Listen for storage changes from other contexts (e.g., side panel saves, background reads)
+    // This keeps settings in sync across the background service worker and side panel
+    if (typeof chrome !== 'undefined' && chrome.storage?.onChanged) {
+      chrome.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName !== 'local') return;
+
+        // Build a reverse lookup: storage key → settings key
+        const storageToSettings: Record<string, string> = {};
+        for (const [settingsKey, storageKey] of Object.entries(STORAGE_KEYS)) {
+          storageToSettings[storageKey] = settingsKey;
+        }
+
+        let updated = false;
+        for (const [storageKey, change] of Object.entries(changes)) {
+          const settingsKey = storageToSettings[storageKey];
+          if (settingsKey && change.newValue !== undefined) {
+            (this.settings as any)[settingsKey] = change.newValue;
+            updated = true;
+          }
+        }
+
+        if (updated) {
+          console.log('⚙️ Settings synced from storage change');
+        }
+      });
+    }
   }
 
   private async loadSettings() {
