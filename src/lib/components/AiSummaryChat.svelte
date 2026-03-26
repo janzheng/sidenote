@@ -281,48 +281,34 @@
       </button>
     {/if}
 
-    <!-- Summary Section -->
+    <!-- Summary Section — only shown when there's content, loading, or error -->
     {#if summaryManager.summaryError}
-      <div class="mb-6">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="text-lg font-semibold text-gray-800">Summary</h3>
-          <div class="flex gap-2">
-            <button 
-              onclick={handleGenerateSummary}
-              class="px-3 py-1 text-gray-600 hover:text-blue-600 border border-gray-300 rounded transition-colors text-sm flex items-center gap-1"
-              disabled={!canGenerate || summaryManager.isGenerating}
-              title={summaryManager.summaryError || 'Regenerate Summary'}
-            >
-              {#if summaryManager.isGenerating}
-                <Icon icon="mdi:loading" class="animate-spin w-6 h-6" />
-              {:else}
-                <Icon icon="mdi:refresh" class="w-6 h-6" />
-              {/if}
-            </button>
-          </div>
+      <div class="mb-4 bg-red-50 border border-red-200 p-3 rounded flex items-start gap-2">
+        <Icon icon="mdi:alert-circle" class="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+        <div class="text-red-600 text-sm flex-1">
+          <div class="font-medium">Summary failed</div>
+          <div class="opacity-75">{summaryManager.summaryError}</div>
         </div>
-        <div class="bg-red-50 border border-red-200 p-3 rounded">
-          <div class="text-red-600 flex items-center gap-2">
-            <Icon icon="mdi:alert-circle" class="w-5 h-5" />
-            <div>
-              <div class="font-medium">Summary Error</div>
-              <div class="text-sm opacity-75">{summaryManager.summaryError}</div>
-            </div>
-          </div>
-        </div>
+        <button
+          onclick={handleGenerateSummary}
+          class="text-red-500 hover:text-red-700 shrink-0"
+          title="Retry"
+        >
+          <Icon icon="mdi:refresh" class="w-5 h-5" />
+        </button>
       </div>
-    {:else}
+    {:else if hasSummary || summaryManager.isGenerating}
       <CollapsibleContent
         title="Summary"
         content={summary || ''}
         bind:isExpanded={isSummaryExpanded}
         onRefresh={handleGenerateSummary}
         refreshDisabled={!canGenerate || summaryManager.isGenerating}
-        refreshTitle={summaryManager.summaryError || 'Regenerate Summary'}
+        refreshTitle="Regenerate Summary"
         showRefresh={true}
         showCopy={!!hasSummary && !summaryManager.isGenerating}
         isLoading={summaryManager.isGenerating}
-        emptyMessage="No summary yet — chat works without it"
+        emptyMessage=""
         renderAsMarkdown={true}
         showPreview={true}
         previewLines={4}
