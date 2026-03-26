@@ -2,7 +2,6 @@
   import { marked } from 'marked';
   import Icon from "@iconify/svelte";
   import { recipeManager } from '../ui/recipeManager.svelte';
-  import ToggleDrawer from './ui/ToggleDrawer.svelte';
   import { RecipeService } from '../services/recipeService.svelte';
   import type { Recipe, RecipeIngredient, RecipeInstruction } from '../../types/recipe';
   import ApiSettings from './ui/ApiSettings.svelte';
@@ -19,7 +18,6 @@
   let { url, content, recipe, isExtracting, onRefresh }: Props = $props();
 
   // Component UI state
-  let isExpanded = $state(false);
   let isCopied = $state(false);
   let showJson = $state(false);
 
@@ -127,12 +125,7 @@
   }
 </script>
 
-<ToggleDrawer
-  title="Recipe Extractor"
-  bind:isExpanded
->
-  {#snippet children()}
-    <!-- API Configuration -->
+<!-- API Configuration -->
     {#if !settingsManager.hasApiKey}
       <ApiSettings />
     {/if}
@@ -271,5 +264,3 @@
         </div>
       </div>
     {/if}
-  {/snippet}
-</ToggleDrawer> 

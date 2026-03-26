@@ -9,9 +9,7 @@
     "unlimitedStorage",
     "activeTab",
     "scripting",
-    "contextMenus",
-    "tabs",
-    "downloads"
+    "tabs"
   ],
   "host_permissions": [
     "<all_urls>",
@@ -38,7 +36,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>", "file:///*"],
-      "js": ["content-script.js"],
+      "js": ["defuddle.js", "content-script.js"],
       "run_at": "document_end",
       "all_frames": false
     }

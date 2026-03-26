@@ -12,11 +12,15 @@ export interface ContentExtractionResult {
     url: string;
     text: string;
     html: string;
+    cleanHtml?: string;
     title: string;
     metadata: any;
     wordCount: number;
     markdown?: string;
     extractedAt?: number;
+    extractionMethod?: 'defuddle' | 'turndown' | 'pdf';
+    defuddleExtractorType?: string;
+    defuddleVariables?: Record<string, string>;
   };
   error?: string;
 }
@@ -193,26 +197,8 @@ export async function extractContent(): Promise<ContentExtractionResult> {
       if (pdfResult.success && pdfResult.content) {
         console.log('✅ PDF extraction successful');
         
-        // Generate citations for PDF content
         let saveData: any = { content: pdfResult.content };
-        
-        try {
-          const { CitationService } = await import('../../lib/services/citationService.svelte');
-          const citationResult = await CitationService.generateCitations(pdfResult.content.metadata, cleanedUrl);
-          
-          if (citationResult.success && citationResult.citations) {
-            console.log('✅ Citations generated successfully for PDF');
-            saveData.analysis = {
-              summary: null,
-              citations: citationResult.citations,
-              researchPaper: null,
-              contentStructure: null
-            };
-          }
-        } catch (citationError) {
-          console.warn('⚠️ Citation service error for PDF:', citationError);
-        }
-        
+
         // Save to data controller
         const saveSuccess = await contentDataController.saveData(cleanedUrl, saveData);
         
@@ -250,26 +236,8 @@ export async function extractContent(): Promise<ContentExtractionResult> {
         if (pdfResult.success && pdfResult.content) {
           console.log('✅ Embedded PDF extraction successful');
           
-          // Generate citations for embedded PDF content
           let saveData: any = { content: pdfResult.content };
-          
-          try {
-            const { CitationService } = await import('../../lib/services/citationService.svelte');
-            const citationResult = await CitationService.generateCitations(pdfResult.content.metadata, cleanedUrl);
-            
-            if (citationResult.success && citationResult.citations) {
-              console.log('✅ Citations generated successfully for embedded PDF');
-              saveData.analysis = {
-                summary: null,
-                citations: citationResult.citations,
-                researchPaper: null,
-                contentStructure: null
-              };
-            }
-          } catch (citationError) {
-            console.warn('⚠️ Citation service error for embedded PDF:', citationError);
-          }
-          
+
           // Save to data controller
           const saveSuccess = await contentDataController.saveData(cleanedUrl, saveData);
           
@@ -295,73 +263,61 @@ export async function extractContent(): Promise<ContentExtractionResult> {
       }
     }
     
-    // Create Turndown service
-    const turndownService = createTurndownService();
-    let markdown = '';
-    try {
-      // Prefer body HTML to avoid full-document edge cases (head/html nodes)
-      markdown = turndownService.turndown(document.body.innerHTML);
-    } catch (mdErr) {
-      console.warn('Turndown failed, falling back to plain text:', mdErr);
-      markdown = document.body.innerText || '';
-    }
-    
-    // Calculate word count
-    const wordCount = document.body.innerText.split(/\s+/).filter(word => word.length > 0).length;
+    // Try defuddle first for better article isolation + site-specific extractors
+    // Dynamic import to avoid TDZ errors during content script initialization on heavy pages
+    const { extractWithDefuddle } = await import('./extractWithDefuddle');
+    const defuddleResult = await extractWithDefuddle();
 
-    // Extract comprehensive metadata
-    const metadata = extractMetadata();
-    
-    // Extract all content
-    const content = {
-      url: cleanedUrl, // Use cleaned URL
-      text: document.body.innerText,
-      html: document.documentElement.outerHTML,
-      title: document.title,
-      metadata: metadata,
-      markdown: markdown,
-      wordCount: wordCount,
-      extractedAt: Date.now()
-    };
-    
+    let content: ContentExtractionResult['content'];
+
+    if (defuddleResult?.success && defuddleResult.content) {
+      console.log('📄 Using defuddle extraction (extractor:', defuddleResult.content.defuddleExtractorType || 'generic', ')');
+      content = defuddleResult.content;
+    } else {
+      // Fallback to Turndown-based extraction
+      console.log('📄 Falling back to Turndown extraction');
+      const turndownService = createTurndownService();
+      let markdown = '';
+      try {
+        markdown = turndownService.turndown(document.body.innerHTML);
+      } catch (mdErr) {
+        console.warn('Turndown failed, falling back to plain text:', mdErr);
+        markdown = document.body.innerText || '';
+      }
+
+      const wordCount = document.body.innerText.split(/\s+/).filter(word => word.length > 0).length;
+      const metadata = extractMetadata();
+
+      content = {
+        url: cleanedUrl,
+        text: document.body.innerText,
+        html: document.documentElement.outerHTML,
+        title: document.title,
+        metadata: metadata,
+        markdown: markdown,
+        wordCount: wordCount,
+        extractedAt: Date.now(),
+        extractionMethod: 'turndown' as const
+      };
+    }
+
     // Prepare the base content data structure
     const baseContentData = {
-      url: cleanedUrl,
-      text: content.text,
-      html: content.html,
-      title: content.title,
-      metadata: metadata,
-      markdown: markdown,
-      wordCount: wordCount,
-      extractedAt: Date.now()
+      url: content!.url,
+      text: content!.text,
+      html: content!.html,
+      cleanHtml: content!.cleanHtml,
+      title: content!.title,
+      metadata: content!.metadata,
+      markdown: content!.markdown,
+      wordCount: content!.wordCount,
+      extractedAt: content!.extractedAt,
+      extractionMethod: content!.extractionMethod,
     };
 
-    // Generate citations and prepare save data
-    console.log('📚 Generating citations from extracted metadata...');
+    // Prepare save data (citations are generated by the background handler)
     let saveData: any = { content: baseContentData };
-    
-    try {
-      const { CitationService } = await import('../../lib/services/citationService.svelte');
-      const citationResult = await CitationService.generateCitations(metadata, cleanedUrl);
-      
-      if (citationResult.success && citationResult.citations) {
-        console.log('✅ Citations generated successfully');
-        console.log('📋 Citation formats available:', Object.keys(citationResult.citations));
-        
-        // Add citations to the save data
-        saveData.analysis = {
-          summary: null,
-          citations: citationResult.citations,
-          researchPaper: null,
-          contentStructure: null
-        };
-      } else {
-        console.warn('⚠️ Citation generation failed:', citationResult.error);
-      }
-    } catch (citationError) {
-      console.warn('⚠️ Citation service error:', citationError);
-    }
-    
+
     // Save to data controller - this will merge with existing data preserving statuses
     const saveSuccess = await contentDataController.saveData(cleanedUrl, saveData);
     
@@ -371,13 +327,13 @@ export async function extractContent(): Promise<ContentExtractionResult> {
     
     console.log('📄 Content extracted:', {
       url: cleanedUrl,
-      textLength: content.text.length,
-      htmlLength: content.html.length,
-      markdownLength: markdown.length,
-      title: content.title,
-      wordCount: wordCount,
-      hasSchemaData: !!metadata.schemaData,
-      hasCitations: !!metadata.citations,
+      textLength: content!.text.length,
+      htmlLength: content!.html.length,
+      markdownLength: content!.markdown?.length || 0,
+      title: content!.title,
+      wordCount: content!.wordCount,
+      extractionMethod: content!.extractionMethod || 'unknown',
+      hasSchemaData: !!content!.metadata?.schemaData,
       saved: saveSuccess
     });
     

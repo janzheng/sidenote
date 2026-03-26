@@ -1,6 +1,5 @@
 <script lang="ts">
   import Icon from "@iconify/svelte";
-  import ToggleDrawer from './ui/ToggleDrawer.svelte';
   import SectionReader from './ui/SectionReader.svelte';
   import CopyButton from './ui/CopyButton.svelte';
   import CollapsibleContent from './ui/CollapsibleContent.svelte';
@@ -17,7 +16,6 @@
   let { tabData, onRefresh }: Props = $props();
 
   // Component UI state
-  let isExpanded = $state(false);
   let isCopied = $state(false);
   let isLoading = $state(false); // Simple local loading state
   let fakeLoadingProgress = $state('');
@@ -210,12 +208,6 @@
   }
 </script>
 
-<ToggleDrawer 
-  title="Research Paper Analysis" 
-  subtitle=""
-  bind:isExpanded
->
-
   <!-- API Configuration -->
   {#if !settingsManager.hasApiKey}
     <ApiSettings />
@@ -316,7 +308,6 @@
       <div>No page content available to analyze</div>
     </div>
   {/if}
-</ToggleDrawer>
 
 <style>
   /* Research Paper Content Styling */

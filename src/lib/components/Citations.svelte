@@ -1,6 +1,5 @@
 <script lang="ts">
   import Icon from "@iconify/svelte";
-  import ToggleDrawer from './ui/ToggleDrawer.svelte';
   import ContentDisplay from './ui/ContentDisplay.svelte';
   import type { CitationData } from '../../types/citations';
 
@@ -15,8 +14,6 @@
   let { url, content, citations, isGenerating = false, onRefresh }: Props = $props();
 
   // Component UI state
-  let isExpanded = $state(false);
-
   // Citation format names
   const formatNames = {
     bibtex: 'BibTeX',
@@ -131,12 +128,7 @@
   }
 </script>
 
-<ToggleDrawer
-  title="Citations"
-  bind:isExpanded
->
-  {#snippet children()}
-    <!-- About Section -->
+<!-- About Section -->
     <div class="py-2">
       Generate academic citations in multiple formats (APA, Vancouver, Harvard, BibTeX) from page content and metadata. 
       {#if isPDF}
@@ -239,5 +231,3 @@
         {/if}
       </div>
     {/if}
-  {/snippet}
-</ToggleDrawer>

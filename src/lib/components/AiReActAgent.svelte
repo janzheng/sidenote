@@ -2,7 +2,6 @@
   import { marked } from 'marked';
   import Icon from "@iconify/svelte";
   import { reactAgentManager } from '../ui/reactAgentManager.svelte';
-  import ToggleDrawer from './ui/ToggleDrawer.svelte';
   import CopyButton from './ui/CopyButton.svelte';
   import ApiSettings from './ui/ApiSettings.svelte';
   import { settingsManager } from '../ui/settings.svelte';
@@ -119,13 +118,13 @@
   interface Props {
     url: string | null;
     content: any;
+    isExpanded?: boolean;
     onRefresh?: () => void;
   }
 
-  let { url, content, onRefresh }: Props = $props();
+  let { url, content, isExpanded = false, onRefresh }: Props = $props();
 
   // Component UI state
-  let isExpanded = $state(false);
   let messageInput = $state('');
   let inputElement = $state<HTMLTextAreaElement>();
   let contentContainer = $state<HTMLElement>();
@@ -446,15 +445,14 @@
     await navigator.clipboard.writeText(contentJson);
   }
 
-  // Handle toggle drawer
-  function handleToggle(expanded: boolean) {
-    if (expanded && inputElement) {
-      // Focus the input when drawer opens
+  // Focus input on mount (mount=expansion now)
+  $effect(() => {
+    if (inputElement) {
       requestAnimationFrame(() => {
         inputElement?.focus();
       });
     }
-  }
+  });
 
   // Render agent content item
   function renderAgentContent(item: AgentContent): string {
@@ -491,12 +489,6 @@
   }
 </script>
 
-<ToggleDrawer
-  title="ReAct Agent (Beta)"
-  bind:isExpanded
-  onToggle={handleToggle}
->
-  {#snippet children()}
     <!-- API Configuration -->
     {#if !settingsManager.hasApiKey}
       <ApiSettings />
@@ -680,8 +672,6 @@
         </div>
       </div>
     </div>
-  {/snippet}
-</ToggleDrawer>
 
 <style>
   .markdown-content :global(ul) {

@@ -2,15 +2,14 @@
   import '@fontsource-variable/eb-garamond';
   import { onDestroy } from "svelte";
   import { panelManager } from './lib/ui/panelManager.svelte';
+  import { settingsManager } from './lib/ui/settings.svelte';
   import { bookmarkManager } from './lib/ui/bookmarkManager.svelte';
   import Settings from './lib/components/Settings.svelte';
   import ManualContentInput from './lib/components/ManualContentInput.svelte';
   import DebugPanel from './lib/components/DebugPanel.svelte';
-  // import AiSummary from './lib/components/AiSummary.svelte';
   import AiRecipe from './lib/components/AiRecipe.svelte';
   import Threadgirl from './lib/components/Threadgirl.svelte';
   import Citations from './lib/components/Citations.svelte';
-  import AiChat from './lib/components/AiChat.svelte';
   import AiSummaryChat from './lib/components/AiSummaryChat.svelte';
   import AiMapsChat from './lib/components/AiMapsChat.svelte';
   import AiResearchPaper from './lib/components/AiResearchPaper.svelte';
@@ -19,9 +18,11 @@
   import LinkedInThread from './lib/components/LinkedInThread.svelte';
   import PageAssets from './lib/components/PageAssets.svelte';
   import PageScreenshots from './lib/components/PageScreenshots.svelte';
+  import AiReActAgent from './lib/components/AiReActAgent.svelte';
   import PDFDownloadButton from './lib/components/ui/PDFDownloadButton.svelte';
   import AutoRefreshToggle from './lib/components/ui/AutoRefreshToggle.svelte';
-  
+  import ToggleDrawer from './lib/components/ui/ToggleDrawer.svelte';
+
   import Icon from "@iconify/svelte";
   
   type TabType = 'content' | 'settings' | 'manual-input' | 'debug';
@@ -41,6 +42,7 @@
   
   onDestroy(() => {
     panelManager.cleanup();
+    settingsManager.cleanup();
   });
 </script>
 
@@ -227,178 +229,152 @@
       </div>
     {/if}
 
-    <!-- Components -->
-    <div class="space-y-2">
-      <!-- AI Summary Component -->
-      <!-- {#if currentTab === 'content' && panelManager.content}
-        <div class="">
-          <AiSummary 
-            url={panelManager.url}
-            content={panelManager.content.content}
-            summary={panelManager.content.analysis?.summary}
-            isGenerating={panelManager.content.processing?.summary?.isStreaming || false}
-            onRefresh={() => panelManager.refreshDataOnly()}
-          />
-        </div>
-      {/if} -->
+    <!-- Feature Components: each wrapped in keepAlive ToggleDrawer for lazy mounting -->
+    {#if currentTab === 'content' && panelManager.content}
+      <div class="space-y-2">
+        <ToggleDrawer title="Summarize & Chat" keepAlive>
+          {#snippet children()}
+            <AiSummaryChat
+              url={panelManager.url}
+              content={panelManager.content.content}
+              summary={panelManager.content.analysis?.summary}
+              chatMessages={panelManager.content.analysis?.chatMessages}
+              isGenerating={panelManager.content.processing?.summary?.isStreaming || panelManager.content.processing?.chat?.isGenerating || false}
+              onRefresh={() => panelManager.refreshDataOnly()}
+            />
+          {/snippet}
+        </ToggleDrawer>
 
-      <!-- AI Chat Component -->
-      <!-- {#if currentTab === 'content' && panelManager.content}
-        <div class="">
-          <AiChat 
-            url={panelManager.url}
-            content={panelManager.content.content}
-            chatMessages={panelManager.content.analysis?.chatMessages}
-            isGenerating={panelManager.content.processing?.chat?.isGenerating || false}
-            onRefresh={() => panelManager.refreshDataOnly()}
-          />
-        </div>
-      {/if} -->
+        <ToggleDrawer title="Maps & Places" keepAlive>
+          {#snippet children()}
+            <AiMapsChat
+              url={panelManager.url}
+              content={panelManager.content.content}
+              mapsData={panelManager.content.analysis?.mapsData}
+              isExtracting={panelManager.content.processing?.mapsData?.isExtracting || false}
+              onRefresh={() => panelManager.refreshDataOnly()}
+            />
+          {/snippet}
+        </ToggleDrawer>
 
-      <!-- AI Summary + Chat Component -->
-      {#if currentTab === 'content' && panelManager.content}
-        <div class="">
-          <AiSummaryChat 
-            url={panelManager.url}
-            content={panelManager.content.content}
-            summary={panelManager.content.analysis?.summary}
-            chatMessages={panelManager.content.analysis?.chatMessages}
-            isGenerating={panelManager.content.processing?.summary?.isStreaming || panelManager.content.processing?.chat?.isGenerating || false}
-            onRefresh={() => panelManager.refreshDataOnly()}
-          />
-        </div>
-      {/if}
+        <ToggleDrawer title="AI Text-to-Speech" keepAlive>
+          {#snippet children()}
+            <AiTextToSpeech
+              url={panelManager.url}
+              content={panelManager.content.content}
+              textToSpeech={panelManager.content.analysis?.textToSpeech}
+              isGenerating={panelManager.content.processing?.textToSpeech?.isGenerating || false}
+              onRefresh={() => panelManager.refreshDataOnly()}
+            />
+          {/snippet}
+        </ToggleDrawer>
 
-      <!-- AI Maps Control & Chat Component -->
-      {#if currentTab === 'content' && panelManager.content}
-        <div class="">
-          <AiMapsChat 
-            url={panelManager.url}
-            content={panelManager.content.content}
-            mapsData={panelManager.content.analysis?.mapsData}
-            isExtracting={panelManager.content.processing?.mapsData?.isExtracting || false}
-            onRefresh={() => panelManager.refreshDataOnly()}
-          />
-        </div>
-      {/if}
+        <ToggleDrawer title="Citations" keepAlive>
+          {#snippet children()}
+            <Citations
+              url={panelManager.url}
+              content={panelManager.content.content}
+              citations={panelManager.content.analysis?.citations}
+              isGenerating={panelManager.content.processing?.citations?.isGenerating || false}
+              onRefresh={() => panelManager.refreshDataOnly()}
+            />
+          {/snippet}
+        </ToggleDrawer>
 
-      <!-- AI Text-to-Speech Component -->
-      {#if currentTab === 'content' && panelManager.content}
-        <div class="">
-          <AiTextToSpeech 
-            url={panelManager.url}
-            content={panelManager.content.content}
-            textToSpeech={panelManager.content.analysis?.textToSpeech}
-            isGenerating={panelManager.content.processing?.textToSpeech?.isGenerating || false}
-            onRefresh={() => panelManager.refreshDataOnly()}
-          />
-        </div>
-      {/if}
-      
-      <!-- Citations Component -->
-      {#if currentTab === 'content' && panelManager.content}
-        <div class="">
-          <Citations 
-            url={panelManager.url}
-            content={panelManager.content.content}
-            citations={panelManager.content.analysis?.citations}
-            isGenerating={panelManager.content.processing?.citations?.isGenerating || false}
-            onRefresh={() => panelManager.refreshDataOnly()}
-          />
-        </div>
-      {/if}
+        <ToggleDrawer title="ThreadGirl" keepAlive>
+          {#snippet children()}
+            <Threadgirl
+              url={panelManager.url}
+              content={panelManager.content.content}
+              threadgirlResults={panelManager.content.analysis?.threadgirlResults}
+              isProcessing={panelManager.content.processing?.threadgirl?.isProcessing || false}
+              onRefresh={() => panelManager.refreshDataOnly()}
+            />
+          {/snippet}
+        </ToggleDrawer>
 
-      <!-- Threadgirl Component -->
-      {#if currentTab === 'content' && panelManager.content}
-        <div class="">
-          <Threadgirl 
-            url={panelManager.url}
-            content={panelManager.content.content}
-            threadgirlResults={panelManager.content.analysis?.threadgirlResults}
-            isProcessing={panelManager.content.processing?.threadgirl?.isProcessing || false}
-            onRefresh={() => panelManager.refreshDataOnly()}
-          />
-        </div>
-      {/if}
+        <ToggleDrawer title="Twitter Thread" keepAlive>
+          {#snippet children()}
+            <TwitterThread
+              url={panelManager.url}
+              content={panelManager.content.content}
+              twitterThread={panelManager.content.analysis?.socialMediaThread}
+              isExtracting={panelManager.content.processing?.socialMediaThread?.isExtracting || false}
+              isExpanding={panelManager.content.processing?.socialMediaThread?.isExpanding || false}
+              onRefresh={() => panelManager.refreshDataOnly()}
+            />
+          {/snippet}
+        </ToggleDrawer>
 
-      <!-- Twitter Thread Component -->
-      {#if currentTab === 'content' && panelManager.content}
-        <div class="">
-          <TwitterThread 
-            url={panelManager.url}
-            content={panelManager.content.content}
-            twitterThread={panelManager.content.analysis?.socialMediaThread}
-            isExtracting={panelManager.content.processing?.socialMediaThread?.isExtracting || false}
-            isExpanding={panelManager.content.processing?.socialMediaThread?.isExpanding || false}
-            onRefresh={() => panelManager.refreshDataOnly()}
-          />
-        </div>
-      {/if}
+        <ToggleDrawer title="LinkedIn Thread" keepAlive>
+          {#snippet children()}
+            <LinkedInThread
+              url={panelManager.url}
+              content={panelManager.content.content}
+              linkedInThread={panelManager.content.analysis?.socialMediaThread}
+              isExtracting={panelManager.content.processing?.socialMediaThread?.isExtracting || false}
+              isExpanding={panelManager.content.processing?.socialMediaThread?.isExpanding || false}
+              onRefresh={() => panelManager.refreshDataOnly()}
+            />
+          {/snippet}
+        </ToggleDrawer>
 
-      <!-- LinkedIn Thread Component -->
-      {#if currentTab === 'content' && panelManager.content}
-        <div class="">
-          <LinkedInThread 
-            url={panelManager.url}
-            content={panelManager.content.content}
-            linkedInThread={panelManager.content.analysis?.socialMediaThread}
-            isExtracting={panelManager.content.processing?.socialMediaThread?.isExtracting || false}
-            isExpanding={panelManager.content.processing?.socialMediaThread?.isExpanding || false}
-            onRefresh={() => panelManager.refreshDataOnly()}
-          />
-        </div>
-      {/if}
+        <ToggleDrawer title="Recipe Extractor" keepAlive>
+          {#snippet children()}
+            <AiRecipe
+              url={panelManager.url}
+              content={panelManager.content.content}
+              recipe={panelManager.content.analysis?.recipe}
+              isExtracting={panelManager.content.processing?.recipe?.isExtracting || false}
+              onRefresh={() => panelManager.refreshDataOnly()}
+            />
+          {/snippet}
+        </ToggleDrawer>
 
-      <!-- AI Recipe Component -->
-      {#if currentTab === 'content' && panelManager.content}
-        <div class="">
-          <AiRecipe 
-            url={panelManager.url}
-            content={panelManager.content.content}
-            recipe={panelManager.content.analysis?.recipe}
-            isExtracting={panelManager.content.processing?.recipe?.isExtracting || false}
-            onRefresh={() => panelManager.refreshDataOnly()}
-          />
-        </div>
-      {/if}
+        <ToggleDrawer title="Page Assets" subtitle="Fonts, images, and SVGs" keepAlive>
+          {#snippet children()}
+            <PageAssets
+              url={panelManager.url}
+              content={panelManager.content.content}
+              pageAssets={panelManager.content.analysis?.pageAssets}
+              isExtracting={panelManager.content.processing?.pageAssets?.isExtracting || false}
+              onRefresh={() => panelManager.refreshDataOnly()}
+            />
+          {/snippet}
+        </ToggleDrawer>
 
-      <!-- Page Assets Component -->
-      {#if currentTab === 'content' && panelManager.content}
-        <div class="">
-          <PageAssets 
-            url={panelManager.url}
-            content={panelManager.content.content}
-            pageAssets={panelManager.content.analysis?.pageAssets}
-            isExtracting={panelManager.content.processing?.pageAssets?.isExtracting || false}
-            onRefresh={() => panelManager.refreshDataOnly()}
-          />
-        </div>
-      {/if}
+        <ToggleDrawer title="Screenshots" keepAlive>
+          {#snippet children()}
+            <PageScreenshots
+              url={panelManager.url}
+              content={panelManager.content.content}
+              screenshots={panelManager.content.analysis?.pageAssets?.screenshots}
+              isExtracting={panelManager.content.processing?.pageAssets?.isExtracting || false}
+              onRefresh={() => panelManager.refreshDataOnly()}
+            />
+          {/snippet}
+        </ToggleDrawer>
 
-      <!-- Page Screenshots Component -->
-      {#if currentTab === 'content' && panelManager.content}
-        <div class="">
-          <PageScreenshots 
-            url={panelManager.url}
-            content={panelManager.content.content}
-            screenshots={panelManager.content.analysis?.pageAssets?.screenshots}
-            isExtracting={panelManager.content.processing?.pageAssets?.isExtracting || false}
-            onRefresh={() => panelManager.refreshDataOnly()}
-          />
-        </div>
-      {/if}
+        <ToggleDrawer title="Research Paper Analysis" keepAlive>
+          {#snippet children()}
+            <AiResearchPaper
+              tabData={panelManager.content}
+              onRefresh={() => panelManager.refreshDataOnly()}
+            />
+          {/snippet}
+        </ToggleDrawer>
 
-      <!-- AI Research Paper Component -->
-      {#if currentTab === 'content' && panelManager.content}
-        <div class="">
-          <AiResearchPaper 
-            tabData={panelManager.content}
-            onRefresh={() => panelManager.refreshDataOnly()}
-          />
-        </div>
-      {/if}
-
-    </div>
+        <ToggleDrawer title="ReAct Agent" subtitle="Reasoning + tool use" keepAlive>
+          {#snippet children()}
+            <AiReActAgent
+              url={panelManager.url}
+              content={panelManager.content.content}
+              onRefresh={() => panelManager.refreshDataOnly()}
+            />
+          {/snippet}
+        </ToggleDrawer>
+      </div>
+    {/if}
 
     <!-- Debug Panel at bottom with collapsibles only mode -->
     {#if currentTab !== 'debug'}

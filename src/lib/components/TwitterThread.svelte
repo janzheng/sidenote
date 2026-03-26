@@ -1,6 +1,5 @@
 <script lang="ts">
   import Icon from "@iconify/svelte";
-  import ToggleDrawer from './ui/ToggleDrawer.svelte';
   import CopyButton from './ui/CopyButton.svelte';
   import CollapsibleContent from './ui/CollapsibleContent.svelte';
   import { twitterManager } from '../ui/twitterManager.svelte';
@@ -32,9 +31,6 @@
     onRefresh 
   }: Props = $props();
 
-  // Component state
-  let isExpanded = $state(false);
-
   // Check if current page is Twitter/X
   const isTwitterUrl = $derived(
     url?.includes('twitter.com') || 
@@ -56,11 +52,7 @@
 
 </script>
 
-<ToggleDrawer 
-  title="Twitter Thread Extractor" 
-  bind:isExpanded
->
-  <!-- About Section -->
+<!-- About Section -->
   <div class="py-2">
     Automatically extracts complete Twitter threads with full auto-scrolling to capture the maximum content. Uses enhanced structural analysis to identify the main conversation, loads all replies and thread content, and filters out recommendations for clean LLM-ready output.
   </div>
@@ -160,6 +152,4 @@
         />
       </div>
     {/if}
-  {/if}
-
-</ToggleDrawer> 
+  {/if} 

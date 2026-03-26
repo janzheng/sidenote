@@ -15,6 +15,7 @@ import { handleJinaPageshot, handleJinaScreenshot, getScreenshotStatus } from '.
 import { handleRecipeExtraction, getRecipeStatus } from './tasks/handleRecipeExtraction.svelte';
 import { handleLinkedInThreadExtractionWithScroll, getLinkedInThreadStatus } from './tasks/handleLinkedInThreadExtraction.svelte';
 import { handleTwitterThreadExtractionWithScroll, getTwitterThreadStatus } from './tasks/handleTwitterThreadExtraction.svelte';
+import { handleRedditThreadExtraction, getRedditThreadStatus } from './tasks/handleRedditThreadExtraction';
 import { handlePDFExtraction, getPDFExtractionStatus, generateCitations } from './tasks/handlePDFExtraction.svelte';
 import { handleTextToSpeechGeneration, handleTtsTextGeneration, handleTtsAudioGeneration, getTtsStatus } from './tasks/handleTextToSpeechGeneration.svelte';
 import { handleMapsExtraction, getMapsDataStatus } from './tasks/handleMapsExtraction.svelte';
@@ -94,6 +95,10 @@ const handlers: Record<string, Handler> = {
   // LinkedIn
   extractLinkedInThreadWithScroll: (msg, send) => handleLinkedInThreadExtractionWithScroll(msg.url, msg.maxScrolls, msg.scrollDelay, msg.maxExpansions, send),
   getLinkedInThreadStatus: statusHandler(getLinkedInThreadStatus),
+
+  // Reddit
+  extractRedditThread: (msg, send) => handleRedditThreadExtraction(msg.url, send),
+  getRedditThreadStatus: statusHandler(getRedditThreadStatus),
 
   // PDF & citations
   extractPDF: (msg, send) => handlePDFExtraction(msg.url, send),

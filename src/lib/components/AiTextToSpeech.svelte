@@ -13,13 +13,13 @@
     content: any;
     textToSpeech: TextToSpeech | null;
     isGenerating: boolean;
+    isExpanded?: boolean;
     onRefresh?: () => void;
   }
 
-  let { url, content, textToSpeech, isGenerating, onRefresh }: Props = $props();
+  let { url, content, textToSpeech, isGenerating, isExpanded = false, onRefresh }: Props = $props();
 
   // Component UI state
-  let isExpanded = $state(false);
   let editableText = $state('');
   let isEditingText = $state(false);
   let isGeneratingText = $state(false);
@@ -53,7 +53,7 @@
     }
   });
 
-  // Initialize custom system prompt with default
+  // Initialize custom system prompt with default on mount (mount=expansion now)
   $effect(() => {
     if (!customSystemPrompt) {
       customSystemPrompt = getDefaultSystemPrompt();
@@ -357,11 +357,6 @@ The goal is to create speech-ready text that sounds like the original author giv
   });
 </script>
 
-<ToggleDrawer
-  title="AI Text-to-Speech"
-  bind:isExpanded
->
-  {#snippet children()}
     <!-- API Configuration -->
     {#if !settingsManager.hasApiKey}
       <ApiSettings />
@@ -588,5 +583,3 @@ The goal is to create speech-ready text that sounds like the original author giv
         </div>
       </div>
     {/if}
-  {/snippet}
-</ToggleDrawer>

@@ -5,6 +5,7 @@ import { extractTwitterThreadWithScroll } from './tasks/extractTwitterThreadWith
 import { extractLinkedInThreadWithScroll } from './tasks/extractLinkedInThreadWithScroll.svelte';
 import { extractMapsData } from './tasks/extractMapsData.svelte';
 import { controlMaps } from './tasks/controlMaps.svelte';
+import { extractRedditThread } from './tasks/extractRedditThread';
 
 // Import debug functions for testing
 import './tasks/debugScrollCapture.svelte';
@@ -135,6 +136,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Keep message channel open for async response
   }
   
+  // Handle Reddit thread extraction via defuddle
+  if (message.action === 'extractRedditThread') {
+    console.log('🔴 Starting Reddit thread extraction via defuddle...');
+
+    extractRedditThread().then(result => {
+      sendResponse(result);
+    }).catch((error: any) => {
+      console.error('🔴 Reddit thread extraction failed:', error);
+      sendResponse({
+        success: false,
+        error: error instanceof Error ? error.message : 'Reddit thread extraction failed'
+      });
+    });
+
+    return true; // Keep message channel open for async response
+  }
+
   // Handle sidebar opened notification (for any cleanup if needed)
   if (message.action === 'sidebarOpened') {
     console.log('📄 Sidebar opened for this tab');

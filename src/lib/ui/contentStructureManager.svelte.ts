@@ -43,20 +43,10 @@ class ContentStructureManager {
       } else {
         console.error('❌ Content structure parsing failed:', response.error);
         this.state.parseError = response.error;
-        
-        // Reset error after 5 seconds
-        setTimeout(() => {
-          this.state.parseError = null;
-        }, 5000);
       }
     } catch (error) {
       console.error('❌ Content structure parsing error:', error);
       this.state.parseError = error instanceof Error ? error.message : 'Unknown error';
-      
-      // Reset error after 5 seconds
-      setTimeout(() => {
-        this.state.parseError = null;
-      }, 5000);
     } finally {
       this.state.isParsing = false;
     }

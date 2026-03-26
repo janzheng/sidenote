@@ -55,7 +55,7 @@ export async function handleMapsExtraction(url: string, sendResponse: (response:
       return;
     }
 
-    // Send message to content script with auto-injection fallback
+    // Send message to content script with auto-injection fallback + retry
     let response: any;
     try {
       response = await chrome.tabs.sendMessage(tab.id, { action: 'extractMapsData' });
@@ -66,8 +66,15 @@ export async function handleMapsExtraction(url: string, sendResponse: (response:
           target: { tabId: tab.id },
           files: ['content-script.js']
         });
-        await new Promise(r => setTimeout(r, 300));
-        response = await chrome.tabs.sendMessage(tab.id, { action: 'extractMapsData' });
+        // Google Maps is heavy — give content script more time to initialize
+        await new Promise(r => setTimeout(r, 800));
+        try {
+          response = await chrome.tabs.sendMessage(tab.id, { action: 'extractMapsData' });
+        } catch {
+          // Retry once more after additional delay
+          await new Promise(r => setTimeout(r, 1000));
+          response = await chrome.tabs.sendMessage(tab.id, { action: 'extractMapsData' });
+        }
       } catch (retryErr) {
         console.error('❌ Content script not available after injection:', retryErr);
         await backgroundDataController.saveData(url, {

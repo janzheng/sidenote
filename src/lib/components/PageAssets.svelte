@@ -1,6 +1,5 @@
 <script lang="ts">
   import Icon from "@iconify/svelte";
-  import ToggleDrawer from './ui/ToggleDrawer.svelte';
   import CopyButton from './ui/CopyButton.svelte';
   import { pageAssetsManager } from '../ui/pageAssetsManager.svelte';
   import type { FontInfo, ImageInfo, SvgInfo, PageAssets } from '../../types/pageAssets';
@@ -10,13 +9,13 @@
     content: any;
     pageAssets: PageAssets | null;
     isExtracting: boolean;
+    isExpanded?: boolean;
     onRefresh?: () => void;
   }
 
-  let { url, content, pageAssets, isExtracting, onRefresh }: Props = $props();
+  let { url, content, pageAssets, isExtracting, isExpanded = false, onRefresh }: Props = $props();
 
   // Component state
-  let isExpanded = $state(false);
   let selectedTab = $state<'fonts' | 'images' | 'svgs'>('images');
   let expandedItems = $state(new Set<string>());
   let imageDimensions = $state(new Map<string, { width: number; height: number }>());
@@ -44,7 +43,7 @@
     }
   });
 
-  // Load image dimensions when images change
+  // Load image dimensions when mounted (mount=expansion now)
   $effect(() => {
     if (images.length > 0) {
       // Collect all mutations first, then batch-update reactive state once
@@ -238,12 +237,6 @@
   }
 </script>
 
-<ToggleDrawer 
-  title="Page Assets" 
-  subtitle="Fonts, images, and SVGs"
-  bind:isExpanded
->
-  {#snippet children()}
     <!-- About Section -->
     <div class="py-2">
       Extract and analyze fonts, images, and SVGs from the page. Analyze typography, save images, and copy SVG code for design workflows.
@@ -550,6 +543,4 @@
         <Icon icon="mdi:loading" class="animate-spin w-4 h-4" />
         <div>Extracting page assets...</div>
       </div>
-    {/if}
-  {/snippet}
-</ToggleDrawer> 
+    {/if} 

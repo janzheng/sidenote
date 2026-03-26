@@ -3,7 +3,6 @@
   import Icon from "@iconify/svelte";
   import { summaryManager } from '../ui/summaryManager.svelte';
   import { chatManager } from '../ui/chatManager.svelte';
-  import ToggleDrawer from './ui/ToggleDrawer.svelte';
   import CopyButton from './ui/CopyButton.svelte';
   import CollapsibleContent from './ui/CollapsibleContent.svelte';
   import ApiSettings from './ui/ApiSettings.svelte';
@@ -16,13 +15,13 @@
     summary: string | null;
     chatMessages: ChatMessage[] | null;
     isGenerating: boolean;
+    isExpanded?: boolean;
     onRefresh?: () => void;
   }
 
-  let { url, content, summary, chatMessages, isGenerating, onRefresh }: Props = $props();
+  let { url, content, summary, chatMessages, isGenerating, isExpanded = false, onRefresh }: Props = $props();
 
   // Component UI state
-  let isExpanded = $state(false);
   let isSummaryExpanded = $state(false);
   let messageInput = $state('');
   let chatContainer = $state<HTMLElement>();
@@ -90,15 +89,14 @@
     wasGenerating = isCurrentlyGenerating;
   });
 
-  // Handle drawer toggle — no auto-summarize, user clicks button instead
-  async function handleToggle(expanded: boolean) {
-    if (expanded && inputElement) {
-      // Focus the input when drawer opens
+  // Focus input on mount (mount=expansion now)
+  $effect(() => {
+    if (inputElement) {
       requestAnimationFrame(() => {
         inputElement?.focus();
       });
     }
-  }
+  });
 
   // Handle summary generation
   async function handleGenerateSummary() {
@@ -257,12 +255,6 @@
   });
 </script>
 
-<ToggleDrawer
-  title="Summarize & Chat"
-  bind:isExpanded
-  onToggle={handleToggle}
->
-  {#snippet children()}
     <!-- API Configuration — only show when no API key is set -->
     {#if !settingsManager.hasApiKey}
       <ApiSettings />
@@ -422,8 +414,6 @@
         </div>
       </div>
     </div>
-  {/snippet}
-</ToggleDrawer>
 
 <style>
   .markdown-content :global(ul) {

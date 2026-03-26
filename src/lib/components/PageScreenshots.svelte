@@ -1,6 +1,5 @@
 <script lang="ts">
   import Icon from "@iconify/svelte";
-  import ToggleDrawer from './ui/ToggleDrawer.svelte';
   import CopyButton from './ui/CopyButton.svelte';
   import { pageAssetsManager } from '../ui/pageAssetsManager.svelte';
   import type { ScreenshotInfo } from '../../types/pageAssets';
@@ -14,9 +13,6 @@
   }
 
   let { url, content, screenshots, isExtracting, onRefresh }: Props = $props();
-
-  // Component UI state
-  let isExpanded = $state(false);
 
   // Derived states
   const hasScreenshots = $derived(screenshots && (screenshots.pageshot || screenshots.screenshot));
@@ -90,11 +86,6 @@
   });
 </script>
 
-<ToggleDrawer
-  title="Page Screenshots"
-  bind:isExpanded
->
-  {#snippet children()}
     <!-- About Section -->
     <div class="py-2">
       Capture visual screenshots of the page using Jina AI. Generate both full page shots and viewport screenshots for documentation and analysis.
@@ -264,8 +255,6 @@
         <div class="text-xs">Only HTTP/HTTPS URLs are supported</div>
       </div>
     {/if}
-  {/snippet}
-</ToggleDrawer>
 
 <style>
   /* Ensure images don't break layout */

@@ -14,6 +14,7 @@
     subtitleClass = 'text-sm text-gray-500 dark:text-gray-400',
     metadataClass = 'text-sm text-gray-500 dark:text-gray-400',
     metadataOnNewRow = false,
+    keepAlive = false,
     onToggle,
     children,
     headerExtra,
@@ -23,6 +24,7 @@
     subtitle?: string;
     isExpanded?: boolean;
     disabled?: boolean;
+    keepAlive?: boolean;
     headerClass?: string;
     contentClass?: string;
     titleClass?: string;
@@ -34,6 +36,10 @@
     headerExtra?: Snippet;
     headerActions?: Snippet;
   } = $props();
+
+  // Track whether drawer has ever been expanded (for keepAlive mode)
+  let hasBeenExpanded = $state(false);
+  $effect(() => { if (isExpanded) hasBeenExpanded = true; });
 
   function toggleExpanded() {
     if (!disabled) {
@@ -98,9 +104,9 @@
     </button>
   </div>
 
-  <!-- Content -->
-  {#if isExpanded}
-    <div class="p-4 space-y-4 {contentClass}">
+  <!-- Content: keepAlive mode mounts on first expansion, hides on collapse -->
+  {#if keepAlive ? hasBeenExpanded : isExpanded}
+    <div class="p-4 space-y-4 {contentClass}" class:hidden={keepAlive && !isExpanded}>
       {#if children}
         {@render children()}
       {/if}

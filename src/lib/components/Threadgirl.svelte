@@ -1,11 +1,10 @@
 <script lang="ts">
   import { marked } from 'marked';
-  import { onMount } from 'svelte';
+  import { untrack } from 'svelte';
   import Icon from "@iconify/svelte";
   import { threadgirlManager } from '../ui/threadgirlManager.svelte';
   import { THREADGIRL_MODELS } from '../services/threadgirlService.svelte';
   import type { ThreadgirlResult } from '../../types/threadgirlResult';
-  import ToggleDrawer from './ui/ToggleDrawer.svelte';
   import CopyButton from './ui/CopyButton.svelte';
   import { settingsManager } from '../ui/settings.svelte';
   import ThreadgirlSettings from './ui/ThreadgirlSettings.svelte';
@@ -15,13 +14,13 @@
     content: any;
     threadgirlResults: ThreadgirlResult[] | null;
     isProcessing: boolean;
+    isExpanded?: boolean;
     onRefresh?: () => void;
   }
 
-  let { url, content, threadgirlResults, isProcessing, onRefresh }: Props = $props();
+  let { url, content, threadgirlResults, isProcessing, isExpanded = false, onRefresh }: Props = $props();
 
   // Component state
-  let isExpanded = $state(false);
   let selectedTemplate = $state('');
   let instructionsText = $state('');
   let newPromptHash = $state('');
@@ -189,18 +188,15 @@
     await threadgirlManager.handleRemoveResult(url, resultId, onRefresh);
   }
 
-  onMount(() => {
-    // Load prompts from service on mount
-    console.log("ThreadGirl: Component mounted, loading prompts...");
-    threadgirlManager.loadPrompts(true); // Use cache on initial load
+  // Load prompts on mount (mount=expansion now)
+  $effect(() => {
+    untrack(() => {
+      console.log("ThreadGirl: Mounted, loading prompts...");
+      threadgirlManager.loadPrompts(true);
+    });
   });
 </script>
 
-<ToggleDrawer 
-  title="ThreadGirl" 
-  bind:isExpanded
->
-  {#snippet children()}
     <!-- Model Selection -->
     <div class="space-y-2">
       <label for="threadgirl-model-select" class="block font-medium text-gray-700 dark:text-gray-300">
@@ -457,5 +453,3 @@
         </div>
       </div>
     {/if}
-  {/snippet}
-</ToggleDrawer>

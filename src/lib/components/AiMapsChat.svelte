@@ -3,7 +3,6 @@
   import Icon from "@iconify/svelte";
   import { mapsManager } from '../ui/mapsManager.svelte';
   import { mapsChatManager } from '../ui/mapsChatManager.svelte';
-  import ToggleDrawer from './ui/ToggleDrawer.svelte';
   import CopyButton from './ui/CopyButton.svelte';
   import CollapsibleContent from './ui/CollapsibleContent.svelte';
   import ApiSettings from './ui/ApiSettings.svelte';
@@ -149,13 +148,13 @@
     content: any;
     mapsData: MapsData | null;
     isExtracting: boolean;
+    isExpanded?: boolean;
     onRefresh?: () => void;
   }
 
-  let { url, content, mapsData, isExtracting, onRefresh }: Props = $props();
+  let { url, content, mapsData, isExtracting, isExpanded = false, onRefresh }: Props = $props();
 
   // Component UI state
-  let isExpanded = $state(false);
   let isMapsDataExpanded = $state(false);
   let messageInput = $state('');
   let inputElement = $state<HTMLTextAreaElement>();
@@ -443,21 +442,23 @@
     wasOperating = isCurrentlyOperating;
   });
 
-  // Auto-extract Maps data when drawer opens for Google Maps
-  async function handleToggle(expanded: boolean) {
-    if (expanded && !hasMapsData && !hasExtracted && canExtract) {
+  // Auto-extract Maps data on mount (mount=expansion now)
+  $effect(() => {
+    if (!hasMapsData && !hasExtracted && canExtract) {
       hasExtracted = true;
-      isMapsDataExpanded = true; // Auto-expand maps data when extracting
-      await handleExtractMapsData();
+      isMapsDataExpanded = true;
+      handleExtractMapsData();
     }
-    
-    if (expanded && inputElement) {
-      // Focus the input when drawer opens
+  });
+
+  // Focus input on mount (mount=expansion now)
+  $effect(() => {
+    if (inputElement) {
       requestAnimationFrame(() => {
         inputElement?.focus();
       });
     }
-  }
+  });
 
   // Handle Maps data extraction
   async function handleExtractMapsData() {
@@ -733,12 +734,6 @@
   }
 </script>
 
-<ToggleDrawer
-  title="Maps AI Assistant"
-  bind:isExpanded
-  onToggle={handleToggle}
->
-  {#snippet children()}
     <!-- API Configuration -->
     {#if !settingsManager.hasApiKey}
       <ApiSettings />
@@ -997,8 +992,6 @@
         </div>
       </div>
     </div>
-  {/snippet}
-</ToggleDrawer>
 
 <style>
   .markdown-content :global(ul) {

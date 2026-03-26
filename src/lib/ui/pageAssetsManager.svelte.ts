@@ -103,23 +103,11 @@ class PageAssetsManager {
         console.error('❌ Page assets extraction failed:', response.error);
         this.state.extractionStatus = 'error';
         this.state.extractionError = response.error;
-        
-        // Reset status after 5 seconds
-        setTimeout(() => {
-          this.state.extractionStatus = 'idle';
-          this.state.extractionError = null;
-        }, 5000);
       }
     } catch (error) {
       console.error('❌ Page assets extraction error:', error);
       this.state.extractionStatus = 'error';
       this.state.extractionError = error instanceof Error ? error.message : 'Unknown error';
-      
-      // Reset status after 5 seconds
-      setTimeout(() => {
-        this.state.extractionStatus = 'idle';
-        this.state.extractionError = null;
-      }, 5000);
     } finally {
       this.state.isExtracting = false;
     }
@@ -175,23 +163,11 @@ class PageAssetsManager {
         console.error('❌ Pageshot generation failed:', response.error);
         this.state.pageshotStatus = 'error';
         this.state.pageshotError = response.error;
-        
-        // Reset status after 5 seconds
-        setTimeout(() => {
-          this.state.pageshotStatus = 'idle';
-          this.state.pageshotError = null;
-        }, 5000);
       }
     } catch (error) {
       console.error('❌ Pageshot generation error:', error);
       this.state.pageshotStatus = 'error';
       this.state.pageshotError = error instanceof Error ? error.message : 'Unknown error';
-      
-      // Reset status after 5 seconds
-      setTimeout(() => {
-        this.state.pageshotStatus = 'idle';
-        this.state.pageshotError = null;
-      }, 5000);
     } finally {
       this.state.isGeneratingPageshot = false;
     }
@@ -235,23 +211,11 @@ class PageAssetsManager {
         console.error('❌ Screenshot generation failed:', response.error);
         this.state.screenshotStatus = 'error';
         this.state.screenshotError = response.error;
-        
-        // Reset status after 5 seconds
-        setTimeout(() => {
-          this.state.screenshotStatus = 'idle';
-          this.state.screenshotError = null;
-        }, 5000);
       }
     } catch (error) {
       console.error('❌ Screenshot generation error:', error);
       this.state.screenshotStatus = 'error';
       this.state.screenshotError = error instanceof Error ? error.message : 'Unknown error';
-      
-      // Reset status after 5 seconds
-      setTimeout(() => {
-        this.state.screenshotStatus = 'idle';
-        this.state.screenshotError = null;
-      }, 5000);
     } finally {
       this.state.isGeneratingScreenshot = false;
     }

@@ -1,6 +1,5 @@
 <script lang="ts">
   import Icon from "@iconify/svelte";
-  import ToggleDrawer from './ui/ToggleDrawer.svelte';
   import CopyButton from './ui/CopyButton.svelte';
   import CollapsibleContent from './ui/CollapsibleContent.svelte';
   import { linkedInManager } from '../ui/linkedInManager.svelte';
@@ -32,9 +31,6 @@
     onRefresh 
   }: Props = $props();
 
-  // Component state
-  let isExpanded = $state(false);
-
   // Check if current page is LinkedIn
   const isLinkedInUrl = $derived(
     url?.includes('linkedin.com') || false
@@ -53,11 +49,7 @@
 
 </script>
 
-<ToggleDrawer 
-  title="LinkedIn Thread Extractor" 
-  bind:isExpanded
->
-  <!-- About Section -->
+<!-- About Section -->
   <div class="py-2">
     Automatically extracts complete LinkedIn posts and threads with full auto-scrolling and expansion to capture maximum content. Clicks "see more" buttons, loads all comments and replies, and filters content for clean LLM-ready output.
   </div>
@@ -162,6 +154,4 @@
         />
       </div>
     {/if}
-  {/if}
-
-</ToggleDrawer> 
+  {/if} 

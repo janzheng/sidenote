@@ -93,8 +93,12 @@ export class ThreadgirlService {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || `Failed to fetch prompts`);
+        throw new Error(`Failed to fetch prompts (HTTP ${response.status})`);
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error(`Expected JSON but got ${contentType || 'unknown content type'}`);
       }
 
       const result = await response.json();

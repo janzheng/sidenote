@@ -894,8 +894,9 @@ function waitForElements(selectors: string[], timeout: number = 3000): Promise<E
   return new Promise((resolve) => {
     const elements: Element[] = [];
     let timeoutId: number;
-    
+    let observer: MutationObserver | null = null;
     let resolved = false;
+
     const checkElements = () => {
       for (const selector of selectors) {
         const element = document.querySelector(selector);
@@ -907,27 +908,28 @@ function waitForElements(selectors: string[], timeout: number = 3000): Promise<E
       if (elements.length > 0 && !resolved) {
         resolved = true;
         clearTimeout(timeoutId);
-        observer.disconnect();
+        observer?.disconnect();
         resolve(elements);
       }
     };
-    
-    // Check immediately
+
+    // Check immediately — elements may already exist
     checkElements();
-    
+    if (resolved) return;
+
     // Set up observer for dynamic content
-    const observer = new MutationObserver(() => {
+    observer = new MutationObserver(() => {
       checkElements();
     });
-    
+
     observer.observe(document.body, {
       childList: true,
       subtree: true
     });
-    
+
     // Timeout fallback
     timeoutId = setTimeout(() => {
-      observer.disconnect();
+      observer?.disconnect();
       resolve(elements);
     }, timeout);
   });

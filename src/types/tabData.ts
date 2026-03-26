@@ -15,11 +15,15 @@ export interface TabData {
     url: string;
     text: string;
     html: string;
+    cleanHtml?: string;
     markdown: string;
     title: string;
     metadata: PageMetadata;
     wordCount: number;
     extractedAt: number;
+    extractionMethod?: 'defuddle' | 'turndown' | 'pdf';
+    defuddleExtractorType?: string;
+    defuddleVariables?: Record<string, string>;
   };
   
   analysis: {

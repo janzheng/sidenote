@@ -3,7 +3,7 @@
   import ContentStructure from "./ui/ContentStructure.svelte";
   import CollapsibleContent from "./ui/CollapsibleContent.svelte";
   import CopyButton from "./ui/CopyButton.svelte";
-  import AiReActAgent from "./AiReActAgent.svelte";
+
   import type { PanelManager } from "../ui/panelManager.svelte";
 
   // Props from App.svelte
@@ -73,17 +73,6 @@
       Debug Panel
     </h3>
 
-    <!-- AI ReAct Agent Component -->
-    {#if panelManagerContent}
-      <div class="">
-        <AiReActAgent 
-          url={url}
-          content={panelManagerContent.content}
-          onRefresh={() => panelManager.refreshDataOnly()}
-        />
-      </div>
-    {/if}
-    
     <div>
       <ContentStructure url={url} content={content} {contentStructure} {isLoading} {error} onRefresh={() => panelManager.refreshDataOnly()} />
     </div>
