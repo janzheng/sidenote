@@ -65,22 +65,11 @@ class RecipeManager {
         this.state.recipeStatus = 'error';
         this.state.recipeError = response.error;
         
-        // Reset status after 5 seconds
-        setTimeout(() => {
-          this.state.recipeStatus = 'idle';
-          this.state.recipeError = null;
-        }, 5000);
       }
     } catch (error) {
       console.error('❌ Recipe extraction error:', error);
       this.state.recipeStatus = 'error';
       this.state.recipeError = error instanceof Error ? error.message : 'Unknown error';
-      
-      // Reset status after 5 seconds
-      setTimeout(() => {
-        this.state.recipeStatus = 'idle';
-        this.state.recipeError = null;
-      }, 5000);
     } finally {
       this.state.isExtracting = false;
     }

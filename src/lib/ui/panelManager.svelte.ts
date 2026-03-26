@@ -6,6 +6,9 @@ import { summaryManager } from './summaryManager.svelte';
 import { chatManager } from './chatManager.svelte';
 import { threadgirlManager } from './threadgirlManager.svelte';
 import { contentStructureManager } from './contentStructureManager.svelte';
+import { researchPaperManager } from './researchPaperManager.svelte';
+import { recipeManager } from './recipeManager.svelte';
+import { textToSpeechManager } from './textToSpeechManager.svelte';
 import { settingsManager } from './settings.svelte';
 import { normalizeUrl } from '../utils/contentId';
 
@@ -665,11 +668,7 @@ export class PanelManager {
         this.state.content = response.data;
         
         // Reset manager states after loading new data to ensure UI consistency
-        // Note: Don't reset bookmarkManager as it maintains its own state independently
-        summaryManager.reset();
-        chatManager.reset();
-        threadgirlManager.reset();
-        contentStructureManager.reset();
+        this.resetFeatureManagers();
       } else {
         console.log('ℹ️ No existing data found for URL');
         console.log('🔄 Response:', response);
@@ -689,6 +688,9 @@ export class PanelManager {
     chatManager.reset();
     threadgirlManager.reset();
     contentStructureManager.reset();
+    researchPaperManager.reset();
+    recipeManager.reset();
+    textToSpeechManager.reset();
   }
 
   // Clean up event listeners and timeouts

@@ -75,24 +75,12 @@ class ResearchPaperManager {
         this.state.extractionStatus = 'error';
         this.state.extractionError = response.error;
         this.state.progress = '';
-        
-        // Reset status after 5 seconds
-        setTimeout(() => {
-          this.state.extractionStatus = 'idle';
-          this.state.extractionError = null;
-        }, 5000);
       }
     } catch (error) {
       console.error('❌ Research paper extraction error:', error);
       this.state.extractionStatus = 'error';
       this.state.extractionError = error instanceof Error ? error.message : 'Unknown error';
       this.state.progress = '';
-      
-      // Reset status after 5 seconds
-      setTimeout(() => {
-        this.state.extractionStatus = 'idle';
-        this.state.extractionError = null;
-      }, 5000);
     } finally {
       this.state.isExtracting = false;
     }
@@ -141,24 +129,12 @@ class ResearchPaperManager {
         this.state.extractionStatus = 'error';
         this.state.extractionError = response.error;
         this.state.progress = '';
-        
-        // Reset status after 5 seconds
-        setTimeout(() => {
-          this.state.extractionStatus = 'idle';
-          this.state.extractionError = null;
-        }, 5000);
       }
     } catch (error) {
       console.error('❌ Quick research paper extraction error:', error);
       this.state.extractionStatus = 'error';
       this.state.extractionError = error instanceof Error ? error.message : 'Unknown error';
       this.state.progress = '';
-      
-      // Reset status after 5 seconds
-      setTimeout(() => {
-        this.state.extractionStatus = 'idle';
-        this.state.extractionError = null;
-      }, 5000);
     } finally {
       this.state.isExtracting = false;
     }

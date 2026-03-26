@@ -73,16 +73,10 @@ class BookmarkManager {
       }
     } catch (error) {
       console.error('❌ Quick bookmark error:', error);
-      // Only show error if we haven't already shown fake success
-      if (this.state.quickBookmarkStatus !== 'success' as BookmarkStatus) {
-        this.state.isQuickBookmarking = false;
-        this.state.quickBookmarkStatus = 'error';
-        this.state.quickBookmarkError = error instanceof Error ? error.message : 'Unknown error';
-      } else {
-        // If we already showed fake success, just log the error but keep the success state
-        console.warn('⚠️ Bookmark error but user already saw success state:', error);
-      }
-      
+      this.state.isQuickBookmarking = false;
+      this.state.quickBookmarkStatus = 'error';
+      this.state.quickBookmarkError = error instanceof Error ? error.message : 'Unknown error';
+
       // Reset status after 5 seconds
       setTimeout(() => {
         this.state.quickBookmarkStatus = 'idle';

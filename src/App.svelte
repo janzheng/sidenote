@@ -303,7 +303,7 @@
             content={panelManager.content.content}
             citations={panelManager.content.analysis?.citations}
             isGenerating={panelManager.content.processing?.citations?.isGenerating || false}
-            onRefresh={() => panelManager.refresh()}
+            onRefresh={() => panelManager.refreshDataOnly()}
           />
         </div>
       {/if}

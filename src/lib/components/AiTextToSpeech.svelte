@@ -29,6 +29,8 @@
   let customSystemPrompt = $state('');
   let isPromptExpanded = $state(false);
   let promptTextarea: HTMLTextAreaElement | undefined;
+  let textError = $state<string | null>(null);
+  let audioError = $state<string | null>(null);
 
   // Derived states
   const hasTts = $derived(textToSpeech && textToSpeech.rewrittenText && textToSpeech.rewrittenText.length > 0);
@@ -142,10 +144,11 @@ The goal is to create speech-ready text that sounds like the original author giv
 
     isGeneratingText = true;
     isEditingText = false;
+    textError = null;
 
     try {
       console.log('🔊 Step 1: Generating rewritten text for TTS...');
-      
+
       const response = await chrome.runtime.sendMessage({
         action: 'generateTtsText',
         url: url,
@@ -157,10 +160,11 @@ The goal is to create speech-ready text that sounds like the original author giv
         console.log('✅ Text rewriting successful');
       } else {
         console.error('❌ Text rewriting failed:', response.error);
-        // Could show error in UI here
+        textError = response.error || 'Text rewriting failed';
       }
     } catch (error) {
       console.error('❌ Text rewriting error:', error);
+      textError = error instanceof Error ? error.message : 'Unknown error';
     } finally {
       isGeneratingText = false;
     }
@@ -173,6 +177,7 @@ The goal is to create speech-ready text that sounds like the original author giv
     }
 
     isGeneratingAudio = true;
+    audioError = null;
 
     try {
       console.log('🔊 Step 2: Generating audio from edited text...');
@@ -236,9 +241,11 @@ The goal is to create speech-ready text that sounds like the original author giv
         }
       } else {
         console.error('❌ Audio generation failed:', response.error);
+        audioError = response.error || 'Audio generation failed';
       }
     } catch (error) {
       console.error('❌ Audio generation error:', error);
+      audioError = error instanceof Error ? error.message : 'Unknown error';
     } finally {
       isGeneratingAudio = false;
     }
@@ -429,6 +436,11 @@ The goal is to create speech-ready text that sounds like the original author giv
           <span class="font-semibold text-blue-600">Step 1: Generate Speech Text</span>
         {/if}
       </button>
+      {#if textError}
+        <div class="mt-2 text-sm text-red-600 bg-red-50 border border-red-200 p-2 rounded">
+          {textError}
+        </div>
+      {/if}
     </div>
 
     <!-- Text Editor (Step 1.5) -->
@@ -470,7 +482,7 @@ The goal is to create speech-ready text that sounds like the original author giv
           onchange={handleVoiceChange}
           value={textToSpeechManager.selectedVoice}
           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          disabled={isGenerating || textToSpeechManager.isGenerating}
+          disabled={isGeneratingText || isGeneratingAudio}
         >
           {#each textToSpeechManager.getAvailableVoices() as voice}
             <option value={voice}>{voice.replace('-PlayAI', '')}</option>
@@ -512,6 +524,11 @@ The goal is to create speech-ready text that sounds like the original author giv
             <span class="font-semibold text-purple-600">Step 2: Generate Audio</span>
           {/if}
         </button>
+        {#if audioError}
+          <div class="mt-2 text-sm text-red-600 bg-red-50 border border-red-200 p-2 rounded">
+            {audioError}
+          </div>
+        {/if}
       </div>
     {/if}
 

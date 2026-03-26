@@ -60,22 +60,11 @@ class SummaryManager {
         this.state.summaryStatus = 'error';
         this.state.summaryError = response.error;
         
-        // Reset status after 5 seconds
-        setTimeout(() => {
-          this.state.summaryStatus = 'idle';
-          this.state.summaryError = null;
-        }, 5000);
       }
     } catch (error) {
       console.error('❌ Summary generation error:', error);
       this.state.summaryStatus = 'error';
       this.state.summaryError = error instanceof Error ? error.message : 'Unknown error';
-      
-      // Reset status after 5 seconds
-      setTimeout(() => {
-        this.state.summaryStatus = 'idle';
-        this.state.summaryError = null;
-      }, 5000);
     } finally {
       this.state.isGenerating = false;
     }

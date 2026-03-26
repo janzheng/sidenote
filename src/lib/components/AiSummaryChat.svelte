@@ -185,9 +185,7 @@
   // Render markdown safely
   function renderMarkdown(content: string): string {
     try {
-      console.log('🔍 [aiSummaryChat] renderMarkdown raw content:', content);
       const result = marked.parse(content);
-      console.log('🔍 [aiSummaryChat] renderMarkdown result:', result);
       return typeof result === 'string' ? result : content;
     } catch (error) {
       console.warn('Markdown rendering error:', error);

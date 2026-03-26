@@ -76,22 +76,12 @@ class ChatManager {
         this.state.chatError = response.error;
         // Revert optimistic user message on failure
         this.state.messages = previousHistory;
-
-        // Reset error after 5 seconds
-        setTimeout(() => {
-          this.state.chatError = null;
-        }, 5000);
       }
     } catch (error) {
       console.error('❌ Chat message error:', error);
       this.state.chatError = error instanceof Error ? error.message : 'Unknown error';
       // Revert optimistic user message on error
       this.state.messages = previousHistory;
-
-      // Reset error after 5 seconds
-      setTimeout(() => {
-        this.state.chatError = null;
-      }, 5000);
     } finally {
       this.state.isGenerating = false;
     }
@@ -128,20 +118,10 @@ class ChatManager {
       } else {
         console.error('❌ Chat clear failed:', response.error);
         this.state.chatError = response.error;
-        
-        // Reset error after 5 seconds
-        setTimeout(() => {
-          this.state.chatError = null;
-        }, 5000);
       }
     } catch (error) {
       console.error('❌ Chat clear error:', error);
       this.state.chatError = error instanceof Error ? error.message : 'Unknown error';
-      
-      // Reset error after 5 seconds
-      setTimeout(() => {
-        this.state.chatError = null;
-      }, 5000);
     } finally {
       this.state.isGenerating = false;
     }
