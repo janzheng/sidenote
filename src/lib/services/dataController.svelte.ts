@@ -98,17 +98,23 @@ export class DataController {
   async saveData(url: string, data: DeepPartial<TabData>): Promise<boolean> {
     const normalizedUrl = this.normalizeUrl(url);
 
-    // Wait for any in-flight save to the same URL to finish first (prevents read-merge-write races)
-    const pending = this.saveLocks.get(normalizedUrl);
-    if (pending) {
-      await pending.catch(() => {});
-    }
-
-    const saveOp = this._doSave(normalizedUrl, data);
+    // Chain saves to the same URL — each save waits for the previous to finish,
+    // then reads the latest state before merging. This prevents TOCTOU races where
+    // two concurrent saves both read the same old state and one overwrites the other.
+    const pending = this.saveLocks.get(normalizedUrl) || Promise.resolve(true);
+    const saveOp = pending
+      .catch(() => {}) // Don't let a failed previous save block the next one
+      .then(() => this._doSave(normalizedUrl, data));
     this.saveLocks.set(normalizedUrl, saveOp);
-    const result = await saveOp;
-    this.saveLocks.delete(normalizedUrl);
-    return result;
+
+    try {
+      return await saveOp;
+    } finally {
+      // Only clean up if this is still the latest save in the chain
+      if (this.saveLocks.get(normalizedUrl) === saveOp) {
+        this.saveLocks.delete(normalizedUrl);
+      }
+    }
   }
 
   private async _doSave(normalizedUrl: string, data: DeepPartial<TabData>): Promise<boolean> {

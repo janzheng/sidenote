@@ -38,52 +38,32 @@ class BookmarkManager {
 
     try {
       console.log('🔖 Starting quick bookmark for:', url);
-      
-      // Show fake success after 1.5 seconds for better UX (Google Sheets is slow)
-      setTimeout(() => {
-        if (this.state.isQuickBookmarking) {
-          this.state.isQuickBookmarking = false;
-          this.state.quickBookmarkStatus = 'success';
-          this.state.quickBookmarkError = null;
-          
-          // Call the success callback for the fake success
-          if (onSuccess) {
-            setTimeout(() => {
-              onSuccess();
-            }, 100);
-          }
-        }
-      }, 1500);
-      
-      // Process the actual bookmark in the background
+
+      // Actually wait for the bookmark to complete — no fake success
       const response = await chrome.runtime.sendMessage({
         action: 'bookmarkContent',
         url: url
       });
 
       if (response.success) {
-        console.log('✅ Quick bookmark API call successful');
-        
-        // Ensure we're in success state (in case the timeout hasn't fired yet)
+        console.log('✅ Quick bookmark successful');
         this.state.isQuickBookmarking = false;
         this.state.quickBookmarkStatus = 'success';
         this.state.quickBookmarkError = null;
-        
-        // Reset status after 3 seconds from now
+
+        if (onSuccess) {
+          setTimeout(() => onSuccess(), 100);
+        }
+
+        // Reset status after 3 seconds
         setTimeout(() => {
           this.state.quickBookmarkStatus = 'idle';
         }, 3000);
       } else {
-        console.error('❌ Quick bookmark API call failed:', response.error);
-        // Only show error if we haven't already shown fake success
-        if (this.state.quickBookmarkStatus !== 'success' as BookmarkStatus) {
-          this.state.isQuickBookmarking = false;
-          this.state.quickBookmarkStatus = 'error';
-          this.state.quickBookmarkError = response.error;
-        } else {
-          // If we already showed fake success, just log the error but keep the success state
-          console.warn('⚠️ Bookmark API failed but user already saw success state:', response.error);
-        }
+        console.error('❌ Quick bookmark failed:', response.error);
+        this.state.isQuickBookmarking = false;
+        this.state.quickBookmarkStatus = 'error';
+        this.state.quickBookmarkError = response.error;
         
         // Reset status after 5 seconds
         setTimeout(() => {

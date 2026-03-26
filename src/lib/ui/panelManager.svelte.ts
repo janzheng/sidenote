@@ -559,25 +559,33 @@ export class PanelManager {
       return;
     }
 
-    // Prevent duplicate extractions
+    // If extraction is in progress, wait for it then re-check if we still need to extract
     if (this.extractionPromise) {
       console.log('🔄 Extraction already in progress, waiting...');
       await this.extractionPromise;
-      return;
+      // After waiting, re-check — URL may have changed or extraction may now be done
+      if (!this.state.url) return;
+      const normalizedCurrent = normalizeUrl(this.state.url);
+      const normalizedLast = this.lastExtractedUrl ? normalizeUrl(this.lastExtractedUrl) : null;
+      if (normalizedCurrent === normalizedLast && this.state.content) return;
+      // URL changed or still needs extraction — fall through to extract
     }
 
-    // Check if we already extracted this URL (using normalized URL for comparison)
+    // Check if we already extracted this URL
     const normalizedCurrentUrl = normalizeUrl(this.state.url);
     const normalizedLastExtracted = this.lastExtractedUrl ? normalizeUrl(this.lastExtractedUrl) : null;
-    
+
     if (normalizedCurrentUrl === normalizedLastExtracted && this.state.content) {
       console.log('🔄 Content already extracted for this URL, skipping');
       return;
     }
 
-    // Create extraction promise for deduplication
-    this.extractionPromise = this.performExtraction();
-    
+    // Capture URL and tabId at start — used to discard stale results if tab changes mid-extraction
+    const extractionUrl = this.state.url;
+    const extractionTabId = this.state.tabId;
+
+    this.extractionPromise = this.performExtraction(extractionUrl, extractionTabId);
+
     try {
       await this.extractionPromise;
     } finally {
@@ -585,34 +593,42 @@ export class PanelManager {
     }
   }
 
-  private async performExtraction() {
+  private async performExtraction(extractionUrl: string, extractionTabId: number) {
     try {
       this.state.isLoading = true;
       this.state.error = null;
-      
-      console.log('🎯 Extracting content for tab:', this.state.tabId, 'URL:', this.state.url);
-      
-      // Request content extraction from background script
+
+      console.log('🎯 Extracting content for tab:', extractionTabId, 'URL:', extractionUrl);
+
       const response = await chrome.runtime.sendMessage({
         action: 'extractContentForCurrentTab',
-        tabId: this.state.tabId
+        tabId: extractionTabId
       });
-      
+
+      // Discard result if the user switched tabs during extraction
+      if (this.state.url !== extractionUrl) {
+        console.log('🔄 Tab changed during extraction, discarding stale result');
+        return;
+      }
+
       if (response.success && response.data) {
         console.log('✅ Content extracted successfully');
-        console.log('🔍 Citation metadata found:', !!response.data?.content?.metadata?.citations);
-        console.log('🔍 Schema data found:', !!response.data?.content?.metadata?.schemaData);
         this.state.content = response.data;
-        this.lastExtractedUrl = this.state.url; // Mark as extracted
+        this.lastExtractedUrl = extractionUrl;
       } else {
         console.error('❌ Content extraction failed:', response.error);
         this.state.error = response.error || 'Failed to extract content';
       }
     } catch (error) {
-      console.error('Failed to extract content:', error);
-      this.state.error = error instanceof Error ? error.message : 'Content extraction failed';
+      // Only set error if we're still on the same URL
+      if (this.state.url === extractionUrl) {
+        console.error('Failed to extract content:', error);
+        this.state.error = error instanceof Error ? error.message : 'Content extraction failed';
+      }
     } finally {
-      this.state.isLoading = false;
+      if (this.state.url === extractionUrl) {
+        this.state.isLoading = false;
+      }
     }
   }
 
