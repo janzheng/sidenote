@@ -32,7 +32,7 @@ export function normalizeUrl(url: string): string {
       'mkt_tok',
       // Adobe
       's_cid',
-      // Common trackers
+      // Common trackers (note: 'v' and 'version' are intentionally excluded — too generic, e.g. YouTube ?v=)
       'ref', 'referrer', 'source', 'campaign', 'medium', 'content', 'term',
       'affiliate', 'aff', 'partner', 'promo', 'coupon',
       // Social media share params

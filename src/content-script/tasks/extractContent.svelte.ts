@@ -107,6 +107,53 @@ function createTurndownService(): TurndownService {
     }
   });
 
+  // Custom nested list handling for consistent 2-space indentation per nesting level
+  turndownService.addRule('listItem', {
+    filter: 'li',
+    replacement: (content: string, node: any, options: any) => {
+      content = content
+        .replace(/^\n+/, '')  // remove leading newlines
+        .replace(/\n+$/, '\n')  // normalize trailing newlines
+        .replace(/\n/gm, '\n  ');  // indent continuation lines by 2 spaces
+
+      // Calculate nesting depth by counting ancestor <ul>/<ol> elements
+      let depth = 0;
+      let parent = node.parentNode;
+      while (parent) {
+        if (parent.nodeName === 'UL' || parent.nodeName === 'OL') {
+          depth++;
+        }
+        parent = parent.parentNode;
+      }
+      // depth >= 1 since the li is always inside at least one list
+      // Indent = 2 spaces per level beyond the first
+      const indent = '  '.repeat(Math.max(0, depth - 1));
+
+      const bulletMarker = node.parentNode && node.parentNode.nodeName === 'OL'
+        ? (Array.prototype.indexOf.call(node.parentNode.children, node) + 1) + '. '
+        : options.bulletListMarker + ' ';
+
+      return indent + bulletMarker + content.trim() + '\n';
+    }
+  });
+
+  // Convert YouTube/Vimeo/common embed iframes into markdown links
+  turndownService.addRule('embedIframe', {
+    filter: (node: any) => {
+      if (node.nodeName !== 'IFRAME') return false;
+      const src = node.getAttribute('src') || '';
+      return /youtube\.com\/embed/i.test(src) ||
+        /player\.vimeo\.com/i.test(src) ||
+        /dailymotion\.com\/embed/i.test(src) ||
+        /players\.brightcove\.net/i.test(src);
+    },
+    replacement: (content: string, node: any) => {
+      const src = node.getAttribute('src') || '';
+      const title = node.getAttribute('title') || 'Video';
+      return `[Embedded video: ${title}](${src})`;
+    }
+  });
+
   // Keep images but make them more readable
   turndownService.addRule('images', {
     filter: 'img',

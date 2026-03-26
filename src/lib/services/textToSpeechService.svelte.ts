@@ -237,24 +237,48 @@ ${text.substring(0, maxContentChars)}${text.length > maxContentChars ? '...\n\n[
       return audioBlobs[0];
     }
 
-    // For WAV files, we need to properly concatenate them
-    // This is a simplified approach - for production, you'd want proper WAV header handling
+    // WAV files have a 44-byte header. When merging multiple WAV chunks,
+    // keep only the first chunk's header and strip headers from subsequent chunks,
+    // then update the first header's data size fields to reflect the total size.
+    const WAV_HEADER_SIZE = 44;
     const chunks: ArrayBuffer[] = [];
-    
+
     for (const blob of audioBlobs) {
       const arrayBuffer = await blob.arrayBuffer();
       chunks.push(arrayBuffer);
     }
 
-    // Combine all chunks
-    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
-    const combined = new Uint8Array(totalLength);
-    let offset = 0;
-
-    for (const chunk of chunks) {
-      combined.set(new Uint8Array(chunk), offset);
-      offset += chunk.byteLength;
+    // Calculate total data size (all audio data without headers from chunks 2+)
+    let totalDataSize = 0;
+    for (let i = 0; i < chunks.length; i++) {
+      if (i === 0) {
+        totalDataSize += chunks[i].byteLength - WAV_HEADER_SIZE;
+      } else {
+        // Strip the 44-byte WAV header from subsequent chunks
+        totalDataSize += chunks[i].byteLength - WAV_HEADER_SIZE;
+      }
     }
+
+    const totalLength = WAV_HEADER_SIZE + totalDataSize;
+    const combined = new Uint8Array(totalLength);
+
+    // Copy the first chunk in full (including its header)
+    combined.set(new Uint8Array(chunks[0]), 0);
+
+    // Copy data (sans header) from subsequent chunks
+    let offset = chunks[0].byteLength;
+    for (let i = 1; i < chunks.length; i++) {
+      const chunkData = new Uint8Array(chunks[i], WAV_HEADER_SIZE);
+      combined.set(chunkData, offset);
+      offset += chunkData.byteLength;
+    }
+
+    // Update the WAV header in the combined buffer:
+    // Bytes 4-7: ChunkSize = total file size - 8
+    const view = new DataView(combined.buffer);
+    view.setUint32(4, totalLength - 8, true);  // little-endian
+    // Bytes 40-43: Subchunk2Size = total audio data size
+    view.setUint32(40, totalDataSize, true);  // little-endian
 
     return new Blob([combined], { type: 'audio/wav' });
   }

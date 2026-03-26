@@ -1126,8 +1126,17 @@ function detectSponsoredContent(): boolean {
 function extractIndustryContext(): string[] {
   const industries: string[] = [];
   
-  // Look for industry tags or mentions in the content
-  const text = document.body.textContent?.toLowerCase() || '';
+  // Search within LinkedIn post content elements rather than full body to avoid performance issues
+  const postContainers = document.querySelectorAll('.feed-shared-update-v2__description, .feed-shared-text, .feed-shared-inline-show-more-text, .update-components-text');
+  let text = '';
+  postContainers.forEach(el => {
+    text += (el.textContent || '') + ' ';
+  });
+  // Fallback: if no LinkedIn post elements found, use first 5000 chars of body
+  if (!text.trim()) {
+    text = (document.body.textContent || '').slice(0, 5000);
+  }
+  text = text.toLowerCase();
   const industryKeywords = [
     'technology', 'healthcare', 'finance', 'education', 'marketing',
     'sales', 'engineering', 'design', 'consulting', 'manufacturing'

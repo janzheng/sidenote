@@ -148,6 +148,9 @@ export class ReActAgent {
       
       // Add to preserved history
       this.state.conversationHistory.push(newUserMessage);
+
+      // Trim conversation history to prevent unbounded growth (keep max 50 messages)
+      this.trimConversationHistory(50);
       
       // Debug: Log conversation length
       const totalTokens = conversation.reduce((sum, msg) => sum + (msg.content?.length || 0), 0);
@@ -442,6 +445,25 @@ export class ReActAgent {
     }
 
     return true; // Continue for now
+  }
+
+  // Trim conversation history to a maximum length, preserving system messages at the start
+  private trimConversationHistory(maxLength: number) {
+    const history = this.state.conversationHistory;
+    if (history.length <= maxLength) return;
+
+    // Find leading system messages to preserve
+    let systemCount = 0;
+    while (systemCount < history.length && history[systemCount].role === 'system') {
+      systemCount++;
+    }
+
+    const systemMessages = history.slice(0, systemCount);
+    const nonSystemMessages = history.slice(systemCount);
+
+    // Keep the most recent messages after system messages
+    const trimmedNonSystem = nonSystemMessages.slice(nonSystemMessages.length - (maxLength - systemCount));
+    this.state.conversationHistory = [...systemMessages, ...trimmedNonSystem];
   }
 
   // Format tools for the prompt

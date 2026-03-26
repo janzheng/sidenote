@@ -43,7 +43,23 @@ export class ThreadgirlService {
    * Validate that required settings are configured for Threadgirl
    */
   static validateSettings(): ThreadgirlValidationResult {
-    // External service handles authentication
+    const settings = getCurrentSettings();
+
+    // Validate pipeline URL is non-empty and looks like a valid URL
+    const pipelineUrl = settings.threadgirlPipelineUrl;
+    if (!pipelineUrl || pipelineUrl.trim().length === 0) {
+      return { isValid: false, message: 'Threadgirl pipeline URL is required. Please configure it in settings.' };
+    }
+
+    try {
+      const url = new URL(pipelineUrl);
+      if (!url.protocol.startsWith('http')) {
+        return { isValid: false, message: 'Threadgirl pipeline URL must use http or https protocol.' };
+      }
+    } catch {
+      return { isValid: false, message: 'Threadgirl pipeline URL is not a valid URL.' };
+    }
+
     return { isValid: true };
   }
 
