@@ -328,6 +328,8 @@
         isLoading={summaryManager.isGenerating}
         emptyMessage="No summary available"
         renderAsMarkdown={true}
+        showPreview={true}
+        previewLines={4}
       />
     {/if}
 

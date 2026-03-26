@@ -18,6 +18,8 @@
     showCopy?: boolean;
     renderAsMarkdown?: boolean;
     metadataOnNewRow?: boolean;
+    showPreview?: boolean;
+    previewLines?: number;
   }
   
   let { 
@@ -34,11 +36,30 @@
     showRefresh = false,
     showCopy = true,
     renderAsMarkdown = false,
-    metadataOnNewRow = false
+    metadataOnNewRow = false,
+    showPreview = false,
+    previewLines = 4
   }: Props = $props();
   
   const displayCount = $derived(itemCount);
   const hasContent = $derived(content && content.length > 0);
+  const charCount = $derived(content ? content.length : 0);
+
+  // Preview: strip markdown and take first N lines
+  const previewText = $derived.by(() => {
+    if (!content || !showPreview) return '';
+    // Strip markdown formatting for a clean preview
+    const plain = content
+      .replace(/#{1,6}\s+/g, '')      // headings
+      .replace(/\*\*([^*]+)\*\*/g, '$1') // bold
+      .replace(/\*([^*]+)\*/g, '$1')    // italic
+      .replace(/`([^`]+)`/g, '$1')      // inline code
+      .replace(/^[-*]\s+/gm, '- ')     // normalize bullets
+      .replace(/\n{2,}/g, '\n')        // collapse blank lines
+      .trim();
+    const lines = plain.split('\n').slice(0, previewLines);
+    return lines.join('\n');
+  });
 
   function handleToggle() {
     isExpanded = !isExpanded;
@@ -69,6 +90,9 @@
           class="w-5 h-5 transition-transform duration-200 {isExpanded ? 'rotate-90' : ''}" 
         />
         {title}
+        {#if showPreview && hasContent && charCount > 0}
+          <span class="text-xs font-normal text-gray-400">{charCount} chars</span>
+        {/if}
         {#if displayCount && !metadataOnNewRow}
           <span class="text-sm font-normal text-gray-500">
             ({displayCount}{typeof itemCount === 'number' && itemCount === 1 ? ' entry' : typeof itemCount === 'number' ? ' entries' : ''})
@@ -125,6 +149,16 @@
       {/if}
     </div>
   </div>
+
+  <!-- Preview when collapsed -->
+  {#if showPreview && !isExpanded && hasContent && previewText}
+    <button
+      onclick={handleToggle}
+      class="w-full text-left text-sm text-gray-500 line-clamp-4 hover:text-gray-700 transition-colors cursor-pointer mb-2"
+    >
+      {previewText}
+    </button>
+  {/if}
 
   <!-- Content area -->
   {#if isExpanded}
