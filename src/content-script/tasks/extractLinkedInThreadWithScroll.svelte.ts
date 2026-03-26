@@ -1,5 +1,13 @@
 import { ScrollCapture, createLinkedInScrollConfig, type ScrollCaptureProgress } from './scrollCapture.svelte';
 import type { LinkedInThread, SocialMediaPost, SocialMediaUser } from '../../types/socialMedia';
+import {
+  createTextHash,
+  generateElementId as _generateElementId,
+  parseEngagementCount,
+  extractImagesFromElement as _extractImages,
+  extractHashtagsFromText,
+  extractMentionsFromText,
+} from './socialMediaHelpers';
 
 interface PostIdentifier {
   id: string;
@@ -498,37 +506,8 @@ async function expandTruncatedContent(maxExpansions: number = 100): Promise<numb
   return clickedCount;
 }
 
-/**
- * Generate a unique element ID for DOM tracking
- */
 function generateElementId(element: Element): string {
-  // Try to get existing ID or create one based on position and content
-  const existingId = element.id;
-  if (existingId) return existingId;
-  
-  // Create ID based on position in DOM and some content
-  const rect = element.getBoundingClientRect();
-  const textContent = element.textContent?.substring(0, 50) || '';
-  const textHash = createTextHash(textContent);
-  
-  return `linkedin_post_${rect.top}_${rect.left}_${textHash}`;
-}
-
-/**
- * Create a hash of text content for deduplication
- */
-function createTextHash(text: string): string {
-  // Simple hash function for text content
-  let hash = 0;
-  const cleanText = text.replace(/\s+/g, ' ').trim();
-  
-  for (let i = 0; i < cleanText.length; i++) {
-    const char = cleanText.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  
-  return Math.abs(hash).toString(36);
+  return _generateElementId(element, 'linkedin_post');
 }
 
 /**
@@ -607,55 +586,12 @@ function extractEngagementFromElement(element: Element): any {
   return engagement;
 }
 
-function parseEngagementCount(text: string): number {
-  if (!text) return 0;
-  
-  const match = text.match(/(\d+(?:\.\d+)?)\s*([KMB])?/i);
-  if (!match) return 0;
-  
-  const num = parseFloat(match[1]);
-  const suffix = match[2]?.toUpperCase();
-  
-  switch (suffix) {
-    case 'K': return Math.round(num * 1000);
-    case 'M': return Math.round(num * 1000000);
-    case 'B': return Math.round(num * 1000000000);
-    default: return Math.round(num);
-  }
-}
-
-function extractImagesFromElement(element: Element): any[] {
-  const images: any[] = [];
-  const imageElements = element.querySelectorAll('img[src]');
-  
-  imageElements.forEach(img => {
-    if (img instanceof HTMLImageElement) {
-      const src = img.src;
-      const alt = img.alt || '';
-      
-      // Skip profile pictures and small icons
-      if (src && !src.includes('profile-displayphoto') && 
-          !src.includes('company-logo') && !alt.includes('avatar') &&
-          img.naturalWidth > 100) {
-        images.push({
-          url: src,
-          alt: alt
-        });
-      }
-    }
+function extractImagesFromElement(element: Element): { url: string; alt: string }[] {
+  return _extractImages(element, {
+    excludePatterns: ['profile-displayphoto', 'company-logo'],
+    excludeAltPatterns: ['avatar'],
+    minWidth: 100,
   });
-  
-  return images;
-}
-
-function extractHashtagsFromText(text: string): string[] {
-  const hashtags = text.match(/#\w+/g) || [];
-  return hashtags;
-}
-
-function extractMentionsFromText(text: string): string[] {
-  const mentions = text.match(/@[\w-]+/g) || [];
-  return mentions;
 }
 
 function extractAuthorFromPostElement(element: Element): any {

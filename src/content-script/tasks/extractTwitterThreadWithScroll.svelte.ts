@@ -1,5 +1,13 @@
 import { ScrollCapture, createTwitterScrollConfig, type ScrollCaptureProgress } from './scrollCapture.svelte';
 import type { TwitterThread, SocialMediaPost, SocialMediaUser } from '../../types/socialMedia';
+import {
+  createTextHash,
+  generateElementId as _generateElementId,
+  parseEngagementCount,
+  extractImagesFromElement as _extractImages,
+  extractHashtagsFromText,
+  extractMentionsFromText,
+} from './socialMediaHelpers';
 
 interface TweetIdentifier {
   id: string;
@@ -884,33 +892,7 @@ async function extractSingleTweetWithIdentifier(
  * Generate a unique element ID for DOM tracking
  */
 function generateElementId(element: Element): string {
-  // Try to get existing ID or create one based on position and content
-  const existingId = element.id;
-  if (existingId) return existingId;
-  
-  // Create ID based on position in DOM and some content
-  const rect = element.getBoundingClientRect();
-  const textContent = element.textContent?.substring(0, 50) || '';
-  const textHash = createTextHash(textContent);
-  
-  return `tweet_${rect.top}_${rect.left}_${textHash}`;
-}
-
-/**
- * Create a hash of text content for deduplication
- */
-function createTextHash(text: string): string {
-  // Simple hash function for text content
-  let hash = 0;
-  const cleanText = text.replace(/\s+/g, ' ').trim();
-  
-  for (let i = 0; i < cleanText.length; i++) {
-    const char = cleanText.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  
-  return Math.abs(hash).toString(36);
+  return _generateElementId(element, 'tweet');
 }
 
 /**
@@ -987,65 +969,11 @@ function extractEngagementFromElement(element: Element): any {
   return engagement;
 }
 
-/**
- * Parse engagement count from text
- */
-function parseEngagementCount(text: string): number {
-  if (!text) return 0;
-  
-  const match = text.match(/(\d+(?:\.\d+)?)\s*([KMB])?/i);
-  if (!match) return 0;
-  
-  const num = parseFloat(match[1]);
-  const suffix = match[2]?.toUpperCase();
-  
-  switch (suffix) {
-    case 'K': return Math.round(num * 1000);
-    case 'M': return Math.round(num * 1000000);
-    case 'B': return Math.round(num * 1000000000);
-    default: return Math.round(num);
-  }
-}
-
-/**
- * Extract images from tweet element
- */
-function extractImagesFromElement(element: Element): any[] {
-  const images: any[] = [];
-  const imageElements = element.querySelectorAll('img[src]');
-  
-  imageElements.forEach(img => {
-    if (img instanceof HTMLImageElement) {
-      const src = img.src;
-      const alt = img.alt || '';
-      
-      // Skip profile pictures and icons
-      if (src && !src.includes('profile_images') && !alt.includes('avatar')) {
-        images.push({
-          url: src,
-          alt: alt
-        });
-      }
-    }
+function extractImagesFromElement(element: Element): { url: string; alt: string }[] {
+  return _extractImages(element, {
+    excludePatterns: ['profile_images'],
+    excludeAltPatterns: ['avatar'],
   });
-  
-  return images;
-}
-
-/**
- * Extract hashtags from text
- */
-function extractHashtagsFromText(text: string): string[] {
-  const hashtags = text.match(/#\w+/g) || [];
-  return hashtags;
-}
-
-/**
- * Extract mentions from text
- */
-function extractMentionsFromText(text: string): string[] {
-  const mentions = text.match(/@\w+/g) || [];
-  return mentions;
 }
 
 /**

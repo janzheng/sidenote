@@ -1,4 +1,5 @@
-import { extractMetadata, cleanUrl } from './extractMetadata.svelte';
+import { extractMetadata } from './extractMetadata.svelte';
+import { normalizeUrl as cleanUrl } from '../../lib/utils/contentId';
 import { contentDataController } from '../../lib/services/dataController.svelte';
 import { PDFExtractionService } from '../../lib/services/pdfExtractionService.svelte';
 

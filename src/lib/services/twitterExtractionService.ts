@@ -8,6 +8,7 @@ import type {
   SocialMediaPlatform
 } from '../../types/socialMedia';
 import type { TabData } from '../../types/tabData';
+import { formatEngagement } from './socialMediaBase';
 
 // Note: ScrollCapture functionality is handled by content scripts
 // export { ScrollCapture, createTwitterScrollConfig } from '../content-script/tasks/scrollCapture';
@@ -264,17 +265,7 @@ export class TwitterExtractionService {
     return markdown;
   }
 
-  /**
-   * Format engagement numbers (K, M notation)
-   */
-  private static formatEngagement(num: number): string {
-    if (num >= 1000000) {
-      return (num / 1000000).toFixed(1) + 'M';
-    } else if (num >= 1000) {
-      return (num / 1000).toFixed(1) + 'K';
-    }
-    return num.toString();
-  }
+  private static formatEngagement = formatEngagement;
 
   /**
    * Check if URL is from Twitter/X

@@ -33,6 +33,10 @@ export class PanelManager {
   private extractionPromise: Promise<void> | null = null;
   private refreshTimeout: number | null = null;
 
+  // Event listener references for cleanup
+  private onActivatedHandler: ((activeInfo: chrome.tabs.TabActiveInfo) => void) | null = null;
+  private onUpdatedHandler: ((tabId: number, changeInfo: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) => void) | null = null;
+
   constructor() {
     this.initialize();
     this.setupEventListeners();
@@ -358,9 +362,9 @@ export class PanelManager {
 
   private setupEventListeners() {
     console.log('🎯 Setting up tab event listeners');
-    
-    // Listen for tab activation (user switches tabs)
-    chrome.tabs.onActivated.addListener(async (activeInfo) => {
+
+    // Store handler references so we can remove them in cleanup()
+    this.onActivatedHandler = async (activeInfo) => {
       console.log('🔄 Tab activated:', activeInfo.tabId, 'in window:', activeInfo.windowId);
       
       // Check autoRefresh setting
@@ -381,10 +385,11 @@ export class PanelManager {
       } catch (error) {
         console.error('Error checking window:', error);
       }
-    });
+    };
+    chrome.tabs.onActivated.addListener(this.onActivatedHandler);
 
     // Listen for tab navigation (URL changes within the same tab)
-    chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+    this.onUpdatedHandler = async (tabId, changeInfo, tab) => {
       // Only process meaningful changes
       if (changeInfo.url) {
         console.log('🔄 Tab URL changed:', tabId, 'URL:', changeInfo.url);
@@ -440,7 +445,8 @@ export class PanelManager {
           }
         }
       }
-    });
+    };
+    chrome.tabs.onUpdated.addListener(this.onUpdatedHandler);
   }
 
   /** Schedule a refresh with throttling to prevent spam */
@@ -514,8 +520,22 @@ export class PanelManager {
         this.state.tabId = tab.id!;
         this.state.url = tab.url;
         this.state.title = tab.title || 'Untitled';
-        
-        // Extract content for this specific tab (with deduplication)
+
+        // Try loading cached data first (instant, no content script needed)
+        const cachedResponse = await chrome.runtime.sendMessage({
+          action: 'loadData',
+          url: tab.url,
+          timestamp: Date.now()
+        });
+
+        if (cachedResponse?.success && cachedResponse?.data?.content) {
+          console.log('⚡ Loaded cached data for tab switch');
+          this.state.content = cachedResponse.data;
+          this.lastExtractedUrl = tab.url;
+          return;
+        }
+
+        // No cached data — extract content for this specific tab (with deduplication)
         await this.extractContent();
       } else {
         this.state.error = 'Could not determine current tab';
@@ -644,14 +664,21 @@ export class PanelManager {
   // Clean up event listeners and timeouts
   cleanup() {
     console.log('🎯 Panel manager cleanup');
-    
+
     if (this.refreshTimeout) {
       clearTimeout(this.refreshTimeout);
       this.refreshTimeout = null;
     }
-    
-    // Chrome extension event listeners are automatically cleaned up when the page unloads
-    // No manual cleanup needed for chrome.tabs.onActivated/onUpdated
+
+    // Remove event listeners to prevent accumulation across side panel open/close cycles
+    if (this.onActivatedHandler) {
+      chrome.tabs.onActivated.removeListener(this.onActivatedHandler);
+      this.onActivatedHandler = null;
+    }
+    if (this.onUpdatedHandler) {
+      chrome.tabs.onUpdated.removeListener(this.onUpdatedHandler);
+      this.onUpdatedHandler = null;
+    }
   }
 }
 

@@ -1,4 +1,5 @@
 import type { TabData } from '../../types/tabData';
+import { normalizeUrl as sharedNormalizeUrl } from '../utils/contentId';
 
 /**
  * Deep partial type that makes all nested properties optional
@@ -62,6 +63,7 @@ function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>)
 export class DataController {
   private storage = new Map<string, TabData>();
   private context: 'content' | 'background';
+  private saveLocks = new Map<string, Promise<boolean>>();
 
   constructor(context: 'content' | 'background') {
     this.context = context;
@@ -70,38 +72,18 @@ export class DataController {
 
   /**
    * Normalize URL for consistent storage keys
+   * Uses the shared normalizeUrl from contentId.ts to ensure consistency
    */
   private normalizeUrl(url: string): string {
-    try {
-      // Handle chrome-extension URLs specially
-      if (url.startsWith('chrome-extension://')) {
-        // If it's an invalid chrome-extension URL, return a safe fallback
-        if (url.includes('invalid')) {
-          console.warn('⚠️ Invalid chrome-extension URL detected, using fallback:', url);
-          return 'chrome-extension://fallback/';
-        }
-        // Otherwise return as-is for valid chrome-extension URLs
-        return url;
+    // Handle chrome-extension URLs specially
+    if (url.startsWith('chrome-extension://')) {
+      if (url.includes('invalid')) {
+        console.warn('⚠️ Invalid chrome-extension URL detected, using fallback:', url);
+        return 'chrome-extension://fallback/';
       }
-      
-      // Handle other protocols
-      const urlObj = new URL(url);
-      
-      // Remove fragment and some query params that don't affect content
-      urlObj.hash = '';
-      
-      // Remove common tracking parameters
-      const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'gclid'];
-      trackingParams.forEach(param => {
-        urlObj.searchParams.delete(param);
-      });
-      
-      return urlObj.href;
-    } catch (error) {
-      console.warn('⚠️ URL normalization failed for:', url, error);
-      // Return original URL if normalization fails
       return url;
     }
+    return sharedNormalizeUrl(url);
   }
 
   /**
@@ -109,18 +91,32 @@ export class DataController {
    */
   async saveData(url: string, data: DeepPartial<TabData>): Promise<boolean> {
     const normalizedUrl = this.normalizeUrl(url);
-    
+
+    // Wait for any in-flight save to the same URL to finish first (prevents read-merge-write races)
+    const pending = this.saveLocks.get(normalizedUrl);
+    if (pending) {
+      await pending.catch(() => {});
+    }
+
+    const saveOp = this._doSave(normalizedUrl, data);
+    this.saveLocks.set(normalizedUrl, saveOp);
+    const result = await saveOp;
+    this.saveLocks.delete(normalizedUrl);
+    return result;
+  }
+
+  private async _doSave(normalizedUrl: string, data: DeepPartial<TabData>): Promise<boolean> {
     try {
       // Get existing data or create new
       const existing = this.storage.get(normalizedUrl) || this.createEmptyTabData(normalizedUrl);
-      
+
       // Deep merge the data
       const updated = this.mergeTabData(existing, data);
       updated.meta.lastUpdated = Date.now();
-      
+
       // Store in memory
       this.storage.set(normalizedUrl, updated);
-      
+
       // If we're in background, also persist to chrome.storage
       if (this.context === 'background') {
         await this.persistToStorage(normalizedUrl, updated);
@@ -352,7 +348,12 @@ export class DataController {
     if (typeof chrome !== 'undefined' && chrome.runtime && this.context === 'background') {
       chrome.runtime.onMessage.addListener((message: DataMessage, sender, sendResponse) => {
         if (message.action && ['saveData', 'loadData', 'hasData', 'clearData'].includes(message.action)) {
-          this.handleDataMessage(message).then(sendResponse);
+          this.handleDataMessage(message)
+            .then(sendResponse)
+            .catch(err => {
+              console.error('❌ DataController message handler error:', err);
+              sendResponse({ success: false, error: err?.message || 'Internal error' });
+            });
           return true; // Keep message channel open
         }
       });
