@@ -7,7 +7,7 @@ export function isGoogleMapsPage(): boolean {
   const hostname = window.location.hostname;
   const pathname = window.location.pathname;
   
-  return (hostname === 'maps.google.com' || hostname === 'www.google.com') && 
+  return (hostname === 'maps.google.com' || hostname === 'www.google.com' || hostname === 'google.com') &&
          (pathname.includes('/maps') || pathname === '/maps');
 }
 
@@ -92,7 +92,7 @@ function extractCurrentPlaceName(): string | null {
     // Primary selector for place title in side panel
     const titleSelectors = [
       'h1.DUwDvf.lfPIob',           // Main place title
-      'h1.DUwDvf lfPIob',
+      'h1.DUwDvf .lfPIob',
       'h1.DUwDvf',
       '.DUwDvf.lfPIob',
       '.lfPIob',
@@ -851,7 +851,7 @@ function extractZoomLevel(): number {
     const match = url.match(zoomPattern);
     
     if (match) {
-      return parseInt(match[1]);
+      return parseFloat(match[1]);
     }
     
     // Default zoom if not found
@@ -869,7 +869,7 @@ function extractMapType(): 'roadmap' | 'satellite' | 'hybrid' | 'terrain' {
   try {
     const url = window.location.href;
     
-    if (url.includes('layer=c')) return 'satellite';
+    // layer=c is Street View (camera), not satellite — treat as roadmap fallback
     if (url.includes('layer=s')) return 'satellite';
     if (url.includes('layer=y')) return 'hybrid';
     if (url.includes('layer=p')) return 'terrain';
@@ -895,6 +895,7 @@ function waitForElements(selectors: string[], timeout: number = 3000): Promise<E
     const elements: Element[] = [];
     let timeoutId: number;
     
+    let resolved = false;
     const checkElements = () => {
       for (const selector of selectors) {
         const element = document.querySelector(selector);
@@ -902,9 +903,11 @@ function waitForElements(selectors: string[], timeout: number = 3000): Promise<E
           elements.push(element);
         }
       }
-      
-      if (elements.length > 0) {
+
+      if (elements.length > 0 && !resolved) {
+        resolved = true;
         clearTimeout(timeoutId);
+        observer.disconnect();
         resolve(elements);
       }
     };

@@ -533,8 +533,10 @@ function extractCitationMetadata(metadata: PageMetadata) {
           }
         } else {
           // Enhanced DOI detection - more robust pattern matching
-          if (content.match(/^10\.\d{4,}\/[^\s]+$/)) {
-            if (!citations.doi) citations.doi = content;
+          // Match bare DOIs, doi: prefixed, or https://doi.org/ prefixed
+          const doiExtract = content.match(/(?:^|doi:|https?:\/\/doi\.org\/)(10\.\d{4,}\/[^\s]+?)$/i);
+          if (doiExtract) {
+            if (!citations.doi) citations.doi = doiExtract[1];
           } else if (content.match(/^PMC\d+$/)) {
             if (!citations.pmcid) citations.pmcid = content;
           } else if (content.match(/^\d+$/) && content.length >= 6) {
@@ -646,7 +648,7 @@ function extractCitationMetadata(metadata: PageMetadata) {
 
   // Fallback: Look for identifiers in page content if not found in meta tags
   if (!citations.doi) {
-    const doiMatch = document.body.textContent?.match(/(?:doi:|DOI:)\s*(10\.\d{4,}\/[^\s]+)/i);
+    const doiMatch = document.body.textContent?.match(/(?:doi:|DOI:)\s*(10\.\d{4,}\/[^\s]+[^\s.,;)\]}])/i);
     if (doiMatch) {
       citations.doi = doiMatch[1];
     }
@@ -667,7 +669,7 @@ function extractCitationMetadata(metadata: PageMetadata) {
   }
 
   if (!citations.pmcid) {
-    const pmcidMatch = document.body.textContent?.match(/PMC(\d+)/i);
+    const pmcidMatch = document.body.textContent?.match(/\bPMC(\d{5,})\b/);
     if (pmcidMatch) {
       citations.pmcid = `PMC${pmcidMatch[1]}`;
     }

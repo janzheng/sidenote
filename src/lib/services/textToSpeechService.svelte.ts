@@ -71,9 +71,12 @@ IMPORTANT: Return ONLY the minimally edited content. Do not include any preamble
 The goal is to create speech-ready text that sounds like the original author giving a university lecture, with appropriate handling of complex data sequences.`;
 
       // Create user prompt with the content
+      // llama-4-maverick has a large context but we need room for the system prompt and response.
+      // Limit to ~60k chars to stay well within limits.
+      const maxContentChars = 60000;
       const userPrompt = `${title ? `Title: ${title}\n\n` : ''}Content to rewrite for text-to-speech:
 
-${text.substring(0, 120000)}${text.length > 120000 ? '...\n\n[Content truncated for length]' : ''}`;
+${text.substring(0, maxContentChars)}${text.length > maxContentChars ? '...\n\n[Content truncated for length]' : ''}`;
 
       // Generate rewritten text using the specified model
       const response = await GroqService.generateTextFromPrompt(

@@ -180,7 +180,7 @@ class MapsManager {
     if (!url) return false;
     try {
       const urlObj = new URL(url);
-      return (urlObj.hostname === 'maps.google.com' || urlObj.hostname === 'www.google.com') && 
+      return (urlObj.hostname === 'maps.google.com' || urlObj.hostname === 'www.google.com' || urlObj.hostname === 'google.com') &&
              (urlObj.pathname.includes('/maps') || urlObj.pathname === '/maps');
     } catch {
       return false;

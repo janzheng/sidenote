@@ -45,16 +45,50 @@ export async function handleTwitterThreadExtractionWithScroll(
     });
 
     // Find the tab with this URL and send message to its content script
-    const tabs = await chrome.tabs.query({ url: url });
+    // Use a wildcard pattern to match the URL regardless of query params or hash
+    // chrome.tabs.query url field supports simple glob patterns
+    let tabs: chrome.tabs.Tab[] = [];
+    try {
+      // First try exact URL match
+      tabs = await chrome.tabs.query({ url: url });
+    } catch {
+      // URL may not be a valid match pattern
+    }
+
+    if (tabs.length === 0) {
+      // Fallback: build a match pattern from the URL's origin + pathname
+      // This handles cases where query params or tracking params differ
+      try {
+        const urlObj = new URL(url);
+        const matchPattern = `${urlObj.origin}${urlObj.pathname}*`;
+        tabs = await chrome.tabs.query({ url: matchPattern });
+      } catch {
+        // If URL parsing fails, try querying all tabs and matching manually
+      }
+    }
+
+    if (tabs.length === 0) {
+      // Last resort: query all tabs and find one whose URL contains the status ID
+      try {
+        const statusMatch = url.match(/\/status\/(\d+)/);
+        if (statusMatch) {
+          const allTabs = await chrome.tabs.query({});
+          tabs = allTabs.filter(t => t.url?.includes(`/status/${statusMatch[1]}`));
+        }
+      } catch {
+        // Ignore errors
+      }
+    }
+
     if (tabs.length === 0) {
       await backgroundDataController.saveData(url, {
-        processing: { 
+        processing: {
           socialMediaThread: { isExtracting: false, isExpanding: false, error: 'No active tab found' }
         }
       });
-      sendResponse({ 
-        success: false, 
-        error: 'No active tab found for this URL' 
+      sendResponse({
+        success: false,
+        error: 'No active tab found for this URL'
       });
       return;
     }

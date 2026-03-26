@@ -291,8 +291,19 @@ export class LinkedInExtractionService {
    */
   static extractPostId(url: string): string | null {
     try {
-      const match = url.match(/\/posts\/([^/?]+)/);
-      return match ? match[1] : null;
+      // Try /posts/ pattern first
+      const postsMatch = url.match(/\/posts\/([^/?]+)/);
+      if (postsMatch) return postsMatch[1];
+
+      // Try /activity/ or /activity- patterns
+      const activityMatch = url.match(/\/activity[/-](\d+)/);
+      if (activityMatch) return activityMatch[1];
+
+      // Try URN pattern
+      const urnMatch = url.match(/urn:li:activity:(\d+)/);
+      if (urnMatch) return urnMatch[1];
+
+      return null;
     } catch {
       return null;
     }

@@ -13,9 +13,19 @@ export async function handleSummaryGeneration(url: string, sendResponse: (respon
     const tabData = await backgroundDataController.loadData(url);
     if (!tabData) {
       console.error('❌ No tab data found for URL:', url);
-      sendResponse({ 
-        success: false, 
-        error: 'No content data found for this URL. Please extract content first.' 
+      sendResponse({
+        success: false,
+        error: 'No content data found for this URL. Please extract content first.'
+      });
+      return;
+    }
+
+    // Validate that content text exists
+    if (!tabData.content?.text || tabData.content.text.trim().length === 0) {
+      console.error('❌ No text content found for URL:', url);
+      sendResponse({
+        success: false,
+        error: 'No text content available to summarize. Please extract content first.'
       });
       return;
     }

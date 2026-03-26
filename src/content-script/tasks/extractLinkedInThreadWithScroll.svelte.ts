@@ -251,7 +251,7 @@ export async function extractLinkedInThreadWithScroll(
  * Extract all posts from current DOM state
  */
 async function extractAllPostsFromDOM(startingDomOrder: number): Promise<ExtractedPostData[]> {
-  const postElements = document.querySelectorAll('.feed-shared-update-v2, .feed-shared-article, .comments-comment-entity, article[data-id]');
+  const postElements = document.querySelectorAll('.feed-shared-update-v2, .feed-shared-article, .comments-comment-entity, .comments-comment-item, .comments-comments-list__comment-item, article[data-id], [data-urn*="activity"], [data-urn*="comment"]');
   const extractedPosts: ExtractedPostData[] = [];
   let domOrderCounter = startingDomOrder;
   
@@ -334,8 +334,9 @@ async function extractSinglePostWithIdentifier(
     const postId = extractPostId(element);
     if (!postId) return null;
 
-    const textElement = element.querySelector('.feed-shared-update-v2__description, .comments-comment-item__main-content, .update-components-text') ||
+    const textElement = element.querySelector('.feed-shared-update-v2__description, .comments-comment-item__main-content, .update-components-text, .feed-shared-text, .break-words') ||
                        element.querySelector('[lang]') ||
+                       element.querySelector('div[dir="ltr"]') ||
                        element.querySelector('div[dir="auto"]');
     
     const text = textElement?.textContent?.trim() || '';
@@ -412,12 +413,17 @@ async function expandTruncatedContent(maxExpansions: number = 100): Promise<numb
   const commentLoadButtons = document.querySelectorAll([
     'button[aria-label*="Load more comments"]',
     'button[aria-label*="load more comments"]',
+    'button[aria-label*="Load previous comments"]',
+    'button[aria-label*="load previous comments"]',
     '.comments-comment-list__load-more-container button',
     '.comments-comments-list__load-more-comments-button--cr',
     '.comments-comments-list__load-more-comments-arrows',
     '.comments-comments-list__load-more-comments-button',
     'button[data-test-id="load-more-comments"]',
-    'button[data-control-name="load_more_comments"]'
+    'button[data-control-name="load_more_comments"]',
+    // Newer LinkedIn selectors
+    '.comments-comments-list__show-previous-button',
+    'button.comments-comments-list__load-more-comments-button'
   ].join(', '));
   
   expandButtons.push(...Array.from(commentLoadButtons) as HTMLElement[]);
@@ -432,7 +438,12 @@ async function expandTruncatedContent(maxExpansions: number = 100): Promise<numb
     'button[aria-label*="see more"]',
     'button[aria-label*="See more"]',
     'button[data-control-name="see_more_text"]',
-    '.truncate-multiline__expand-link'
+    '.truncate-multiline__expand-link',
+    // Newer LinkedIn selectors
+    '.feed-shared-text__see-more',
+    '.see-more-less-html__see-more',
+    'button.see-more-less-toggle__more-button',
+    'button.update-components-text__see-more'
   ].join(', '));
   
   expandButtons.push(...Array.from(seeMoreButtons) as HTMLElement[]);
@@ -443,8 +454,13 @@ async function expandTruncatedContent(maxExpansions: number = 100): Promise<numb
     'button[aria-label*="see previous replies"]',
     'button[aria-label*="Show previous replies"]',
     'button[aria-label*="show previous replies"]',
+    'button[aria-label*="Load more replies"]',
+    'button[aria-label*="load more replies"]',
     '.comments-comment-item__replies-list button',
-    'button[data-control-name="show_previous_replies"]'
+    'button[data-control-name="show_previous_replies"]',
+    // Newer LinkedIn selectors for reply expansion
+    '.comments-reply-list__load-more button',
+    'button.comments-comment-item__show-replies-button'
   ].join(', '));
   
   expandButtons.push(...Array.from(replyButtons) as HTMLElement[]);
@@ -520,10 +536,21 @@ function extractPostId(element: Element): string | null {
                 element.getAttribute('data-activity-urn');
   if (dataId) return dataId;
 
+  // Try to get from data-urn attribute which often contains activity URN
+  const urnElement = element.closest('[data-urn]') || element.querySelector('[data-urn]');
+  if (urnElement) {
+    const urn = urnElement.getAttribute('data-urn');
+    if (urn) {
+      const urnMatch = urn.match(/urn:li:activity:(\d+)/);
+      if (urnMatch) return urnMatch[1];
+      return urn;
+    }
+  }
+
   // Try to get from URL in links
-  const linkElement = element.querySelector('a[href*="/posts/"], a[href*="/activity/"]') as HTMLAnchorElement;
+  const linkElement = element.querySelector('a[href*="/posts/"], a[href*="/activity/"], a[href*="/activity-"]') as HTMLAnchorElement;
   if (linkElement?.href) {
-    const match = linkElement.href.match(/\/posts\/([^/?]+)|\/activity-(\d+)/);
+    const match = linkElement.href.match(/\/posts\/([^/?]+)|\/activity[/-](\d+)/);
     if (match) return match[1] || match[2];
   }
 
@@ -553,20 +580,49 @@ function extractEngagementFromElement(element: Element): any {
     views: 0
   };
 
-  // Look for reaction count
-  const reactionButton = element.querySelector('[aria-label*="reaction"], [aria-label*="like"], .social-actions-button');
+  // Strategy 1: Look for the social counts bar (most reliable)
+  // LinkedIn puts reaction counts in spans like "1,234 reactions" or "1,234"
+  const socialCountsBar = element.querySelector('.social-details-social-counts, .social-details-social-activity');
+  if (socialCountsBar) {
+    // Reactions/likes count
+    const reactionsEl = socialCountsBar.querySelector('[aria-label*="reaction"], .social-details-social-counts__reactions-count, button[aria-label*="reaction"]');
+    if (reactionsEl) {
+      const text = reactionsEl.getAttribute('aria-label') || reactionsEl.textContent || '';
+      engagement.likes = parseEngagementCount(text);
+    }
+
+    // Comments count
+    const commentsEl = socialCountsBar.querySelector('[aria-label*="comment"], button[aria-label*="comment"]');
+    if (commentsEl) {
+      const text = commentsEl.getAttribute('aria-label') || commentsEl.textContent || '';
+      engagement.replies = parseEngagementCount(text);
+    }
+
+    // Shares/reposts count
+    const sharesEl = socialCountsBar.querySelector('[aria-label*="repost"], [aria-label*="share"], button[aria-label*="repost"]');
+    if (sharesEl) {
+      const text = sharesEl.getAttribute('aria-label') || sharesEl.textContent || '';
+      engagement.reposts = parseEngagementCount(text);
+    }
+
+    return engagement;
+  }
+
+  // Strategy 2: Fallback to button-level selectors
+  // Look for reaction count - be specific to avoid matching non-engagement elements
+  const reactionButton = element.querySelector('button[aria-label*="reaction"], span[aria-label*="reaction"], .reactions-count');
   if (reactionButton) {
-    const reactionText = reactionButton.textContent || reactionButton.getAttribute('aria-label') || '';
+    const reactionText = reactionButton.getAttribute('aria-label') || reactionButton.textContent || '';
     const count = parseEngagementCount(reactionText);
     if (count > 0) {
       engagement.likes = count;
     }
   }
 
-  // Look for comment count
-  const commentButton = element.querySelector('[aria-label*="comment"], .comments-comment-texteditor');
+  // Look for comment count - avoid matching the comment text editor
+  const commentButton = element.querySelector('button[aria-label*="comment"]:not(.comments-comment-texteditor), span[aria-label*="comment"]');
   if (commentButton) {
-    const commentText = commentButton.textContent || commentButton.getAttribute('aria-label') || '';
+    const commentText = commentButton.getAttribute('aria-label') || commentButton.textContent || '';
     const count = parseEngagementCount(commentText);
     if (count > 0) {
       engagement.replies = count;
@@ -574,7 +630,7 @@ function extractEngagementFromElement(element: Element): any {
   }
 
   // Look for share/repost count
-  const shareButton = element.querySelector('[aria-label*="share"], [aria-label*="repost"]');
+  const shareButton = element.querySelector('button[aria-label*="share"], button[aria-label*="repost"], span[aria-label*="repost"]');
   if (shareButton) {
     const shareText = shareButton.textContent || shareButton.getAttribute('aria-label') || '';
     const count = parseEngagementCount(shareText);
@@ -598,12 +654,16 @@ function extractAuthorFromPostElement(element: Element): any {
   // Try multiple selector strategies for LinkedIn's evolving DOM structure
   const authorSelectors = [
     '.feed-shared-actor',
-    '.comments-comment-meta', 
+    '.comments-comment-meta',
     '.update-components-actor',
     '.feed-shared-update-v2__actor',
     '.comments-comment-item__actor',
     '[data-test-actor]',
-    '.actor-name'
+    '.actor-name',
+    // Newer LinkedIn selectors
+    '.update-components-actor__container',
+    '.comments-post-meta',
+    '.artdeco-entity-lockup'
   ];
 
   let authorElement: Element | null = null;
@@ -628,7 +688,12 @@ function extractAuthorFromPostElement(element: Element): any {
     '.actor-name__text',
     'h3 a span[aria-hidden="true"]', // Common LinkedIn pattern
     'span[dir="ltr"]', // LinkedIn often uses this for names
-    '.hoverable-link-text'
+    '.hoverable-link-text',
+    // Newer LinkedIn selectors
+    '.update-components-actor__title span[aria-hidden="true"]',
+    '.comments-post-meta__name-text span[aria-hidden="true"]',
+    '.artdeco-entity-lockup__title span[aria-hidden="true"]',
+    '.feed-shared-actor__name span[aria-hidden="true"]'
   ];
 
   let displayName = 'Unknown User';
@@ -783,15 +848,37 @@ function extractCompany(title: string): string | undefined {
 
 function parseRelativeTime(timeText: string): string | null {
   if (!timeText) return null;
-  
+
   const now = new Date();
-  const match = timeText.match(/(\d+)\s*(minute|hour|day|week|month|year)s?\s*ago/i);
-  
-  if (!match) return null;
-  
-  const value = parseInt(match[1], 10);
-  const unit = match[2].toLowerCase();
-  
+
+  // Try long-form: "X minutes ago", "X hours ago", etc.
+  const longMatch = timeText.match(/(\d+)\s*(minute|hour|day|week|month|year)s?\s*ago/i);
+  // Try short-form: "1h", "2d", "3w", "1mo", "1yr", "30m", "5min"
+  const shortMatch = timeText.trim().match(/^(\d+)\s*(m|min|h|hr|d|w|mo|yr|y)$/i);
+
+  let value: number;
+  let unit: string;
+
+  if (longMatch) {
+    value = parseInt(longMatch[1], 10);
+    unit = longMatch[2].toLowerCase();
+  } else if (shortMatch) {
+    value = parseInt(shortMatch[1], 10);
+    const shortUnit = shortMatch[2].toLowerCase();
+    // Map short units to long units
+    const unitMap: Record<string, string> = {
+      'm': 'minute', 'min': 'minute',
+      'h': 'hour', 'hr': 'hour',
+      'd': 'day',
+      'w': 'week',
+      'mo': 'month',
+      'y': 'year', 'yr': 'year'
+    };
+    unit = unitMap[shortUnit] || shortUnit;
+  } else {
+    return null;
+  }
+
   switch (unit) {
     case 'minute':
       now.setMinutes(now.getMinutes() - value);
@@ -812,7 +899,7 @@ function parseRelativeTime(timeText: string): string | null {
       now.setFullYear(now.getFullYear() - value);
       break;
   }
-  
+
   return now.toISOString();
 }
 
@@ -820,7 +907,7 @@ function parseRelativeTime(timeText: string): string | null {
  * Get the current post count on the page (for progress tracking)
  */
 export function getCurrentLinkedInPostCount(): number {
-  const count = document.querySelectorAll('.feed-shared-update-v2, .feed-shared-article, .comments-comment-entity').length;
+  const count = document.querySelectorAll('.feed-shared-update-v2, .feed-shared-article, .comments-comment-entity, .comments-comment-item, .comments-comments-list__comment-item, article[data-id], [data-urn*="activity"], [data-urn*="comment"]').length;
   return count;
 } 
 
@@ -871,21 +958,13 @@ function extractAuthorFromDOM(): SocialMediaUser | null {
     let displayName = 'Unknown User';
     let profileUrl: string | undefined;
 
-    // Extract username from URL
-    const urlPatterns = [
-      /\/in\/([^\/\?]+)/,  // Profile URLs
-      /\/posts\/([^\/\?]+)/, // Post URLs  
-      /\/activity-(\d+)/ // Activity URLs
-    ];
-
-    for (const pattern of urlPatterns) {
-      const urlMatch = window.location.pathname.match(pattern);
-      if (urlMatch) {
-        username = urlMatch[1];
-        profileUrl = `https://www.linkedin.com/in/${username}`;
-        console.log(`🔗 Extracted username from URL: ${username}`);
-        break;
-      }
+    // Extract username from URL - only use /in/ pattern for actual profile usernames
+    // /posts/ and /activity/ URLs contain post slugs, not usernames
+    const profileUrlMatch = window.location.pathname.match(/\/in\/([^\/\?]+)/);
+    if (profileUrlMatch) {
+      username = profileUrlMatch[1];
+      profileUrl = `https://www.linkedin.com/in/${username}`;
+      console.log(`🔗 Extracted username from URL: ${username}`);
     }
 
     // Extract display name from various sources

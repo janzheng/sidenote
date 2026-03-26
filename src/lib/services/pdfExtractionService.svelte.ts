@@ -1,6 +1,7 @@
 import type { TabData } from '../../types/tabData';
 import type { PageMetadata } from '../../types/pageMetadata';
 import { contentDataController } from './dataController.svelte';
+import { normalizeUrl } from '../utils/contentId';
 
 export interface PDFExtractionResult {
   success: boolean;
@@ -64,27 +65,33 @@ export class PDFExtractionService {
   /**
    * Check if a URL is a PDF based on URL patterns
    */
-  private static isPDFUrl(url: string): boolean {
+  static isPDFUrl(url: string): boolean {
     const lowerUrl = url.toLowerCase();
-    
+
     // Standard PDF URL patterns
-    if (lowerUrl.endsWith('.pdf') || 
-        lowerUrl.includes('.pdf?') || 
+    if (lowerUrl.endsWith('.pdf') ||
+        lowerUrl.includes('.pdf?') ||
         lowerUrl.includes('.pdf#') ||
         (url.startsWith('file://') && lowerUrl.includes('.pdf'))) {
       return true;
     }
-    
+
     // Academic PDF URLs
     if (lowerUrl.includes('arxiv.org/pdf/') ||
         (lowerUrl.includes('biorxiv.org') && lowerUrl.includes('.full.pdf')) ||
         (lowerUrl.includes('medrxiv.org') && lowerUrl.includes('.full.pdf')) ||
+        (lowerUrl.includes('biorxiv.org/content/') && lowerUrl.includes('/pdf')) ||
+        (lowerUrl.includes('medrxiv.org/content/') && lowerUrl.includes('/pdf')) ||
         (lowerUrl.includes('researchgate.net') && lowerUrl.includes('.pdf')) ||
         (lowerUrl.includes('academia.edu') && lowerUrl.includes('.pdf')) ||
-        (lowerUrl.includes('ncbi.nlm.nih.gov/pmc/') && lowerUrl.includes('pdf'))) {
+        (lowerUrl.includes('ncbi.nlm.nih.gov/pmc/') && lowerUrl.includes('pdf')) ||
+        (lowerUrl.includes('sciencedirect.com') && lowerUrl.includes('/pdfft')) ||
+        lowerUrl.includes('jstor.org/stable/pdf/') ||
+        lowerUrl.includes('dl.acm.org/doi/pdf/') ||
+        (lowerUrl.includes('ieeexplore.ieee.org') && lowerUrl.includes('/stamp/stamp.jsp'))) {
       return true;
     }
-    
+
     return false;
   }
 
@@ -101,20 +108,11 @@ export class PDFExtractionService {
   }
 
   /**
-   * Clean URL by removing UTM and tracker parameters
+   * Clean URL by removing tracking parameters.
+   * Delegates to the shared normalizeUrl utility for consistent URL normalization.
    */
   private static cleanUrl(url: string): string {
-    try {
-      const urlObj = new URL(url);
-      const trackerParams = [
-        'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
-        'fbclid', 'gclid', 'ref', 'source', 'referrer', 'campaign', 'medium'
-      ];
-      trackerParams.forEach(param => urlObj.searchParams.delete(param));
-      return urlObj.toString();
-    } catch {
-      return url;
-    }
+    return normalizeUrl(url);
   }
 
   /**
@@ -662,9 +660,26 @@ export class PDFExtractionService {
       
     } catch (error) {
       console.error('📄 Chrome Extension PDF.js extraction failed:', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      // Detect encrypted or password-protected PDFs
+      if (errorMsg.includes('password') || errorMsg.includes('encrypted') || errorMsg.includes('PasswordException')) {
+        return {
+          success: false,
+          error: 'This PDF is password-protected or encrypted and cannot be extracted.',
+          extractionMethod: 'chrome-extension-pdfjs'
+        };
+      }
+      // Detect corrupted PDFs
+      if (errorMsg.includes('Invalid PDF') || errorMsg.includes('corrupted') || errorMsg.includes('InvalidPDFException') || errorMsg.includes('Missing PDF')) {
+        return {
+          success: false,
+          error: 'This PDF appears to be corrupted or invalid and cannot be extracted.',
+          extractionMethod: 'chrome-extension-pdfjs'
+        };
+      }
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Chrome Extension PDF.js extraction failed',
+        error: errorMsg || 'Chrome Extension PDF.js extraction failed',
         extractionMethod: 'chrome-extension-pdfjs'
       };
     }
@@ -797,9 +812,26 @@ export class PDFExtractionService {
       
     } catch (error) {
       console.error('📄 Fetch + PDF.js extraction failed:', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      // Detect encrypted or password-protected PDFs
+      if (errorMsg.includes('password') || errorMsg.includes('encrypted') || errorMsg.includes('PasswordException')) {
+        return {
+          success: false,
+          error: 'This PDF is password-protected or encrypted and cannot be extracted.',
+          extractionMethod: 'fetch-pdfjs'
+        };
+      }
+      // Detect corrupted PDFs
+      if (errorMsg.includes('Invalid PDF') || errorMsg.includes('corrupted') || errorMsg.includes('InvalidPDFException') || errorMsg.includes('Missing PDF')) {
+        return {
+          success: false,
+          error: 'This PDF appears to be corrupted or invalid and cannot be extracted.',
+          extractionMethod: 'fetch-pdfjs'
+        };
+      }
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Fetch + PDF.js extraction failed',
+        error: errorMsg || 'Fetch + PDF.js extraction failed',
         extractionMethod: 'fetch-pdfjs'
       };
     }

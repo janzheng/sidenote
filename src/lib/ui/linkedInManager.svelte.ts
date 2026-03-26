@@ -98,7 +98,7 @@ class LinkedInManager {
         maxExpansions: 100 // Maximum "see more" button clicks
       });
 
-      if (response.success) {
+      if (response && response.success) {
         console.log('✅ LinkedIn full thread extraction successful');
         this.state.extractionStatus = 'success';
         this.state.extractionError = null;
@@ -124,9 +124,10 @@ class LinkedInManager {
           this.state.extractionProgress = null;
         }, 3000);
       } else {
-        console.error('❌ LinkedIn full thread extraction failed:', response.error);
+        const errorMsg = response?.error || 'No response from background script';
+        console.error('❌ LinkedIn full thread extraction failed:', errorMsg);
         this.state.extractionStatus = 'error';
-        this.state.extractionError = response.error;
+        this.state.extractionError = errorMsg;
         
         // Reset status after 5 seconds
         setTimeout(() => {

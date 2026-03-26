@@ -103,7 +103,7 @@ export class GroqService {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Groq API error:', response.status, errorText);
-        
+
         let errorMessage = `API request failed with status ${response.status}`;
         try {
           const errorData = JSON.parse(errorText);
@@ -114,22 +114,31 @@ export class GroqService {
           // Use generic error message
         }
 
+        // Add specific guidance for common error codes
+        if (response.status === 429) {
+          errorMessage = `Rate limit exceeded. ${errorMessage}. Please wait a moment and try again.`;
+        } else if (response.status === 413 || errorMessage.toLowerCase().includes('too large') || errorMessage.toLowerCase().includes('token')) {
+          errorMessage = `Content too large for model context window. ${errorMessage}`;
+        }
+
         return { success: false, error: errorMessage };
       }
 
       const data = await response.json();
-      console.log('📥 Groq API response received:', {
-        message: data.choices[0].message,
-        choices: data.choices?.length || 0,
-        usage: data.usage
-      });
 
       if (!data.choices || data.choices.length === 0) {
+        console.error('❌ Groq API returned no choices');
         return { success: false, error: 'No response generated' };
       }
 
+      console.log('📥 Groq API response received:', {
+        message: data.choices[0].message,
+        choices: data.choices.length,
+        usage: data.usage
+      });
+
       const content = data.choices[0].message?.content || '';
-      
+
       return {
         success: true,
         content: content.trim(),
@@ -138,14 +147,14 @@ export class GroqService {
 
     } catch (error) {
       console.error('❌ Groq API call failed:', error);
-      
+
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
-          return { success: false, error: 'Request timed out' };
+          return { success: false, error: 'Request timed out after 2 minutes. The content may be too large or the API may be slow.' };
         }
         return { success: false, error: error.message };
       }
-      
+
       return { success: false, error: 'Unknown error occurred' };
     }
   }
@@ -225,16 +234,18 @@ export class GroqService {
       }
 
       const data = await response.json();
-      console.log('📥 Groq API response received:', {
-        message: data.choices[0].message,
-        choices: data.choices?.length || 0,
-        usage: data.usage,
-        hasToolCalls: !!data.choices?.[0]?.message?.tool_calls
-      });
 
       if (!data.choices || data.choices.length === 0) {
+        console.error('❌ Groq API returned no choices');
         return { success: false, error: 'No response generated' };
       }
+
+      console.log('📥 Groq API response received:', {
+        message: data.choices[0].message,
+        choices: data.choices.length,
+        usage: data.usage,
+        hasToolCalls: !!data.choices[0]?.message?.tool_calls
+      });
 
       const responseMessage = data.choices[0].message;
       const toolCalls = responseMessage.tool_calls;
@@ -659,16 +670,18 @@ export class GroqService {
       }
 
       const data = await response.json();
+
+      if (!data.choices || data.choices.length === 0) {
+        console.error('❌ Groq web search API returned no choices');
+        return { success: false, error: 'No search results generated' };
+      }
+
       console.log('🔍 Web search response received:', {
         content: data.choices[0]?.message?.content,
         executedTools: data.choices[0]?.message?.executed_tools,
-        choices: data.choices?.length || 0,
+        choices: data.choices.length,
         usage: data.usage
       });
-
-      if (!data.choices || data.choices.length === 0) {
-        return { success: false, error: 'No search results generated' };
-      }
 
       const content = data.choices[0].message?.content || '';
       const executedTools = data.choices[0].message?.executed_tools || [];

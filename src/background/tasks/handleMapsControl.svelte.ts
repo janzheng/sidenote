@@ -88,7 +88,7 @@ export async function handleMapsControl(url: string, command: MapsControlCommand
 }
 
 async function findMapsTab(url: string): Promise<chrome.tabs.Tab | undefined> {
-  const isCurrentUrlMaps = url.includes('maps.google.com') || url.includes('www.google.com/maps');
+  const isCurrentUrlMaps = url.includes('maps.google.com') || url.includes('google.com/maps');
 
   if (isCurrentUrlMaps) {
     // Try exact URL match first

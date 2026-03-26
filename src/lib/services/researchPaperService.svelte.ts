@@ -576,13 +576,19 @@ Return your analysis in JSON format with "summary" and "fullText" fields.`;
       backgroundNote = `\n**Target Audience:** Intelligent student/researcher with general academic knowledge - Please explain technical concepts clearly and focus on why this research matters in the broader context.`;
     }
 
+    // Truncate content to stay within model context window (kimi-k2-instruct ~128k tokens)
+    // Leave room for system prompt, instructions, and response tokens
+    const maxContentChars = 200000;
+    const truncatedContent = content.substring(0, maxContentChars);
+    const contentTruncationNote = content.length > maxContentChars ? '\n\n[Content truncated for length]' : '';
+
     if (isSyntheticSection) {
       return `Analyze this research paper and create a high-quality "${sectionDef.name}" section.
 
 **Title:** ${title}${backgroundNote}
 
 **Full Paper Content:**
-${content}
+${truncatedContent}${contentTruncationNote}
 
 **Instructions:**
 Create an original, insightful "${sectionDef.name}" section based on your analysis of the complete paper content above. Focus on extracting the most important and specific information relevant to this section type.
@@ -611,7 +617,7 @@ ${sectionDef.description}
 **Title:** ${title}
 
 **Full Paper Content:**
-${content}
+${truncatedContent}${contentTruncationNote}
 
 **Instructions:**
 ${sectionDef.description}
@@ -713,12 +719,17 @@ Example:
   "order": ["Abstract", "Significance Statement", "Introduction", "Results", "Discussion", "Materials and Methods", "Acknowledgments", "References"]
 }`;
 
+    // Truncate content for section identification - we only need enough to see headers
+    const maxIdentifyChars = 200000;
+    const truncatedIdentifyContent = content.substring(0, maxIdentifyChars);
+    const identifyTruncationNote = content.length > maxIdentifyChars ? '\n\n[Content truncated for length]' : '';
+
     const userPrompt = `Identify all section headers in this research paper IN THE ORDER THEY APPEAR:
 
 **Title:** ${title}
 
 **Complete Paper Content:**
-${content}
+${truncatedIdentifyContent}${identifyTruncationNote}
 
 Return a JSON object with the sections array in the order they appear in the paper.`;
 
@@ -740,21 +751,22 @@ Return a JSON object with the sections array in the order they appear in the pap
     }
 
     try {
-      const jsonMatch = response.content.match(/\{[\s\S]*?\}/);
+      // Use greedy match to capture the full JSON object (may contain nested braces)
+      const jsonMatch = response.content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
+        const parsed = cleanAndParseJson(jsonMatch[0]);
         const sections = parsed.sections || parsed.order || [];
         const order = parsed.order || parsed.sections || [];
-        
+
         if (Array.isArray(sections) && Array.isArray(order)) {
-          return { 
-            sections: sections.filter(s => typeof s === 'string'), 
-            order: order.filter(s => typeof s === 'string') 
+          return {
+            sections: sections.filter((s: unknown) => typeof s === 'string'),
+            order: order.filter((s: unknown) => typeof s === 'string')
           };
         }
       }
     } catch (error) {
-      console.warn('Failed to parse section identification response');
+      console.warn('Failed to parse section identification response:', error);
     }
 
     return { sections: [], order: [] };

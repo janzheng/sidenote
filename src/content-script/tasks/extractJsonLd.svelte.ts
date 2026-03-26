@@ -74,17 +74,22 @@ export async function extractJsonLd(): Promise<JsonLdExtractionResult> {
  */
 export function flattenJsonLdObjects(data: any[]): any[] {
   const allObjects: any[] = [];
-  
+  const seen = new Set<any>();
+
   const processObject = (obj: any): void => {
     if (Array.isArray(obj)) {
       obj.forEach(processObject);
     } else if (obj && typeof obj === 'object') {
+      // Skip objects we've already processed to avoid duplicates
+      if (seen.has(obj)) return;
+      seen.add(obj);
+
       if (obj['@graph'] && Array.isArray(obj['@graph'])) {
         obj['@graph'].forEach(processObject);
       } else if (obj['@type']) {
         allObjects.push(obj);
       }
-      
+
       // Process nested objects
       Object.values(obj).forEach((value: any) => {
         if (Array.isArray(value)) {
@@ -95,7 +100,7 @@ export function flattenJsonLdObjects(data: any[]): any[] {
       });
     }
   };
-  
+
   data.forEach(processObject);
   return allObjects;
 }

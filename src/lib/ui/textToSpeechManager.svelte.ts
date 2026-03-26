@@ -25,6 +25,15 @@ class TextToSpeechManager {
     duration: 0
   });
 
+  // Bound event handler references for proper cleanup
+  private audioHandlers: {
+    loadedmetadata?: () => void;
+    timeupdate?: () => void;
+    ended?: () => void;
+    play?: () => void;
+    pause?: () => void;
+  } = {};
+
   // Getters for reactive state
   get isGenerating() {
     return this.state.isGenerating;
@@ -148,29 +157,49 @@ class TextToSpeechManager {
 
   // Set up audio element for playback
   private setupAudioElement(audioUrl: string) {
+    // Clean up old handlers first
+    this.removeAudioHandlers();
+
     this.audioState.audioElement = new Audio(audioUrl);
     const audio = this.audioState.audioElement;
-    
-    audio.addEventListener('loadedmetadata', () => {
+
+    // Create bound handler references so we can remove them later
+    this.audioHandlers.loadedmetadata = () => {
       this.audioState.duration = audio.duration;
-    });
-    
-    audio.addEventListener('timeupdate', () => {
+    };
+    this.audioHandlers.timeupdate = () => {
       this.audioState.currentTime = audio.currentTime;
-    });
-    
-    audio.addEventListener('ended', () => {
+    };
+    this.audioHandlers.ended = () => {
       this.audioState.isPlaying = false;
       this.audioState.currentTime = 0;
-    });
-    
-    audio.addEventListener('play', () => {
+    };
+    this.audioHandlers.play = () => {
       this.audioState.isPlaying = true;
-    });
-    
-    audio.addEventListener('pause', () => {
+    };
+    this.audioHandlers.pause = () => {
       this.audioState.isPlaying = false;
-    });
+    };
+
+    audio.addEventListener('loadedmetadata', this.audioHandlers.loadedmetadata);
+    audio.addEventListener('timeupdate', this.audioHandlers.timeupdate);
+    audio.addEventListener('ended', this.audioHandlers.ended);
+    audio.addEventListener('play', this.audioHandlers.play);
+    audio.addEventListener('pause', this.audioHandlers.pause);
+  }
+
+  // Remove audio event handlers using the stored references
+  private removeAudioHandlers() {
+    const audio = this.audioState.audioElement;
+    if (!audio) return;
+
+    if (this.audioHandlers.loadedmetadata) audio.removeEventListener('loadedmetadata', this.audioHandlers.loadedmetadata);
+    if (this.audioHandlers.timeupdate) audio.removeEventListener('timeupdate', this.audioHandlers.timeupdate);
+    if (this.audioHandlers.ended) audio.removeEventListener('ended', this.audioHandlers.ended);
+    if (this.audioHandlers.play) audio.removeEventListener('play', this.audioHandlers.play);
+    if (this.audioHandlers.pause) audio.removeEventListener('pause', this.audioHandlers.pause);
+
+    this.audioHandlers = {};
   }
 
   // Play/pause audio
@@ -200,11 +229,7 @@ class TextToSpeechManager {
   cleanupAudio() {
     if (this.audioState.audioElement) {
       this.audioState.audioElement.pause();
-      this.audioState.audioElement.removeEventListener('loadedmetadata', () => {});
-      this.audioState.audioElement.removeEventListener('timeupdate', () => {});
-      this.audioState.audioElement.removeEventListener('ended', () => {});
-      this.audioState.audioElement.removeEventListener('play', () => {});
-      this.audioState.audioElement.removeEventListener('pause', () => {});
+      this.removeAudioHandlers();
       this.audioState.audioElement = null;
     }
     

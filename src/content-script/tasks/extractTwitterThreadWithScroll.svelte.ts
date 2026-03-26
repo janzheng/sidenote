@@ -1,13 +1,5 @@
 import { ScrollCapture, createTwitterScrollConfig, type ScrollCaptureProgress } from './scrollCapture.svelte';
 import type { TwitterThread, SocialMediaPost, SocialMediaUser } from '../../types/socialMedia';
-import {
-  createTextHash,
-  generateElementId as _generateElementId,
-  parseEngagementCount,
-  extractImagesFromElement as _extractImages,
-  extractHashtagsFromText,
-  extractMentionsFromText,
-} from './socialMediaHelpers';
 
 interface TweetIdentifier {
   id: string;
@@ -633,13 +625,20 @@ function generateQuickTweetId(element: HTMLElement): string {
     const match = linkElement.href.match(/\/status\/(\d+)/);
     if (match) return `url_${match[1]}`;
   }
-  
-  // Fallback: create a quick identifier based on position and some text
-  const rect = element.getBoundingClientRect();
-  const textContent = element.textContent?.substring(0, 100) || '';
-  const quickHash = textContent.replace(/\s+/g, '').substring(0, 20);
-  
-  return `quick_${Math.round(rect.top)}_${Math.round(rect.left)}_${quickHash}`;
+
+  // Fallback: use content-based hash instead of position (which changes with scroll)
+  // Use the tweet text + timestamp for a stable identifier
+  const textContent = element.querySelector('[data-testid="tweetText"]')?.textContent?.trim() || '';
+  const timeEl = element.querySelector('time');
+  const datetime = timeEl?.getAttribute('datetime') || '';
+  const authorEl = element.querySelector('[data-testid="User-Name"]');
+  const authorText = authorEl?.textContent?.trim().substring(0, 30) || '';
+
+  // Create a stable hash from content, not position
+  const hashInput = `${authorText}|${datetime}|${textContent.substring(0, 100)}`;
+  const quickHash = createTextHash(hashInput);
+
+  return `quick_${quickHash}`;
 }
 
 /**
@@ -892,7 +891,41 @@ async function extractSingleTweetWithIdentifier(
  * Generate a unique element ID for DOM tracking
  */
 function generateElementId(element: Element): string {
-  return _generateElementId(element, 'tweet');
+  // Try to get existing ID
+  const existingId = element.id;
+  if (existingId) return existingId;
+
+  // Try to use tweet status ID (stable across scrolls)
+  const statusLink = element.querySelector('a[href*="/status/"]') as HTMLAnchorElement;
+  if (statusLink?.href) {
+    const match = statusLink.href.match(/\/status\/(\d+)/);
+    if (match) return `tweet_status_${match[1]}`;
+  }
+
+  // Fallback: use content-based hash (stable, not position-based)
+  const textContent = element.textContent?.substring(0, 100) || '';
+  const timeEl = element.querySelector('time');
+  const datetime = timeEl?.getAttribute('datetime') || '';
+  const textHash = createTextHash(`${datetime}|${textContent}`);
+
+  return `tweet_${textHash}`;
+}
+
+/**
+ * Create a hash of text content for deduplication
+ */
+function createTextHash(text: string): string {
+  // Simple hash function for text content
+  let hash = 0;
+  const cleanText = text.replace(/\s+/g, ' ').trim();
+  
+  for (let i = 0; i < cleanText.length; i++) {
+    const char = cleanText.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  
+  return Math.abs(hash).toString(36);
 }
 
 /**
@@ -911,22 +944,21 @@ function extractTweetId(element: Element): string | null {
                 element.getAttribute('data-item-id');
   if (dataId) return dataId;
 
-  // Generate from timestamp and position
+  // Generate from timestamp and content hash (stable across scrolls)
   const timeElement = element.querySelector('time');
+  const textContent = element.textContent?.substring(0, 150) || '';
+  const contentHash = createTextHash(textContent);
+
   if (timeElement) {
     const datetime = timeElement.getAttribute('datetime');
     if (datetime) {
       const timestamp = Date.parse(datetime);
-      const rect = element.getBoundingClientRect();
-      return `generated_${timestamp}_${Math.round(rect.top)}`;
+      return `generated_${timestamp}_${contentHash}`;
     }
   }
 
-  // Last resort: generate from position and content
-  const rect = element.getBoundingClientRect();
-  const textContent = element.textContent?.substring(0, 100) || '';
-  const contentHash = createTextHash(textContent);
-  return `generated_${Math.round(rect.top)}_${contentHash}`;
+  // Last resort: generate from content hash only
+  return `generated_${contentHash}`;
 }
 
 /**
@@ -940,40 +972,146 @@ function extractEngagementFromElement(element: Element): any {
     views: 0
   };
 
-  // Look for engagement buttons and their counts
-  const engagementButtons = element.querySelectorAll('[role="button"]');
-  
+  // Strategy 1: Look for the engagement group container first (most reliable)
+  // X uses [role="group"] to wrap all engagement buttons
+  const engagementGroup = element.querySelector('[role="group"]');
+  const searchRoot = engagementGroup || element;
+
+  // Strategy 2: Parse aria-labels from buttons within the group
+  // X's current DOM uses aria-labels like "123 Likes", "45 replies", "67 reposts", "890 views"
+  // or "Like" (for zero count), "Reply", "Repost", "123 Views"
+  const engagementButtons = searchRoot.querySelectorAll('button[role="button"], [role="button"]');
+
   engagementButtons.forEach(button => {
-    const ariaLabel = button.getAttribute('aria-label') || '';
-    const text = button.textContent?.trim() || '';
-    
-    // Parse engagement counts
-    if (ariaLabel.includes('like') || ariaLabel.includes('Like')) {
-      engagement.likes = parseEngagementCount(text) || parseEngagementCount(ariaLabel);
-    } else if (ariaLabel.includes('repost') || ariaLabel.includes('Repost') || ariaLabel.includes('retweet')) {
-      engagement.reposts = parseEngagementCount(text) || parseEngagementCount(ariaLabel);
-    } else if (ariaLabel.includes('repl') || ariaLabel.includes('Repl')) {
-      engagement.replies = parseEngagementCount(text) || parseEngagementCount(ariaLabel);
+    const ariaLabel = (button.getAttribute('aria-label') || '').toLowerCase();
+
+    // Parse counts from aria-label which typically follows pattern: "123 likes" or "1,234 Likes"
+    // Note: use aria-label as primary source since visible text may be abbreviated (1K, 2.3M)
+    if (ariaLabel.includes('like') || ariaLabel.includes('unlike')) {
+      engagement.likes = parseEngagementCount(ariaLabel);
+    } else if (ariaLabel.includes('repost') || ariaLabel.includes('retweet')) {
+      engagement.reposts = parseEngagementCount(ariaLabel);
+    } else if (ariaLabel.includes('repl')) {
+      engagement.replies = parseEngagementCount(ariaLabel);
+    } else if (ariaLabel.includes('bookmark')) {
+      // Skip bookmarks - not tracked in our engagement model
+    } else if (ariaLabel.includes('view') || ariaLabel.includes('impression')) {
+      engagement.views = parseEngagementCount(ariaLabel);
     }
   });
 
-  // Look for view counts
-  const viewsElement = element.querySelector('[data-testid="app-text-transition-container"]');
-  if (viewsElement) {
-    const viewsText = viewsElement.textContent || '';
-    if (viewsText.includes('View')) {
-      engagement.views = parseEngagementCount(viewsText);
+  // Strategy 3: Look for view count via analytics link
+  // X sometimes shows views as a link like "1,234 Views" outside the button group
+  if (engagement.views === 0) {
+    const analyticsLinks = element.querySelectorAll('a[href*="/analytics"]');
+    for (const link of analyticsLinks) {
+      const ariaLabel = (link.getAttribute('aria-label') || '').toLowerCase();
+      const text = link.textContent || '';
+      if (ariaLabel.includes('view') || text.toLowerCase().includes('view')) {
+        engagement.views = parseEngagementCount(ariaLabel || text);
+        break;
+      }
+    }
+  }
+
+  // Strategy 4: Fallback - look for app-text-transition-container elements
+  // These contain the visible numeric counts next to engagement buttons
+  if (engagement.views === 0) {
+    const transitionContainers = element.querySelectorAll('[data-testid="app-text-transition-container"]');
+    // The last such container in the engagement group is sometimes the views counter
+    // But we only use this if we haven't found views yet
+    for (const container of transitionContainers) {
+      const parent = container.closest('a[href*="/analytics"]');
+      if (parent) {
+        engagement.views = parseEngagementCount(container.textContent || '');
+        break;
+      }
     }
   }
 
   return engagement;
 }
 
-function extractImagesFromElement(element: Element): { url: string; alt: string }[] {
-  return _extractImages(element, {
-    excludePatterns: ['profile_images'],
-    excludeAltPatterns: ['avatar'],
+/**
+ * Parse engagement count from text
+ * Handles formats: "123", "1,234", "1.2K", "3.4M", "1,234 Likes", "12K views", etc.
+ */
+function parseEngagementCount(text: string): number {
+  if (!text) return 0;
+
+  // First try to match numbers with K/M/B suffix (e.g., "1.2K", "3.4M")
+  const suffixMatch = text.match(/(\d+(?:[.,]\d+)?)\s*([KMB])/i);
+  if (suffixMatch) {
+    const num = parseFloat(suffixMatch[1].replace(',', '.'));
+    const suffix = suffixMatch[2].toUpperCase();
+    switch (suffix) {
+      case 'K': return Math.round(num * 1000);
+      case 'M': return Math.round(num * 1000000);
+      case 'B': return Math.round(num * 1000000000);
+    }
+  }
+
+  // Then try comma-separated numbers (e.g., "1,234" or "1,234,567")
+  const commaMatch = text.match(/(\d{1,3}(?:,\d{3})+)/);
+  if (commaMatch) {
+    return parseInt(commaMatch[1].replace(/,/g, ''), 10);
+  }
+
+  // Finally try plain numbers
+  const plainMatch = text.match(/(\d+)/);
+  if (plainMatch) {
+    return parseInt(plainMatch[1], 10);
+  }
+
+  return 0;
+}
+
+/**
+ * Extract images from tweet element
+ */
+function extractImagesFromElement(element: Element): any[] {
+  const images: any[] = [];
+  const imageElements = element.querySelectorAll('img[src]');
+
+  imageElements.forEach(img => {
+    if (img instanceof HTMLImageElement) {
+      const src = img.src;
+      const alt = img.alt || '';
+
+      // Skip profile pictures, avatars, icons, and emoji images
+      const isProfilePic = src.includes('profile_images') || src.includes('profile_banners');
+      const isAvatar = alt.toLowerCase().includes('avatar') ||
+                       img.closest('[data-testid="Tweet-User-Avatar"]') !== null ||
+                       img.closest('[data-testid="UserAvatar"]') !== null;
+      const isEmoji = src.includes('emoji') || src.includes('twemoji');
+      const isIcon = (img.width > 0 && img.width < 30) || (img.height > 0 && img.height < 30);
+
+      if (src && !isProfilePic && !isAvatar && !isEmoji && !isIcon) {
+        images.push({
+          url: src,
+          alt: alt
+        });
+      }
+    }
   });
+
+  return images;
+}
+
+/**
+ * Extract hashtags from text
+ */
+function extractHashtagsFromText(text: string): string[] {
+  const hashtags = text.match(/#\w+/g) || [];
+  return hashtags;
+}
+
+/**
+ * Extract mentions from text
+ */
+function extractMentionsFromText(text: string): string[] {
+  const mentions = text.match(/@\w+/g) || [];
+  return mentions;
 }
 
 /**
@@ -983,32 +1121,96 @@ function extractAuthorFromTweetElement(element: Element): any {
   // Look for author info within this tweet element
   const authorElement = element.querySelector('[data-testid="User-Name"]') ||
                        element.querySelector('[data-testid="UserName"]');
-  
-  const displayNameElement = authorElement?.querySelector('[dir="ltr"]') ||
-                            authorElement?.querySelector('span');
-  
-  const usernameElement = authorElement?.querySelector('[role="link"]') ||
-                         element.querySelector('a[href^="/"][href*="/"]');
-  
-  const avatarElement = element.querySelector('img[alt*="avatar"]') ||
-                       element.querySelector('[data-testid="UserAvatar"] img') as HTMLImageElement;
-  
-  // Extract username from href
+
+  // Extract username: look for the @handle link specifically
+  // X's DOM has two links inside User-Name: display name and @handle
+  // The @handle link's text starts with "@" or its href is a simple /<username> path
   let username = 'unknown';
-  if (usernameElement) {
-    const href = usernameElement.getAttribute('href');
-    if (href) {
-      const match = href.match(/^\/([^\/]+)/);
+  let displayName = '';
+
+  if (authorElement) {
+    // Strategy 1: Find all links inside User-Name and identify the @handle one
+    const links = authorElement.querySelectorAll('a[role="link"]');
+    for (const link of links) {
+      const linkText = link.textContent?.trim() || '';
+      const href = link.getAttribute('href') || '';
+
+      // The @username link contains text starting with "@"
+      if (linkText.startsWith('@')) {
+        username = linkText.slice(1); // Remove the "@" prefix
+        continue;
+      }
+
+      // The other link is typically the display name
+      // Only set displayName from a link if it doesn't look like @username and is not empty
+      if (linkText && !linkText.startsWith('@') && !displayName) {
+        displayName = linkText;
+      }
+    }
+
+    // Strategy 2: If we didn't find @handle via text, try href matching
+    if (username === 'unknown') {
+      const links = authorElement.querySelectorAll('a[href]');
+      for (const link of links) {
+        const href = link.getAttribute('href') || '';
+        // Match simple username paths like /username (no further slashes)
+        const match = href.match(/^\/([A-Za-z0-9_]{1,15})$/);
+        if (match) {
+          username = match[1];
+          break;
+        }
+      }
+    }
+
+    // Strategy 3: Look for spans with dir attribute for display name
+    if (!displayName) {
+      // Try multiple selectors for display name - X may use dir="ltr" or dir="auto" or just nested spans
+      const nameSpan = authorElement.querySelector('a[role="link"] span') ||
+                       authorElement.querySelector('[dir="ltr"] span') ||
+                       authorElement.querySelector('[dir="auto"] span') ||
+                       authorElement.querySelector('span');
+      if (nameSpan) {
+        const text = nameSpan.textContent?.trim() || '';
+        if (text && !text.startsWith('@')) {
+          displayName = text;
+        }
+      }
+    }
+  }
+
+  // Fallback: extract username from any status link in the tweet
+  if (username === 'unknown') {
+    const statusLink = element.querySelector('a[href*="/status/"]') as HTMLAnchorElement;
+    if (statusLink?.href) {
+      const match = statusLink.href.match(/\/([A-Za-z0-9_]{1,15})\/status\//);
       if (match) username = match[1];
     }
   }
-  
-  const displayName = displayNameElement?.textContent?.trim() || username;
-  
+
+  // Fallback: extract from time element's parent link (commonly wraps the timestamp)
+  if (username === 'unknown') {
+    const timeLink = element.querySelector('time')?.closest('a[href*="/status/"]');
+    if (timeLink) {
+      const href = timeLink.getAttribute('href') || '';
+      const match = href.match(/\/([A-Za-z0-9_]{1,15})\/status\//);
+      if (match) username = match[1];
+    }
+  }
+
+  if (!displayName) {
+    displayName = username;
+  }
+
+  const avatarElement = element.querySelector('[data-testid="Tweet-User-Avatar"] img') ||
+                       element.querySelector('[data-testid="UserAvatar"] img') ||
+                       element.querySelector('img[alt*="avatar"]') as HTMLImageElement;
+
   // Look for verification badge
-  const verifiedElement = element.querySelector('[data-testid="verifiedBadge"]') ||
+  const verifiedElement = element.querySelector('[data-testid="icon-verified"]') ||
+                         element.querySelector('[data-testid="verifiedBadge"]') ||
+                         element.querySelector('svg[aria-label*="Verified"]') ||
                          element.querySelector('[aria-label*="verified"]');
-  
+
   return {
     id: username,
     username,
@@ -1020,29 +1222,58 @@ function extractAuthorFromTweetElement(element: Element): any {
 }
 
 /**
- * Extract author information from the page
+ * Extract author information from the page (thread-level author).
+ * On a tweet status page, the best source is the first tweet article
+ * or the URL path itself.
  */
 function extractAuthorFromDOM(): SocialMediaUser | null {
   try {
-    // Look for author information in the page
-    const usernameElement = document.querySelector('[data-testid="UserName"]') ||
-                           document.querySelector('[data-testid="userInfo"]');
-    
-    const displayNameElement = usernameElement?.querySelector('[dir="ltr"]') ||
-                              usernameElement?.querySelector('span');
-    
-    const avatarElement = document.querySelector('[data-testid="UserAvatar"] img') as HTMLImageElement;
-    
-    // Extract username from URL or page content
-    const urlMatch = window.location.pathname.match(/^\/([^\/]+)/);
+    // Strategy 1: Extract from the first tweet article on the page
+    // This is the most reliable source on a /status/ page
+    const firstTweet = document.querySelector('article[data-testid="tweet"]');
+    if (firstTweet) {
+      const tweetAuthor = extractAuthorFromTweetElement(firstTweet);
+      if (tweetAuthor && tweetAuthor.username !== 'unknown') {
+        // Also try to grab avatar from profile section if available
+        const avatarElement = document.querySelector('[data-testid="Tweet-User-Avatar"] img') ||
+                             document.querySelector('[data-testid="UserAvatar"] img') as HTMLImageElement;
+        if (avatarElement) {
+          tweetAuthor.avatarUrl = (avatarElement as HTMLImageElement)?.src;
+        }
+        return tweetAuthor;
+      }
+    }
+
+    // Strategy 2: Extract username from the page URL
+    const urlMatch = window.location.pathname.match(/^\/([A-Za-z0-9_]{1,15})/);
     const username = urlMatch?.[1] || 'unknown';
-    
-    const displayName = displayNameElement?.textContent?.trim() || username;
-    
+
+    // Strategy 3: Try to find display name from page-level User-Name elements
+    let displayName = username;
+    const userNameEl = document.querySelector('[data-testid="User-Name"]') ||
+                       document.querySelector('[data-testid="UserName"]');
+    if (userNameEl) {
+      const nameSpan = userNameEl.querySelector('a[role="link"] span') ||
+                       userNameEl.querySelector('[dir="ltr"] span') ||
+                       userNameEl.querySelector('[dir="auto"] span') ||
+                       userNameEl.querySelector('span');
+      if (nameSpan) {
+        const text = nameSpan.textContent?.trim() || '';
+        if (text && !text.startsWith('@')) {
+          displayName = text;
+        }
+      }
+    }
+
+    const avatarElement = document.querySelector('[data-testid="Tweet-User-Avatar"] img') ||
+                         document.querySelector('[data-testid="UserAvatar"] img') as HTMLImageElement;
+
     // Look for verification badge
-    const verifiedElement = document.querySelector('[data-testid="verifiedBadge"]') ||
+    const verifiedElement = document.querySelector('[data-testid="icon-verified"]') ||
+                           document.querySelector('[data-testid="verifiedBadge"]') ||
+                           document.querySelector('svg[aria-label*="Verified"]') ||
                            document.querySelector('[aria-label*="verified"]');
-    
+
     const author: SocialMediaUser = {
       id: username,
       username,
@@ -1057,7 +1288,7 @@ function extractAuthorFromDOM(): SocialMediaUser | null {
     statsElements.forEach(element => {
       const text = element.textContent || '';
       const count = parseEngagementCount(text);
-      
+
       if (element.getAttribute('href')?.includes('/followers')) {
         author.followers = count;
       } else if (element.getAttribute('href')?.includes('/following')) {

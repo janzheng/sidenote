@@ -307,253 +307,260 @@ export class MapsToolsService {
    * Execute directions tool with enhanced response
    */
   private static async executeDirections(url: string, destination: string, origin?: string, onRefresh?: () => void): Promise<string> {
-    return new Promise((resolve) => {
+    try {
       console.log(`🧭 Getting directions to: "${destination}"${origin ? ` from: "${origin}"` : ''}`);
-      
-      mapsManager.getDirections(url, destination, origin, () => {
+
+      await mapsManager.getDirections(url, destination, origin, () => {
         if (onRefresh) onRefresh();
-        
-        const originText = origin ? ` from "${origin}"` : ' from your current location';
-        const response = `Successfully opened directions to "${destination}"${originText}. The route is now displayed on Google Maps with turn-by-turn navigation instructions, estimated travel time, and distance information.`;
-        
-        console.log(`✅ Directions opened for: "${destination}"`);
-        resolve(response);
-      }).catch((error) => {
-        const errorMsg = `Failed to get directions to "${destination}": ${error instanceof Error ? error.message : 'Unknown error'}`;
-        console.error(`❌ Directions failed:`, errorMsg);
-        resolve(errorMsg);
       });
-    });
+
+      const originText = origin ? ` from "${origin}"` : ' from your current location';
+      const response = `Successfully opened directions to "${destination}"${originText}. The route is now displayed on Google Maps with turn-by-turn navigation instructions, estimated travel time, and distance information.`;
+
+      console.log(`✅ Directions opened for: "${destination}"`);
+      return response;
+    } catch (error) {
+      const errorMsg = `Failed to get directions to "${destination}": ${error instanceof Error ? error.message : 'Unknown error'}`;
+      console.error(`❌ Directions failed:`, errorMsg);
+      return errorMsg;
+    }
   }
 
   /**
    * Execute zoom tool with enhanced response
    */
   private static async executeZoom(url: string, direction: 'in' | 'out', onRefresh?: () => void): Promise<string> {
-    return new Promise((resolve) => {
+    try {
       console.log(`🔍 Zooming ${direction}`);
-      
+
       const zoomFunction = direction === 'in' ? mapsManager.zoomIn : mapsManager.zoomOut;
-      zoomFunction.call(mapsManager, url, () => {
+      await zoomFunction.call(mapsManager, url, () => {
         if (onRefresh) onRefresh();
-        
-        const response = direction === 'in' 
-          ? `Successfully zoomed in on Google Maps. You now have a closer, more detailed view of the area with more specific landmarks and street details visible.`
-          : `Successfully zoomed out on Google Maps. You now have a wider view of the area, showing more of the surrounding region and broader geographic context.`;
-        
-        console.log(`✅ Zoom ${direction} completed`);
-        resolve(response);
-      }).catch((error) => {
-        const errorMsg = `Failed to zoom ${direction}: ${error instanceof Error ? error.message : 'Unknown error'}`;
-        console.error(`❌ Zoom failed:`, errorMsg);
-        resolve(errorMsg);
       });
-    });
+
+      const response = direction === 'in'
+        ? `Successfully zoomed in on Google Maps. You now have a closer, more detailed view of the area with more specific landmarks and street details visible.`
+        : `Successfully zoomed out on Google Maps. You now have a wider view of the area, showing more of the surrounding region and broader geographic context.`;
+
+      console.log(`✅ Zoom ${direction} completed`);
+      return response;
+    } catch (error) {
+      const errorMsg = `Failed to zoom ${direction}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      console.error(`❌ Zoom failed:`, errorMsg);
+      return errorMsg;
+    }
   }
 
   /**
    * Execute map type change tool with enhanced response
    */
   private static async executeMapTypeChange(url: string, mapType: 'roadmap' | 'satellite' | 'hybrid' | 'terrain', onRefresh?: () => void): Promise<string> {
-    return new Promise((resolve) => {
+    try {
       console.log(`🗺️ Changing map view to: ${mapType}`);
-      
-      mapsManager.changeMapType(url, mapType, () => {
+
+      await mapsManager.changeMapType(url, mapType, () => {
         if (onRefresh) onRefresh();
-        
-        const viewDescriptions = {
-          roadmap: 'standard road map view with streets, labels, and points of interest clearly marked',
-          satellite: 'satellite imagery view showing aerial photos of the actual terrain and buildings',
-          hybrid: 'hybrid view combining satellite imagery with road labels and street names overlay',
-          terrain: 'terrain view highlighting topographical features, elevation changes, and natural landmarks'
-        };
-        
-        const response = `Successfully changed the map view to ${mapType} mode. You're now viewing the area in ${viewDescriptions[mapType]}. This view is great for ${this.getViewBenefits(mapType)}.`;
-        
-        console.log(`✅ Map view changed to: ${mapType}`);
-        resolve(response);
-      }).catch((error) => {
-        const errorMsg = `Failed to change map view to ${mapType}: ${error instanceof Error ? error.message : 'Unknown error'}`;
-        console.error(`❌ Map view change failed:`, errorMsg);
-        resolve(errorMsg);
       });
-    });
+
+      const viewDescriptions = {
+        roadmap: 'standard road map view with streets, labels, and points of interest clearly marked',
+        satellite: 'satellite imagery view showing aerial photos of the actual terrain and buildings',
+        hybrid: 'hybrid view combining satellite imagery with road labels and street names overlay',
+        terrain: 'terrain view highlighting topographical features, elevation changes, and natural landmarks'
+      };
+
+      const response = `Successfully changed the map view to ${mapType} mode. You're now viewing the area in ${viewDescriptions[mapType]}. This view is great for ${this.getViewBenefits(mapType)}.`;
+
+      console.log(`✅ Map view changed to: ${mapType}`);
+      return response;
+    } catch (error) {
+      const errorMsg = `Failed to change map view to ${mapType}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      console.error(`❌ Map view change failed:`, errorMsg);
+      return errorMsg;
+    }
   }
 
   /**
    * Execute pan to location tool with enhanced response
    */
   private static async executePanTo(url: string, latitude: number, longitude: number, onRefresh?: () => void): Promise<string> {
-    return new Promise((resolve) => {
+    try {
       console.log(`📍 Panning to coordinates: ${latitude}, ${longitude}`);
-      
-      mapsManager.panTo(url, { lat: latitude, lng: longitude }, () => {
+
+      await mapsManager.panTo(url, { lat: latitude, lng: longitude }, () => {
         if (onRefresh) onRefresh();
-        
-        const response = `Successfully panned the map to coordinates ${latitude}, ${longitude}. The map is now centered on this specific location, showing the surrounding area and nearby landmarks.`;
-        
-        console.log(`✅ Panned to: ${latitude}, ${longitude}`);
-        resolve(response);
-      }).catch((error) => {
-        const errorMsg = `Failed to pan to coordinates ${latitude}, ${longitude}: ${error instanceof Error ? error.message : 'Unknown error'}`;
-        console.error(`❌ Pan failed:`, errorMsg);
-        resolve(errorMsg);
       });
-    });
+
+      const response = `Successfully panned the map to coordinates ${latitude}, ${longitude}. The map is now centered on this specific location, showing the surrounding area and nearby landmarks.`;
+
+      console.log(`✅ Panned to: ${latitude}, ${longitude}`);
+      return response;
+    } catch (error) {
+      const errorMsg = `Failed to pan to coordinates ${latitude}, ${longitude}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      console.error(`❌ Pan failed:`, errorMsg);
+      return errorMsg;
+    }
   }
 
   /**
    * Execute data extraction tool with enhanced response
    */
   private static async executeDataExtraction(url: string, onRefresh?: () => void): Promise<string> {
-    return new Promise((resolve) => {
+    try {
       console.log(`📊 Extracting current Maps data`);
-      
-      mapsManager.handleExtractMapsData(url, () => {
+
+      await mapsManager.handleExtractMapsData(url, () => {
         if (onRefresh) onRefresh();
-        
-        const response = `Successfully extracted current Google Maps data including your location, search results, route information, map settings, and visible area details. This information has been captured and is now available for analysis.`;
-        
-        console.log(`✅ Maps data extraction completed`);
-        resolve(response);
-      }).catch((error) => {
-        const errorMsg = `Failed to extract Maps data: ${error instanceof Error ? error.message : 'Unknown error'}`;
-        console.error(`❌ Data extraction failed:`, errorMsg);
-        resolve(errorMsg);
       });
-    });
+
+      const response = `Successfully extracted current Google Maps data including your location, search results, route information, map settings, and visible area details. This information has been captured and is now available for analysis.`;
+
+      console.log(`✅ Maps data extraction completed`);
+      return response;
+    } catch (error) {
+      const errorMsg = `Failed to extract Maps data: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      console.error(`❌ Data extraction failed:`, errorMsg);
+      return errorMsg;
+    }
   }
 
   /**
    * Execute result analysis tool with actual data analysis
    */
   private static async executeResultAnalysis(url: string, focus?: string, onRefresh?: () => void): Promise<string> {
-    return new Promise(async (resolve) => {
-      console.log(`🔍 Analyzing current Maps results with focus: ${focus || 'general'}`);
-      
-      try {
-        // Get the current Maps data from storage
-        const response = await chrome.runtime.sendMessage({
-          action: 'getMapsDataStatus',
-          url: url
-        });
+    console.log(`🔍 Analyzing current Maps results with focus: ${focus || 'general'}`);
 
-        if (response.success && response.status && response.status.mapsData) {
-          const mapsData = response.status.mapsData;
-          console.log('📊 Analyzing Maps data:', mapsData);
-          
-          let analysis = '';
-          
-          // Analyze search results if available
-          if (mapsData.searchResults && mapsData.searchResults.length > 0) {
-            const results = mapsData.searchResults;
-            const topResults = results; // Show all results instead of limiting to 5
-            
-            analysis += `Great! I found ${results.length} places`;
-            if (mapsData.searchQuery) {
-              analysis += ` for "${mapsData.searchQuery}"`;
-            }
-            analysis += `. Here are the options:\n\n`;
-            
-                         topResults.forEach((place: any, index: number) => {
-              analysis += `**${index + 1}. ${place.name}**\n`;
-              if (place.rating) {
-                analysis += `⭐ ${place.rating} stars`;
-                if (place.reviewCount) {
-                  analysis += ` (${place.reviewCount} reviews)`;
-                }
-                analysis += '\n';
-              }
-              if (place.address) {
-                analysis += `📍 ${place.address}\n`;
-              }
-              if (place.priceLevel) {
-                const priceSymbols = '$'.repeat(place.priceLevel);
-                analysis += `💰 ${priceSymbols}\n`;
-              }
-              if (place.businessStatus) {
-                analysis += `🕒 ${place.businessStatus}\n`;
+    try {
+      // Get the current Maps data from storage
+      const response = await chrome.runtime.sendMessage({
+        action: 'getMapsDataStatus',
+        url: url
+      });
+
+      if (response.success && response.status && response.status.mapsData) {
+        const mapsData = response.status.mapsData;
+        console.log('📊 Analyzing Maps data:', mapsData);
+
+        let analysis = '';
+
+        // Analyze search results if available
+        if (mapsData.searchResults && mapsData.searchResults.length > 0) {
+          const results = mapsData.searchResults;
+          const topResults = results; // Show all results instead of limiting to 5
+
+          analysis += `Great! I found ${results.length} places`;
+          if (mapsData.searchQuery) {
+            analysis += ` for "${mapsData.searchQuery}"`;
+          }
+          analysis += `. Here are the options:\n\n`;
+
+          topResults.forEach((place: any, index: number) => {
+            analysis += `**${index + 1}. ${place.name}**\n`;
+            if (place.rating) {
+              analysis += `⭐ ${place.rating} stars`;
+              if (place.reviewCount) {
+                analysis += ` (${place.reviewCount} reviews)`;
               }
               analysis += '\n';
-            });
-            
-            // Add recommendations based on ratings
-                         const highRated = topResults.filter((p: any) => p.rating && p.rating >= 4.0);
-            if (highRated.length > 0) {
-              const best = highRated[0];
-              analysis += `🏆 **Top Recommendation**: ${best.name}`;
-              if (best.rating) {
-                analysis += ` (${best.rating}⭐)`;
-              }
-              analysis += ` stands out for its excellent ratings`;
-              if (best.reviewCount && best.reviewCount > 50) {
-                analysis += ` and strong review count`;
-              }
-              analysis += '.\n\n';
             }
-            
-            // Distance/location analysis
-            if (mapsData.currentLocation) {
-              analysis += `📍 All results are shown relative to your current location. `;
+            if (place.address) {
+              analysis += `📍 ${place.address}\n`;
             }
-            
-            analysis += `Would you like directions to any of these places, or would you like me to search for something more specific?`;
-            
-          } else if (mapsData.currentRoute) {
-            // Analyze route information
-            const route = mapsData.currentRoute;
-            analysis = `🗺️ **Current Route Analysis**:\n\n`;
-            analysis += `**From**: ${route.origin.address}\n`;
-            analysis += `**To**: ${route.destination.address}\n`;
-            analysis += `**Distance**: ${route.distance}\n`;
-            analysis += `**Duration**: ${route.duration}\n\n`;
-            analysis += `The route is optimized for your current travel preferences. `;
-            
-          } else {
-            // No specific results to analyze
-            analysis = `I can see the current Google Maps view`;
-            if (mapsData.currentLocation) {
-              analysis += ` centered around your location`;
+            if (place.priceLevel) {
+              const priceSymbols = '$'.repeat(place.priceLevel);
+              analysis += `💰 ${priceSymbols}\n`;
             }
-            analysis += `. There don't appear to be any search results currently displayed. Try searching for specific places, restaurants, or services to get detailed recommendations!`;
+            if (place.businessStatus) {
+              analysis += `🕒 ${place.businessStatus}\n`;
+            }
+            analysis += '\n';
+          });
+
+          // Add recommendations based on ratings
+          const highRated = topResults.filter((p: any) => p.rating && p.rating >= 4.0);
+          if (highRated.length > 0) {
+            const best = highRated[0];
+            analysis += `🏆 **Top Recommendation**: ${best.name}`;
+            if (best.rating) {
+              analysis += ` (${best.rating}⭐)`;
+            }
+            analysis += ` stands out for its excellent ratings`;
+            if (best.reviewCount && best.reviewCount > 50) {
+              analysis += ` and strong review count`;
+            }
+            analysis += '.\n\n';
           }
-          
-          console.log(`✅ Result analysis completed with actual data`);
-          resolve(analysis);
-          
+
+          // Distance/location analysis
+          if (mapsData.currentLocation) {
+            analysis += `📍 All results are shown relative to your current location. `;
+          }
+
+          analysis += `Would you like directions to any of these places, or would you like me to search for something more specific?`;
+
+        } else if (mapsData.currentRoute) {
+          // Analyze route information
+          const route = mapsData.currentRoute;
+          analysis = `🗺️ **Current Route Analysis**:\n\n`;
+          analysis += `**From**: ${route.origin.address}\n`;
+          analysis += `**To**: ${route.destination.address}\n`;
+          analysis += `**Distance**: ${route.distance}\n`;
+          analysis += `**Duration**: ${route.duration}\n\n`;
+          analysis += `The route is optimized for your current travel preferences. `;
+
         } else {
-          // Fallback to generic analysis
-          console.log('⚠️ No Maps data available, using generic analysis');
-          const analysisType = focus || 'general';
-          let response = `I can see the current Google Maps view. `;
-          
-          switch (analysisType) {
-            case 'restaurants':
-              response += `For restaurant recommendations, I'd suggest searching for specific cuisines or restaurant types to get detailed options with ratings and reviews.`;
-              break;
-            case 'ratings':
-              response += `To analyze ratings, please search for specific places first so I can compare the options and highlight the best-rated establishments.`;
-              break;
-            default:
-              response += `Try searching for specific places or services to get detailed analysis and recommendations.`;
+          // No specific results to analyze
+          analysis = `I can see the current Google Maps view`;
+          if (mapsData.currentLocation) {
+            analysis += ` centered around your location`;
           }
-          
-          resolve(response);
+          analysis += `. There don't appear to be any search results currently displayed. Try searching for specific places, restaurants, or services to get detailed recommendations!`;
         }
-        
-      } catch (error) {
-        console.error('❌ Result analysis error:', error);
-        const errorMsg = `I'm having trouble accessing the current Maps data. ${error instanceof Error ? error.message : 'Unknown error'}`;
-        resolve(errorMsg);
+
+        console.log(`✅ Result analysis completed with actual data`);
+
+        // Call onRefresh if provided
+        if (onRefresh) {
+          setTimeout(() => onRefresh(), 100);
+        }
+
+        return analysis;
+
+      } else {
+        // Fallback to generic analysis
+        console.log('⚠️ No Maps data available, using generic analysis');
+        const analysisType = focus || 'general';
+        let result = `I can see the current Google Maps view. `;
+
+        switch (analysisType) {
+          case 'restaurants':
+            result += `For restaurant recommendations, I'd suggest searching for specific cuisines or restaurant types to get detailed options with ratings and reviews.`;
+            break;
+          case 'ratings':
+            result += `To analyze ratings, please search for specific places first so I can compare the options and highlight the best-rated establishments.`;
+            break;
+          default:
+            result += `Try searching for specific places or services to get detailed analysis and recommendations.`;
+        }
+
+        // Call onRefresh if provided
+        if (onRefresh) {
+          setTimeout(() => onRefresh(), 100);
+        }
+
+        return result;
       }
-      
+
+    } catch (error) {
+      console.error('❌ Result analysis error:', error);
+
       // Call onRefresh if provided
       if (onRefresh) {
-        setTimeout(() => {
-          onRefresh();
-        }, 100);
+        setTimeout(() => onRefresh(), 100);
       }
-    });
+
+      return `I'm having trouble accessing the current Maps data. ${error instanceof Error ? error.message : 'Unknown error'}`;
+    }
   }
 
   /**

@@ -28,31 +28,37 @@ export interface DataResponse {
  */
 function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>): T {
   const result = { ...target } as T;
-  
+
   for (const key in source) {
     if (source.hasOwnProperty(key)) {
       const sourceValue = source[key];
       const targetValue = result[key];
-      
+
       if (sourceValue === null || sourceValue === undefined) {
         // Explicitly set null/undefined values
         (result as any)[key] = sourceValue;
       } else if (
-        typeof sourceValue === 'object' && 
-        !Array.isArray(sourceValue) && 
-        typeof targetValue === 'object' && 
+        typeof sourceValue === 'object' &&
+        !Array.isArray(sourceValue) &&
+        !(sourceValue instanceof Set) &&
+        !(sourceValue instanceof Map) &&
+        !(sourceValue instanceof Date) &&
+        typeof targetValue === 'object' &&
         !Array.isArray(targetValue) &&
+        !(targetValue instanceof Set) &&
+        !(targetValue instanceof Map) &&
+        !(targetValue instanceof Date) &&
         targetValue !== null
       ) {
-        // Recursively merge objects (but not arrays)
+        // Recursively merge plain objects (but not arrays, Sets, Maps, Dates)
         (result as any)[key] = deepMerge(targetValue, sourceValue);
       } else {
-        // Direct assignment for primitives, arrays, and when target is null
+        // Direct assignment for primitives, arrays, Sets, Maps, Dates, and when target is null
         (result as any)[key] = sourceValue;
       }
     }
   }
-  
+
   return result;
 }
 
@@ -293,12 +299,39 @@ export class DataController {
   }
 
   /**
+   * Serialize TabData for chrome.storage (Set → Array conversion)
+   */
+  private serializeForStorage(data: TabData): any {
+    return {
+      ...data,
+      meta: {
+        ...data.meta,
+        activeTabIds: Array.from(data.meta.activeTabIds)
+      }
+    };
+  }
+
+  /**
+   * Deserialize TabData from chrome.storage (Array → Set conversion)
+   */
+  private deserializeFromStorage(data: any): TabData {
+    if (!data) return data;
+    return {
+      ...data,
+      meta: {
+        ...data.meta,
+        activeTabIds: new Set(Array.isArray(data.meta?.activeTabIds) ? data.meta.activeTabIds : [])
+      }
+    };
+  }
+
+  /**
    * Persist to chrome.storage (background only)
    */
   private async persistToStorage(url: string, data: TabData): Promise<void> {
     if (typeof chrome !== 'undefined' && chrome.storage) {
       const key = `tabdata_${url}`;
-      await chrome.storage.local.set({ [key]: data });
+      await chrome.storage.local.set({ [key]: this.serializeForStorage(data) });
     }
   }
 
@@ -309,7 +342,7 @@ export class DataController {
     if (typeof chrome !== 'undefined' && chrome.storage) {
       const key = `tabdata_${url}`;
       const result = await chrome.storage.local.get(key);
-      return result[key] || null;
+      return result[key] ? this.deserializeFromStorage(result[key]) : null;
     }
     return null;
   }

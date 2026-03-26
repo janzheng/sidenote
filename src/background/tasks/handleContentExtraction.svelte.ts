@@ -1,6 +1,7 @@
 import { backgroundDataController } from '../index';
 import { PDFCitationService } from '../../lib/services/pdfCitationService.svelte';
 import { CitationService } from '../../lib/services/citationService.svelte';
+import { PDFExtractionService } from '../../lib/services/pdfExtractionService.svelte';
 
 export async function handleContentExtraction(tabId: number, sendResponse: (response: any) => void) {
   try {
@@ -67,8 +68,7 @@ export async function handleContentExtraction(tabId: number, sendResponse: (resp
       // Check if this is a PDF and automatically generate citations
       const isPDF = (fullTabData.content.metadata as any)?.contentType === 'pdf' ||
                     (fullTabData.content.metadata as any)?.isPDF === true ||
-                    dataUrl.toLowerCase().includes('.pdf') ||
-                    dataUrl.toLowerCase().includes('arxiv.org/pdf/');
+                    PDFExtractionService.isPDFUrl(dataUrl);
 
       if (isPDF && fullTabData.content.text && fullTabData.content.text.length > 100) {
         console.log('📄📚 Detected PDF content, automatically generating citations...');

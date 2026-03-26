@@ -432,8 +432,10 @@ export class PanelManager {
           return;
         }
         
-        // Only refresh if we haven't extracted content for this URL yet
-        if (tab.active && tab.url && tab.url !== this.lastExtractedUrl) {
+        // Only refresh if we haven't extracted content for this URL yet (use normalized comparison to avoid re-extraction on hash-only changes)
+        const normalizedTabUrl2 = tab.url ? normalizeUrl(tab.url) : null;
+        const normalizedLastExtracted2 = this.lastExtractedUrl ? normalizeUrl(this.lastExtractedUrl) : null;
+        if (tab.active && tab.url && normalizedTabUrl2 !== normalizedLastExtracted2) {
           try {
             const currentWindow = await chrome.windows.getCurrent();
             if (tab.windowId === currentWindow.id) {

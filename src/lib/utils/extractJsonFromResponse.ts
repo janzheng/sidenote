@@ -57,7 +57,7 @@ export function extractJsonFromResponse(content: string): any {
         return result;
       } catch (parseError) {
         console.warn('❌ Failed to parse JSON object from content:', parseError instanceof Error ? parseError.message : parseError);
-        
+
         // Last resort: try manual key-value extraction
         try {
           const manualResult = extractKeyValuePairs(jsonMatch[0]);
@@ -68,6 +68,21 @@ export function extractJsonFromResponse(content: string): any {
         } catch (manualError) {
           console.warn('❌ Manual extraction also failed:', manualError instanceof Error ? manualError.message : manualError);
         }
+      }
+    }
+
+    // Try to find JSON array in the content
+    const jsonArrayMatch = content.match(/\[[\s\S]*\]/);
+    if (jsonArrayMatch) {
+      console.log('📋 Found JSON array in content, attempting to parse...');
+      try {
+        const result = JSON.parse(jsonArrayMatch[0]);
+        if (Array.isArray(result)) {
+          console.log('✅ Successfully parsed JSON array from content');
+          return result;
+        }
+      } catch (parseError) {
+        console.warn('❌ Failed to parse JSON array from content:', parseError instanceof Error ? parseError.message : parseError);
       }
     }
 

@@ -114,7 +114,7 @@ const handlers: Record<string, Handler> = {
   // Navigation
   navigateToUrl: async (msg, send) => {
     const { url, currentTabUrl } = msg;
-    const tabs = await chrome.tabs.query({});
+    const tabs = await chrome.tabs.query({ lastFocusedWindow: true });
     const equalsMatch = currentTabUrl ? tabs.find(t => t.url === currentTabUrl) : undefined;
     const mapsMatch = tabs.find(t => (t.url || '').includes('/maps'));
     const activeMatch = tabs.find(t => t.active);

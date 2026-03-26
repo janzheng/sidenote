@@ -17,9 +17,20 @@ export async function handleTtsTextGeneration(
     const tabData = await backgroundDataController.loadData(url);
     if (!tabData) {
       console.error('❌ No tab data found for URL:', url);
-      const errorResponse = { 
-        success: false, 
-        error: 'No content data found for this URL. Please extract content first.' 
+      const errorResponse = {
+        success: false,
+        error: 'No content data found for this URL. Please extract content first.'
+      };
+      if (sendResponse) sendResponse(errorResponse);
+      return errorResponse;
+    }
+
+    // Validate that content text exists
+    if (!tabData.content?.text || tabData.content.text.trim().length === 0) {
+      console.error('❌ No text content found for URL:', url);
+      const errorResponse = {
+        success: false,
+        error: 'No text content available for TTS generation. Please extract content first.'
       };
       if (sendResponse) sendResponse(errorResponse);
       return errorResponse;
@@ -27,7 +38,7 @@ export async function handleTtsTextGeneration(
 
     // Use the TextToSpeechService to rewrite text only
     const rewriteResult = await TextToSpeechService.rewriteTextForTTS(
-      tabData.content.text, 
+      tabData.content.text,
       tabData.content.title,
       customSystemPrompt
     );
@@ -68,7 +79,18 @@ export async function handleTtsAudioGeneration(
   sendResponse?: (response: any) => void
 ) {
   try {
-    console.log('🔊 Starting TTS audio generation, text length:', text.length);
+    console.log('🔊 Starting TTS audio generation, text length:', text?.length || 0);
+
+    // Validate text input
+    if (!text || text.trim().length === 0) {
+      console.error('❌ No text provided for TTS audio generation');
+      const errorResponse = {
+        success: false,
+        error: 'No text provided for audio generation.'
+      };
+      if (sendResponse) sendResponse(errorResponse);
+      return errorResponse;
+    }
 
     // Use the TextToSpeechService to generate audio only
     const audioResult = await TextToSpeechService.generateAudio(text, voice);
@@ -133,9 +155,20 @@ export async function handleTextToSpeechGeneration(
     const tabData = await backgroundDataController.loadData(url);
     if (!tabData) {
       console.error('❌ No tab data found for URL:', url);
-      const errorResponse = { 
-        success: false, 
-        error: 'No content data found for this URL. Please extract content first.' 
+      const errorResponse = {
+        success: false,
+        error: 'No content data found for this URL. Please extract content first.'
+      };
+      if (sendResponse) sendResponse(errorResponse);
+      return errorResponse;
+    }
+
+    // Validate that content text exists
+    if (!tabData.content?.text || tabData.content.text.trim().length === 0) {
+      console.error('❌ No text content found for URL:', url);
+      const errorResponse = {
+        success: false,
+        error: 'No text content available for TTS generation. Please extract content first.'
       };
       if (sendResponse) sendResponse(errorResponse);
       return errorResponse;

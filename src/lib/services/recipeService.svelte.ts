@@ -3,6 +3,7 @@ import type { RecipeResponse } from '../../types/recipe';
 import type { RecipeValidationResult, Recipe } from '../../types/recipe';
 import { GroqService } from './groqService.svelte';
 import { getCurrentSettings } from '../ui/settings.svelte';
+import { extractJsonFromResponse } from '../utils/extractJsonFromResponse';
 
 export class RecipeService {
 
@@ -97,10 +98,18 @@ Return only valid JSON with the recipe data.`;
         try {
           const content = response.content.trim();
           console.log('📄 Raw recipe content:', content);
-          
-          // Try to parse JSON
-          const parsedData = JSON.parse(content);
-          
+
+          // Use extractJsonFromResponse for robust parsing (handles markdown wrappers, code blocks, etc.)
+          const parsedData = extractJsonFromResponse(content);
+
+          if (!parsedData) {
+            console.error('❌ Could not extract JSON from recipe response');
+            return {
+              success: false,
+              error: 'Failed to parse recipe data from AI response'
+            };
+          }
+
           if (parsedData.error) {
             console.log('❌ No recipe found in content');
             return {
@@ -110,7 +119,7 @@ Return only valid JSON with the recipe data.`;
           } else {
             // Validate and enhance the recipe data
             const recipe = this.validateAndEnhanceRecipe(parsedData, tabData.content.url);
-            
+
             console.log('✅ Recipe extracted successfully:', recipe.title);
             return {
               success: true,

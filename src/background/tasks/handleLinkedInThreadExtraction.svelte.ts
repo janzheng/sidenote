@@ -45,17 +45,48 @@ export async function handleLinkedInThreadExtractionWithScroll(
       }
     });
 
-    // Find the tab with this URL and send message to its content script
-    const tabs = await chrome.tabs.query({ url: url });
+    // Find the tab with this URL
+    // Use a wildcard pattern for chrome.tabs.query since LinkedIn URLs often have
+    // tracking parameters (lipi, trk, miniProfileUrn, etc.) that differ between
+    // the stored URL and the actual tab URL
+    let tabs: chrome.tabs.Tab[] = [];
+    try {
+      // First try: exact URL match
+      tabs = await chrome.tabs.query({ url: url });
+
+      // Second try: use origin + pathname pattern (ignore query params)
+      if (tabs.length === 0) {
+        const urlObj = new URL(url);
+        const pattern = `${urlObj.origin}${urlObj.pathname}*`;
+        tabs = await chrome.tabs.query({ url: pattern });
+      }
+
+      // Third try: query all LinkedIn tabs and match by pathname
+      if (tabs.length === 0) {
+        const allLinkedInTabs = await chrome.tabs.query({ url: '*://*.linkedin.com/*' });
+        const urlObj = new URL(url);
+        tabs = allLinkedInTabs.filter(t => {
+          try {
+            if (!t.url) return false;
+            const tabUrl = new URL(t.url);
+            return tabUrl.pathname === urlObj.pathname;
+          } catch { return false; }
+        });
+      }
+    } catch (queryError) {
+      console.warn('Tab query error, falling back to active tab:', queryError);
+      tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    }
+
     if (tabs.length === 0) {
       await backgroundDataController.saveData(url, {
-        processing: { 
+        processing: {
           socialMediaThread: { isExtracting: false, isExpanding: false, error: 'No active tab found' }
         }
       });
-      sendResponse({ 
-        success: false, 
-        error: 'No active tab found for this URL' 
+      sendResponse({
+        success: false,
+        error: 'No active tab found for this URL'
       });
       return;
     }
@@ -82,15 +113,16 @@ export async function handleLinkedInThreadExtractionWithScroll(
       maxExpansions: maxExpansions
     });
 
-    if (!response.success) {
+    if (!response || !response.success) {
+      const errorMsg = response?.error || 'Extraction with scrolling failed (no response from content script)';
       await backgroundDataController.saveData(url, {
-        processing: { 
-          socialMediaThread: { isExtracting: false, isExpanding: false, error: response.error || 'Extraction with scrolling failed' }
+        processing: {
+          socialMediaThread: { isExtracting: false, isExpanding: false, error: errorMsg }
         }
       });
-      sendResponse({ 
-        success: false, 
-        error: response.error || 'LinkedIn extraction with scrolling failed' 
+      sendResponse({
+        success: false,
+        error: errorMsg
       });
       return;
     }

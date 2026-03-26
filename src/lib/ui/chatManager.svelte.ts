@@ -63,7 +63,7 @@ class ChatManager {
         console.log('✅ Chat message sent successfully');
         this.state.messages = response.messages || [];
         this.state.chatError = null;
-        
+
         // Call the success callback to refresh the panel
         if (onSuccess) {
           setTimeout(() => {
@@ -73,7 +73,9 @@ class ChatManager {
       } else {
         console.error('❌ Chat message failed:', response.error);
         this.state.chatError = response.error;
-        
+        // Revert optimistic user message on failure
+        this.state.messages = previousHistory;
+
         // Reset error after 5 seconds
         setTimeout(() => {
           this.state.chatError = null;
@@ -82,7 +84,9 @@ class ChatManager {
     } catch (error) {
       console.error('❌ Chat message error:', error);
       this.state.chatError = error instanceof Error ? error.message : 'Unknown error';
-      
+      // Revert optimistic user message on error
+      this.state.messages = previousHistory;
+
       // Reset error after 5 seconds
       setTimeout(() => {
         this.state.chatError = null;

@@ -15,6 +15,8 @@ export interface ContentExtractionResult {
     title: string;
     metadata: any;
     wordCount: number;
+    markdown?: string;
+    extractedAt?: number;
   };
   error?: string;
 }
@@ -53,6 +55,56 @@ function createTurndownService(): TurndownService {
   turndownService.addRule('removeNav', {
     filter: ['nav', 'header', 'footer', 'aside'],
     replacement: () => ''
+  });
+
+  // Custom table handling (GFM tables plugin excluded due to parentNode issues)
+  turndownService.addRule('tableCell', {
+    filter: ['th', 'td'],
+    replacement: (content: string) => {
+      // Collapse whitespace and trim; replace pipes to avoid breaking table syntax
+      return ' ' + content.replace(/\|/g, '\\|').replace(/\n/g, ' ').trim() + ' |';
+    }
+  });
+
+  turndownService.addRule('tableRow', {
+    filter: 'tr',
+    replacement: (content: string, node: any) => {
+      let row = '|' + content + '\n';
+      // If this is the first row inside a thead, add separator row after it
+      if (node.parentNode && node.parentNode.nodeName === 'THEAD') {
+        const cellCount = node.querySelectorAll('th, td').length;
+        row += '|' + ' --- |'.repeat(cellCount) + '\n';
+      }
+      return row;
+    }
+  });
+
+  turndownService.addRule('table', {
+    filter: 'table',
+    replacement: (content: string, node: any) => {
+      // If the table has no thead, add a separator after the first row
+      const thead = node.querySelector('thead');
+      if (!thead) {
+        const firstRow = node.querySelector('tr');
+        if (firstRow) {
+          const cellCount = firstRow.querySelectorAll('th, td').length;
+          const lines = content.trim().split('\n');
+          if (lines.length > 0) {
+            const separator = '|' + ' --- |'.repeat(cellCount);
+            lines.splice(1, 0, separator);
+            return '\n\n' + lines.join('\n') + '\n\n';
+          }
+        }
+      }
+      return '\n\n' + content.trim() + '\n\n';
+    }
+  });
+
+  turndownService.addRule('tableSection', {
+    filter: ['thead', 'tbody', 'tfoot'],
+    replacement: (content: string) => {
+      return content;
+    }
   });
 
   // Keep images but make them more readable

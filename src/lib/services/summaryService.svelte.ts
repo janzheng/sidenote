@@ -60,13 +60,16 @@ Your summary should:
 Write in clear, professional prose. Focus on accuracy and usefulness.`;
 
       // Create user prompt with the content
+      // llama-3.1-8b-instant has ~8k context window; truncate to ~20k chars (~5k tokens)
+      // to leave room for system prompt and response tokens
+      const maxContentChars = 20000;
       const userPrompt = `Please summarize this content:
 
 **Title:** ${title}
 **Word Count:** ${wordCount}
 
 **Content:**
-${text.substring(0, 100000)}${text.length > 100000 ? '...\n\n[Content truncated for length]' : ''}
+${text.substring(0, maxContentChars)}${text.length > maxContentChars ? '...\n\n[Content truncated for length]' : ''}
 
 Provide a comprehensive but concise summary.`;
 

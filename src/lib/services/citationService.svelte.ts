@@ -312,9 +312,11 @@ export class CitationService {
       const apa = `${author} (${year}). ${title}. ${siteName}. Retrieved ${accessDate}, from ${url}`;
       const vancouver = `${author}. ${title}. ${siteName} [Internet]. ${year} [cited ${currentDate.getFullYear()} ${currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}]. Available from: ${url}`;
       const harvard = `${author} (${year}) '${title}', ${siteName}, ${accessDate}. Available at: ${url}`;
+      // BibTeX requires authors separated by " and " not commas
+      const bibtexAuthor = author.includes(',') ? author.split(/,\s*/).join(' and ') : author;
       const bibtex = `@misc{${domain.replace(/\./g, '')}_${year},
   title={${title}},
-  author={${author}},
+  author={${bibtexAuthor}},
   year={${year}},
   url={${url}},
   note={Accessed: ${accessDate}}
@@ -1098,6 +1100,8 @@ Return only the JSON metadata object, no other text.`;
 
       // Format authors for different styles
       const authorString = authors.length > 0 ? authors.join(', ') : 'Unknown Author';
+      // BibTeX requires authors separated by " and " not commas
+      const bibtexAuthorString = authors.length > 0 ? authors.join(' and ') : 'Unknown Author';
       const firstAuthor = authors.length > 0 ? authors[0] : 'Unknown Author';
       const lastAuthor = authors.length > 1 ? authors[authors.length - 1] : firstAuthor;
       const correspondence = enhancedCitations.correspondence;
@@ -1112,7 +1116,7 @@ Return only the JSON metadata object, no other text.`;
       const bibKey = `${firstAuthor.replace(/\s+/g, '').toLowerCase()}_${year}`;
       bibtex = `@article{${bibKey},
   title={${title}},
-  author={${authorString}},
+  author={${bibtexAuthorString}},
   year={${year}}`;
 
       if (journal) bibtex += `,\n  journal={${journal}}`;
@@ -1120,8 +1124,8 @@ Return only the JSON metadata object, no other text.`;
       if (issue) bibtex += `,\n  number={${issue}}`;
       if (pages) bibtex += `,\n  pages={${pages}}`;
       if (doi) bibtex += `,\n  doi={${doi}}`;
-      if (arxiv) bibtex += `,\n  note={${arxiv}}`;
-      if (correspondence) bibtex += `,\n  correspondence={${correspondence}}`;
+      if (arxiv) bibtex += `,\n  eprint={${arxiv}},\n  archiveprefix={arXiv}`;
+      if (correspondence) bibtex += `,\n  note={Correspondence: ${correspondence}}`;
       if (url) bibtex += `,\n  url={${url}}`;
       bibtex += '\n}';
 
@@ -1138,9 +1142,8 @@ Return only the JSON metadata object, no other text.`;
         if (doi) apa += ` https://doi.org/${doi}`;
         else if (url) apa += ` Retrieved from ${url}`;
       } else if (arxiv) {
-        // arXiv preprint
-        apa = `${authorString} (${year}). *${title}* [Preprint]. arXiv. ${arxiv}`;
-        if (url) apa += ` Retrieved from ${url}`;
+        // arXiv preprint - APA 7th edition format
+        apa = `${authorString} (${year}). ${title}. arXiv. https://doi.org/10.48550/arXiv.${arxiv}`;
       } else {
         // Web page/other
         apa = `${authorString} (${year}). *${title}*`;
