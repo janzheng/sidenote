@@ -270,21 +270,6 @@
       <ApiSettings />
     {/if}
 
-    <!-- About Section + Generate Button -->
-    <div class="py-2 text-sm text-gray-600">
-      Get an AI summary and chat about the page content.
-    </div>
-
-    {#if !hasSummary && !summaryManager.isGenerating && canGenerate && settingsManager.hasApiKey}
-      <button
-        onclick={handleGenerateSummary}
-        class="w-full mb-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
-      >
-        <Icon icon="mdi:text-box-outline" class="w-4 h-4" />
-        Generate Summary
-      </button>
-    {/if}
-
     <!-- Summary Section -->
     {#if summaryManager.summaryError}
       <div class="mb-6">
@@ -326,7 +311,7 @@
         showRefresh={true}
         showCopy={!!hasSummary && !summaryManager.isGenerating}
         isLoading={summaryManager.isGenerating}
-        emptyMessage="No summary available"
+        emptyMessage="Click ↻ to generate a summary (optional — chat works without it)"
         renderAsMarkdown={true}
         showPreview={true}
         previewLines={4}
