@@ -47,6 +47,56 @@ export class GroqService {
   private static readonly DEFAULT_TTS_MODEL = 'playai-tts';
   private static readonly DEFAULT_TTS_VOICE = 'Arista-PlayAI';
   private static readonly TIMEOUT = 120000; // 120 seconds (2 minutes)
+  private static readonly MAX_RETRIES = 3;
+  private static readonly RETRY_BASE_DELAY = 1000; // 1 second
+
+  private static isRetryableStatus(status: number): boolean {
+    return status === 429 || (status >= 500 && status < 600);
+  }
+
+  /**
+   * Fetch with exponential-backoff retry for transient errors (429, 5xx).
+   * Retries up to 3 times with delays of 1s, 2s, 4s.
+   */
+  private static async fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= this.MAX_RETRIES; attempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.TIMEOUT);
+
+      try {
+        const response = await fetch(url, { ...init, signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (response.ok || !this.isRetryableStatus(response.status)) {
+          return response;
+        }
+
+        if (attempt < this.MAX_RETRIES) {
+          const delay = this.RETRY_BASE_DELAY * Math.pow(2, attempt);
+          console.warn(`⚠️ Groq API returned ${response.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${this.MAX_RETRIES})`);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+
+        return response;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        if (lastError.name === 'AbortError' || attempt >= this.MAX_RETRIES) {
+          throw lastError;
+        }
+
+        const delay = this.RETRY_BASE_DELAY * Math.pow(2, attempt);
+        console.warn(`⚠️ Groq API fetch error, retrying in ${delay}ms (attempt ${attempt + 1}/${this.MAX_RETRIES}):`, lastError.message);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+
+    throw lastError || new Error('Fetch failed after retries');
+  }
 
   /**
    * Generate text using Groq API
@@ -85,20 +135,14 @@ export class GroqService {
         messages_count: messages.length
       });
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.TIMEOUT);
-
-      const response = await fetch(`${this.BASE_URL}/chat/completions`, {
+      const response = await this.fetchWithRetry(`${this.BASE_URL}/chat/completions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${settings.apiKey}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal
+        body: JSON.stringify(requestBody)
       });
-
-      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -201,20 +245,14 @@ export class GroqService {
         tools_count: tools.length
       });
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.TIMEOUT);
-
-      const response = await fetch(`${this.BASE_URL}/chat/completions`, {
+      const response = await this.fetchWithRetry(`${this.BASE_URL}/chat/completions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${settings.apiKey}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal
+        body: JSON.stringify(requestBody)
       });
-
-      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorText = await response.text();
