@@ -1,27 +1,19 @@
 # SideNote — Chrome Extension
 
-## Current — Phase 3: Bug Hunt (merge pending)
+## Current
 
-50 bugs found and fixed across 6 worktree branches. Needs review + merge.
+- [x] [done: all 6 branches merged, build clean, 40 files changed] Review + merge 6 worktree branches
+- [x] [done: committed as f382903] Build verification after merge
 
-- [x] [done: 9 bugs fixed] Content extraction bug hunt `-> TASKS-CONTENT.md` #content-bugs
-- [x] [done: 9 bugs fixed] PDF & citations bug hunt `-> TASKS-PDF.md` #pdf-bugs
-- [x] [done: 7 bugs fixed, Unknown Author resolved] Twitter/X bug hunt `-> TASKS-TWITTER.md` #twitter-bugs
-- [x] [done: 7 bugs fixed] LinkedIn bug hunt `-> TASKS-LINKEDIN.md` #linkedin-bugs
-- [x] [done: 9 bugs fixed] Google Maps bug hunt `-> TASKS-MAPS.md` #maps-bugs
-- [x] [done: 9 bugs fixed] AI features bug hunt `-> TASKS-AI.md` #ai-bugs
-
-## Pending — Merge & Verify
-
-- [ ] Review + merge 6 worktree branches (resolve conflicts on shared files)
-  - [ ] `worktree-agent-afe35615` — Content extraction
-  - [ ] `worktree-agent-a6cf2efb` — PDF & citations
-  - [ ] `worktree-agent-a729a1cc` — Twitter/X
-  - [ ] `worktree-agent-ac7b3f0f` — LinkedIn
-  - [ ] `worktree-agent-aaa0a8be` — Google Maps
-  - [ ] `worktree-agent-a630763d` — AI features
-- [ ] Build verification after merge
 - [ ] Manual browser testing
+  - [ ] Regular webpage extraction
+  - [ ] Twitter tweet — verify author name shows correctly
+  - [ ] Twitter thread scroll extraction
+  - [ ] LinkedIn post extraction
+  - [ ] PDF extraction + citation generation
+  - [ ] Google Maps extraction + control
+  - [ ] Tab switching (5+ tabs rapidly)
+  - [ ] AI summary, chat, TTS
 
 ## Discovered (from bug hunt agents)
 
