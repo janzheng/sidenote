@@ -55,20 +55,30 @@ export async function handleMapsExtraction(url: string, sendResponse: (response:
       return;
     }
 
-    // Send message to content script
+    // Send message to content script with auto-injection fallback
     let response: any;
     try {
       response = await chrome.tabs.sendMessage(tab.id, { action: 'extractMapsData' });
-    } catch (err) {
-      console.error('❌ Content script not available:', err);
-      await backgroundDataController.saveData(url, {
-        processing: { mapsData: { isExtracting: false, isControlling: false, error: 'Content script not available' } }
-      });
-      sendResponse({
-        success: false,
-        error: 'Content script not available. Please refresh the page and try again.'
-      });
-      return;
+    } catch {
+      console.warn('⚠️ Content script not found for Maps, injecting...');
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content-script.js']
+        });
+        await new Promise(r => setTimeout(r, 300));
+        response = await chrome.tabs.sendMessage(tab.id, { action: 'extractMapsData' });
+      } catch (retryErr) {
+        console.error('❌ Content script not available after injection:', retryErr);
+        await backgroundDataController.saveData(url, {
+          processing: { mapsData: { isExtracting: false, isControlling: false, error: 'Content script not available' } }
+        });
+        sendResponse({
+          success: false,
+          error: 'Content script not available. Please refresh the page and try again.'
+        });
+        return;
+      }
     }
 
     if (response?.success && response?.data) {

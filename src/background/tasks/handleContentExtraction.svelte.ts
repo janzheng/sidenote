@@ -30,16 +30,32 @@ export async function handleContentExtraction(tabId: number, sendResponse: (resp
 
     console.log('🔧 Processing URL:', tab.url);
 
-    // Send message to content script with retry (content script may not be injected yet)
+    // Send message to content script with retry + auto-injection
     let response: any = null;
-    for (let attempt = 1; attempt <= 3; attempt++) {
+    let injected = false;
+    for (let attempt = 1; attempt <= 4; attempt++) {
       try {
         response = await chrome.tabs.sendMessage(tabId, { action: 'extractContent' });
         break; // Success — exit retry loop
       } catch (err) {
-        if (attempt < 3) {
-          console.warn(`⚠️ Content script not ready (attempt ${attempt}/3), retrying in ${attempt * 500}ms...`);
-          await new Promise(r => setTimeout(r, attempt * 500));
+        if (attempt === 2 && !injected) {
+          // After first failure, try injecting the content script programmatically
+          // This handles tabs that were open before the extension loaded
+          console.warn('⚠️ Content script not found, injecting programmatically...');
+          try {
+            await chrome.scripting.executeScript({
+              target: { tabId },
+              files: ['content-script.js']
+            });
+            injected = true;
+            console.log('✅ Content script injected, retrying...');
+            await new Promise(r => setTimeout(r, 300));
+          } catch (injectErr) {
+            console.warn('⚠️ Could not inject content script:', injectErr);
+          }
+        } else if (attempt < 4) {
+          console.warn(`⚠️ Content script not ready (attempt ${attempt}/4), retrying in ${attempt * 400}ms...`);
+          await new Promise(r => setTimeout(r, attempt * 400));
         } else {
           console.error('❌ Content script communication failed after retries:', err);
           sendResponse({ success: false, error: 'Failed to communicate with content script. Try refreshing the page.' });

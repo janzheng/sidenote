@@ -105,13 +105,30 @@ export async function handleLinkedInThreadExtractionWithScroll(
       return;
     }
 
-    // Send message to content script to start extraction with scrolling and expansion
-    const response = await chrome.tabs.sendMessage(tab.id, {
-      action: 'extractLinkedInThreadWithScroll',
-      maxScrolls: maxScrolls,
-      scrollDelay: scrollDelay,
-      maxExpansions: maxExpansions
-    });
+    // Send message to content script with auto-injection fallback
+    let response: any;
+    try {
+      response = await chrome.tabs.sendMessage(tab.id, {
+        action: 'extractLinkedInThreadWithScroll',
+        maxScrolls, scrollDelay, maxExpansions
+      });
+    } catch {
+      // Content script not injected — inject and retry
+      console.warn('⚠️ Content script not found for LinkedIn extraction, injecting...');
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content-script.js']
+        });
+        await new Promise(r => setTimeout(r, 300));
+        response = await chrome.tabs.sendMessage(tab.id, {
+          action: 'extractLinkedInThreadWithScroll',
+          maxScrolls, scrollDelay, maxExpansions
+        });
+      } catch (retryErr) {
+        response = { success: false, error: 'Content script not available. Try refreshing the page.' };
+      }
+    }
 
     if (!response || !response.success) {
       const errorMsg = response?.error || 'Extraction with scrolling failed (no response from content script)';
