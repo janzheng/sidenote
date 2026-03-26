@@ -21,6 +21,8 @@
   let expandedItems = $state(new Set<string>());
   let imageDimensions = $state(new Map<string, { width: number; height: number }>());
   let loadingDimensions = $state(new Set<string>());
+  // Track which image URLs we have already requested to prevent duplicate loads
+  let requestedDimensions = new Set<string>();
 
   // Derived states from props
   const fonts = $derived(pageAssets?.fonts || []);
@@ -45,58 +47,82 @@
   // Load image dimensions when images change
   $effect(() => {
     if (images.length > 0) {
-      images.forEach((image: ImageInfo) => {
-        // Skip if we already have dimensions or are currently loading
-        if (imageDimensions.has(image.id) || loadingDimensions.has(image.id)) {
-          return;
+      // Collect all mutations first, then batch-update reactive state once
+      const newEntries: Array<{ id: string; width: number; height: number }> = [];
+      const toLoad: ImageInfo[] = [];
+
+      for (const image of images) {
+        // Skip if already loaded, currently loading, or previously requested
+        if (imageDimensions.has(image.id) || requestedDimensions.has(image.id)) {
+          continue;
         }
-        
-        // Skip if the image already has dimensions
+
+        // If the image already carries its own dimensions, record them
         if (image.width && image.height) {
-          imageDimensions.set(image.id, { width: image.width, height: image.height });
-          return;
+          newEntries.push({ id: image.id, width: image.width, height: image.height });
+          requestedDimensions.add(image.id);
+          continue;
         }
-        
+
+        toLoad.push(image);
+        requestedDimensions.add(image.id);
+      }
+
+      // Batch-apply any pre-known dimensions in a single reactive update
+      if (newEntries.length > 0) {
+        const next = new Map(imageDimensions);
+        for (const entry of newEntries) {
+          next.set(entry.id, { width: entry.width, height: entry.height });
+        }
+        imageDimensions = next;
+      }
+
+      // Kick off async loads for the rest
+      for (const image of toLoad) {
         loadImageDimensions(image);
-      });
+      }
     }
   });
 
   // Load actual image dimensions
   async function loadImageDimensions(imageInfo: ImageInfo) {
+    // Guard: if somehow called twice for the same image, bail out
     if (loadingDimensions.has(imageInfo.id)) return;
-    
+
     loadingDimensions.add(imageInfo.id);
-    
+    loadingDimensions = new Set(loadingDimensions); // Trigger reactivity
+
     try {
       const img = new Image();
       img.crossOrigin = 'anonymous'; // Try to avoid CORS issues
-      
+
       const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
         const timeout = setTimeout(() => {
           reject(new Error('Image load timeout'));
         }, 5000); // 5 second timeout
-        
+
         img.onload = () => {
           clearTimeout(timeout);
           resolve({ width: img.naturalWidth, height: img.naturalHeight });
         };
-        
+
         img.onerror = () => {
           clearTimeout(timeout);
           reject(new Error('Failed to load image'));
         };
-        
+
         img.src = imageInfo.src;
       });
-      
-      imageDimensions.set(imageInfo.id, dimensions);
-      imageDimensions = new Map(imageDimensions); // Trigger reactivity
+
+      const next = new Map(imageDimensions);
+      next.set(imageInfo.id, dimensions);
+      imageDimensions = next; // Single reactive update
     } catch (error) {
       console.warn(`Failed to load dimensions for image ${imageInfo.id}:`, error);
     } finally {
-      loadingDimensions.delete(imageInfo.id);
-      loadingDimensions = new Set(loadingDimensions); // Trigger reactivity
+      const nextLoading = new Set(loadingDimensions);
+      nextLoading.delete(imageInfo.id);
+      loadingDimensions = nextLoading; // Single reactive update
     }
   }
 

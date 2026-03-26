@@ -47,7 +47,8 @@ class ChatManager {
       const previousHistory = this.state.messages;
       const optimisticUserMessage: ChatMessage = {
         role: 'user',
-        content: trimmedMessage
+        content: trimmedMessage,
+        timestamp: Date.now()
       };
       this.state.messages = [...previousHistory, optimisticUserMessage];
       
@@ -61,7 +62,7 @@ class ChatManager {
 
       if (response.success) {
         console.log('✅ Chat message sent successfully');
-        this.state.messages = response.messages || [];
+        this.state.messages = this.ensureTimestamps(response.messages || []);
         this.state.chatError = null;
 
         // Call the success callback to refresh the panel
@@ -146,9 +147,14 @@ class ChatManager {
     }
   }
 
+  // Ensure all messages have a timestamp, adding one if missing
+  private ensureTimestamps(messages: ChatMessage[]): ChatMessage[] {
+    return messages.map(msg => msg.timestamp ? msg : { ...msg, timestamp: Date.now() });
+  }
+
   // Set messages from external source (e.g., when loading existing chat)
   setMessages(messages: ChatMessage[]) {
-    this.state.messages = messages;
+    this.state.messages = this.ensureTimestamps(messages);
   }
 
   // Reset chat state

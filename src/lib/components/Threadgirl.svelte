@@ -177,16 +177,16 @@
     }
   }
 
-  // Clear all results (placeholder)
-  function clearAllResults() {
-    console.log("ThreadGirl: Clear all results functionality would be implemented here");
-    // Would need to implement in threadgirlManager or background
+  // Clear all results
+  async function clearAllResults() {
+    if (!url) return;
+    await threadgirlManager.handleClearAllResults(url, onRefresh);
   }
 
-  // Remove single result (placeholder)
-  function removeResult(resultId: string) {
-    console.log("ThreadGirl: Remove result functionality would be implemented here", resultId);
-    // Would need to implement in threadgirlManager or background
+  // Remove single result
+  async function removeResult(resultId: string) {
+    if (!url) return;
+    await threadgirlManager.handleRemoveResult(url, resultId, onRefresh);
   }
 
   onMount(() => {

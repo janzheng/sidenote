@@ -32,6 +32,7 @@
   let sections = $state<PaperSection[]>([]);
   let draggedSection = $state<PaperSection | null>(null);
   let dragOverDropZone = $state<number>(-1);
+  let dragLeaveTimeout: ReturnType<typeof setTimeout> | null = null;
   
   // Track expanded state separately to preserve across updates
   let expandedSections = $state<Set<string>>(new Set());
@@ -305,8 +306,9 @@
   }
 
   function handleDropZoneDragLeave() {
-    // Small delay to prevent flickering when moving between related elements
-    setTimeout(() => {
+    // Clear any pending timeout to prevent accumulation on rapid drag
+    if (dragLeaveTimeout) clearTimeout(dragLeaveTimeout);
+    dragLeaveTimeout = setTimeout(() => {
       dragOverDropZone = -1;
     }, 10);
   }

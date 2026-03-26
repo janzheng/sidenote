@@ -262,7 +262,7 @@
                <div class="flex flex-col w-full group">
                  <div class="flex items-center gap-2 mb-1">
                    <span class="text-gray-400 ml-auto text-xs">
-                     {formatTime(Date.now())}
+                     {formatTime(message.timestamp ?? Date.now())}
                    </span>
                   <CopyButton 
                     copyFn={() => handleCopyMessage(message.content)}
@@ -283,7 +283,7 @@
                   <div class="w-full">
                     <div class="text-gray-900 dark:text-gray-300 break-words prose prose-sm max-w-none markdown-content">
                       {@html renderMarkdown(message.content)}
-                      {#if isGenerating || chatManager.isGenerating}
+                      {#if (isGenerating || chatManager.isGenerating) && index === displayMessages.length - 1}
                         <span class="inline-block w-2 h-4 bg-green-600 animate-pulse ml-1"></span>
                       {/if}
                     </div>

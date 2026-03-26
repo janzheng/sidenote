@@ -78,12 +78,35 @@ const DEFAULT_SETTINGS: Settings = {
   threadgirlSheetName: 'Capsid Toolbox Prompts'
 };
 
+// URL fields that should be validated when non-empty
+const URL_SETTING_KEYS: Array<keyof Settings> = [
+  'sheetUrl',
+  'threadgirlPipelineUrl',
+  'threadgirlSheetUrl'
+];
+
+// API key fields that should be validated as non-empty after trim
+const API_KEY_SETTING_KEYS: Array<keyof Settings> = [
+  'apiKey',
+  'jinaApiKey'
+];
+
+function isValidUrl(value: string): boolean {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export class SettingsManager {
   settings = $state<Settings>({ ...DEFAULT_SETTINGS });
   isLoading = $state(false);
   isSaving = $state(false);
   saveStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
   error = $state<string | null>(null);
+  validationWarnings = $state<string[]>([]);
   copyStatus = $state<'idle' | 'success' | 'error'>('idle');
   clearStatus = $state<'idle' | 'cleared' | 'error'>('idle');
   isCopyingStorage = $state(false);
@@ -154,6 +177,31 @@ export class SettingsManager {
     this.scheduleSave();
   }
 
+  // Validate current settings and return warnings (does not block saving)
+  private validateSettings(): string[] {
+    const warnings: string[] = [];
+
+    // Validate API keys: warn if they look like they were accidentally set to whitespace
+    for (const key of API_KEY_SETTING_KEYS) {
+      const value = (this.settings as any)[key] as string;
+      if (value && value.length > 0 && value.trim().length === 0) {
+        warnings.push(`${key} contains only whitespace and will not work.`);
+        console.warn(`Settings validation: ${key} is non-empty but contains only whitespace.`);
+      }
+    }
+
+    // Validate URL fields: if provided, must be a valid URL
+    for (const key of URL_SETTING_KEYS) {
+      const value = (this.settings as any)[key] as string;
+      if (value && value.trim().length > 0 && !isValidUrl(value.trim())) {
+        warnings.push(`${key} does not appear to be a valid URL.`);
+        console.warn(`Settings validation: ${key} ("${value}") is not a valid URL.`);
+      }
+    }
+
+    return warnings;
+  }
+
   private scheduleSave() {
     if (this.saveTimeout) {
       clearTimeout(this.saveTimeout);
@@ -170,6 +218,9 @@ export class SettingsManager {
       this.isSaving = true;
       this.saveStatus = 'saving';
       this.error = null;
+
+      // Run validation (warnings only -- does not block save)
+      this.validationWarnings = this.validateSettings();
 
       // Save each setting to storage
       const promises = Object.entries(STORAGE_KEYS).map(([key, storageKey]) => {

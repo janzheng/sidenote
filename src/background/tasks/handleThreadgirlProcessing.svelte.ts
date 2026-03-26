@@ -127,6 +127,33 @@ export async function handleThreadgirlProcessing(
 }
 
 /**
+ * Clear all Threadgirl results for a URL
+ */
+export async function handleClearThreadgirlResults(url: string, sendResponse: (response: any) => void) {
+  try {
+    await backgroundDataController.saveData(url, { analysis: { threadgirlResults: [] } });
+    sendResponse({ success: true });
+  } catch (error) {
+    sendResponse({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
+  }
+}
+
+/**
+ * Remove a single Threadgirl result by ID
+ */
+export async function handleRemoveThreadgirlResult(url: string, resultId: string, sendResponse: (response: any) => void) {
+  try {
+    const tabData = await backgroundDataController.loadData(url);
+    const existing = tabData?.analysis?.threadgirlResults || [];
+    const updated = existing.filter((r: ThreadgirlResult) => r.id !== resultId);
+    await backgroundDataController.saveData(url, { analysis: { threadgirlResults: updated } });
+    sendResponse({ success: true });
+  } catch (error) {
+    sendResponse({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
+  }
+}
+
+/**
  * Get Threadgirl status for a URL
  */
 export async function getThreadgirlStatus(url: string): Promise<{ 

@@ -282,7 +282,7 @@
     console.log('🤖 Sending message to ReAct agent:', message);
     
     // Get page content for context
-    const pageContent = content?.text ? content.text.slice(0, 5000) : undefined;
+    const pageContent = content?.text?.slice(0, 5000) ?? undefined;
     
     await reactAgentManager.handleRunAgent(message, pageContent, () => {
       if (onRefresh) {
@@ -342,16 +342,43 @@
     }
   }
 
+  // Sanitize HTML to prevent XSS attacks
+  function sanitizeHtml(html: string): string {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    // Remove dangerous elements
+    const dangerousTags = ['script', 'iframe', 'object', 'embed', 'form', 'input', 'style', 'link', 'meta', 'base'];
+    for (const tag of dangerousTags) {
+      const elements = doc.querySelectorAll(tag);
+      elements.forEach(el => el.remove());
+    }
+
+    // Remove dangerous attributes from all elements
+    const allElements = doc.querySelectorAll('*');
+    allElements.forEach(el => {
+      const attrs = Array.from(el.attributes);
+      for (const attr of attrs) {
+        const name = attr.name.toLowerCase();
+        // Remove event handlers and javascript: URLs
+        if (name.startsWith('on') || (name === 'href' && attr.value.trim().toLowerCase().startsWith('javascript:'))) {
+          el.removeAttribute(attr.name);
+        }
+      }
+    });
+
+    return doc.body.innerHTML;
+  }
+
   // Render markdown safely
   function renderMarkdown(content: string): string {
     try {
-      console.log('🔍 [aiReActAgent] renderMarkdown raw content:', content);
       const result = marked.parse(content);
-      console.log('🔍 [aiReActAgent] renderMarkdown result:', result);
-      return typeof result === 'string' ? result : content;
+      const html = typeof result === 'string' ? result : content;
+      return sanitizeHtml(html);
     } catch (error) {
       console.warn('Markdown rendering error:', error);
-      return content;
+      return sanitizeHtml(content);
     }
   }
 
@@ -566,7 +593,7 @@
              <div class="group">
                <div class="flex items-center gap-2 mb-1">
                  <span class="text-gray-400 ml-auto text-xs">
-                   {formatTime(Date.now())}
+                   {formatTime((item as any).timestamp ?? Date.now())}
                  </span>
                  <CopyButton 
                    copyFn={() => handleCopyContent(renderAgentContent(item))}

@@ -386,46 +386,43 @@
     setTimeout(() => repairInvalidLinks(chatContainer), 0);
   });
 
-  // Handle in-panel link clicks: navigate the Google Maps tab directly; fallback to background/content-script
+  // Stable handler reference — defined outside $effect so add/removeEventListener use same identity
+  function handleLinkClick(event: MouseEvent) {
+    const targetEl = event.target as HTMLElement | null;
+    const anchor = targetEl?.closest('a') as HTMLAnchorElement | null;
+    if (!anchor) return;
+    const href = anchor.getAttribute('href') || '';
+    if (!href || href.startsWith('#') || href.toLowerCase().startsWith('javascript:')) return;
+    const wantsMapsNav = anchor.getAttribute('data-navigate') === 'maps' || isGoogleMapsUrl(href) || href.includes('/maps/search/') || href.includes('/maps/dir/');
+    if (!wantsMapsNav) return;
+    event.preventDefault();
+
+    const q = deriveSearchQueryFromHref(href);
+    if (q) {
+      chrome.runtime.sendMessage({ action: 'controlMaps', url, command: { action: 'search', params: { query: q } } }, () => {});
+      return;
+    }
+
+    chrome.tabs.query({ lastFocusedWindow: true }, (tabs) => {
+      const equalsMatch = url ? tabs.find(t => t.url === url) : undefined;
+      const mapsMatch = tabs.find(t => (t.url || '').includes('/maps'));
+      const activeMatch = tabs.find(t => t.active);
+      const targetTab = equalsMatch || mapsMatch || activeMatch;
+      if (targetTab && targetTab.id) {
+        chrome.tabs.update(targetTab.id, { url: href }, () => {
+          if (chrome.runtime.lastError) {
+            chrome.runtime.sendMessage({ action: 'navigateToUrl', url: href, currentTabUrl: url || undefined }, () => {});
+          }
+        });
+      } else {
+        chrome.runtime.sendMessage({ action: 'navigateToUrl', url: href, currentTabUrl: url || undefined }, () => {});
+      }
+    });
+  }
+
+  // Handle in-panel link clicks
   $effect(() => {
     if (!chatContainer) return;
-    const handleLinkClick = (event: MouseEvent) => {
-      const targetEl = event.target as HTMLElement | null;
-      const anchor = targetEl?.closest('a') as HTMLAnchorElement | null;
-      if (!anchor) return;
-      const href = anchor.getAttribute('href') || '';
-      if (!href || href.startsWith('#') || href.toLowerCase().startsWith('javascript:')) return;
-      const wantsMapsNav = anchor.getAttribute('data-navigate') === 'maps' || isGoogleMapsUrl(href) || href.includes('/maps/search/') || href.includes('/maps/dir/');
-      if (!wantsMapsNav) return;
-      event.preventDefault();
-
-      // Prefer SPA-friendly control: if this is a search link, run a Maps search via content script
-      const q = deriveSearchQueryFromHref(href);
-      if (q) {
-        // Use the Maps control pipeline to trigger search in the Maps tab
-        chrome.runtime.sendMessage({ action: 'controlMaps', url, command: { action: 'search', params: { query: q } } }, () => {});
-        return;
-      }
-
-      // Otherwise, try to update an appropriate tab directly from the side panel
-      chrome.tabs.query({ lastFocusedWindow: true }, (tabs) => {
-        const equalsMatch = url ? tabs.find(t => t.url === url) : undefined;
-        const mapsMatch = tabs.find(t => (t.url || '').includes('/maps'));
-        const activeMatch = tabs.find(t => t.active);
-        const targetTab = equalsMatch || mapsMatch || activeMatch;
-        if (targetTab && targetTab.id) {
-          chrome.tabs.update(targetTab.id, { url: href }, () => {
-            if (chrome.runtime.lastError) {
-              // Fallback to background-assisted navigation
-              chrome.runtime.sendMessage({ action: 'navigateToUrl', url: href, currentTabUrl: url || undefined }, () => {});
-            }
-          });
-        } else {
-          // Last fallback
-          chrome.runtime.sendMessage({ action: 'navigateToUrl', url: href, currentTabUrl: url || undefined }, () => {});
-        }
-      });
-    };
     chatContainer.addEventListener('click', handleLinkClick);
     return () => chatContainer?.removeEventListener('click', handleLinkClick);
   });

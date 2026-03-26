@@ -69,6 +69,8 @@
 
   // Start fake loading progress
   function startFakeLoading(quick = false) {
+    // Clear any existing interval to prevent leaks if called multiple times
+    if (fakeLoadingInterval) clearInterval(fakeLoadingInterval);
     isQuickAnalysis = quick;
     fakeLoadingStep = 0;
     fakeLoadingProgress = currentLoadingSteps[0];

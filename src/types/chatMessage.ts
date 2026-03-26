@@ -12,4 +12,5 @@ export interface ChatMessage {
   content: string | null;
   tool_calls?: ToolCall[];
   tool_call_id?: string;
+  timestamp?: number;
 } 

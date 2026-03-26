@@ -246,8 +246,8 @@ The goal is to create speech-ready text that sounds like the original author giv
   // Handle copying rewritten text
   async function handleCopyText() {
     const textToCopy = editableText || textToSpeech?.rewrittenText;
-    if (!textToCopy) return;
-    
+    if (!textToCopy?.trim()) return;
+
     try {
       await navigator.clipboard.writeText(textToCopy);
     } catch (error) {

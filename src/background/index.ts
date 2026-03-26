@@ -9,7 +9,7 @@ import { handleSummaryGeneration, getSummaryStatus } from './tasks/handleSummary
 import { handleResearchPaperExtraction, handleQuickResearchPaperExtraction, handleSingleSectionExtraction, getResearchPaperStatus } from './tasks/handleResearchPaperExtraction.svelte';
 import { handleContentStructureParsing, getContentStructureStatus } from './tasks/handleContentStructureParsing.svelte';
 import { handleChatMessage, handleClearChatHistory, getChatStatus } from './tasks/handleChatMessage.svelte';
-import { handleThreadgirlProcessing, getThreadgirlStatus } from './tasks/handleThreadgirlProcessing.svelte';
+import { handleThreadgirlProcessing, getThreadgirlStatus, handleClearThreadgirlResults, handleRemoveThreadgirlResult } from './tasks/handleThreadgirlProcessing.svelte';
 import { handlePageAssetsExtraction, getPageAssetsStatus } from './tasks/handlePageAssetsExtraction.svelte';
 import { handleJinaPageshot, handleJinaScreenshot, getScreenshotStatus } from './tasks/handleJinaScreenshots.svelte';
 import { handleRecipeExtraction, getRecipeStatus } from './tasks/handleRecipeExtraction.svelte';
@@ -71,6 +71,8 @@ const handlers: Record<string, Handler> = {
   // Threadgirl
   processWithThreadgirl: (msg, send) => handleThreadgirlProcessing(msg.url, msg.prompt, msg.model, send),
   getThreadgirlStatus: statusHandler(getThreadgirlStatus),
+  clearThreadgirlResults: (msg, send) => handleClearThreadgirlResults(msg.url, send),
+  removeThreadgirlResult: (msg, send) => handleRemoveThreadgirlResult(msg.url, msg.resultId, send),
 
   // Page assets
   extractPageAssets: (msg, send) => handlePageAssetsExtraction(msg.url, send),
@@ -193,7 +195,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const handler = handlers[message.action];
   if (!handler) {
     // Not our message — let DataController's listener handle data actions
-    return;
+    // Return false (not undefined) so Chrome keeps the channel open for other listeners
+    return false;
   }
 
   Promise.resolve(handler(message, sendResponse)).catch(err => {

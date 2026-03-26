@@ -1,6 +1,19 @@
 <script lang="ts">
   import { settingsManager } from '../ui/settings.svelte';
   import AutoRefreshToggle from './ui/AutoRefreshToggle.svelte';
+
+  let saveError = $state<string | null>(null);
+
+  async function handleSave() {
+    try {
+      saveError = null;
+      await settingsManager.saveSettings();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to save settings';
+      saveError = message;
+      console.error('Settings save error:', err);
+    }
+  }
 </script>
 
 <div class="h-full flex flex-col pt-16 bg-gray-50">
@@ -19,7 +32,7 @@
       <div class="flex justify-end">
         <button 
           class="px-4 py-2 bg-gray-100 text-gray-900 rounded hover:bg-gray-200 transition-colors font-semibold flex items-center gap-2 justify-center border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          onclick={() => settingsManager.saveSettings()}
+          onclick={handleSave}
         >
           {#if settingsManager.isSaved}
             <span class="flex items-center">
@@ -33,7 +46,23 @@
           {/if}
         </button>
       </div>
-       
+
+      {#if saveError || settingsManager.error}
+        <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p class="text-red-700 text-sm font-medium">
+            {saveError || settingsManager.error}
+          </p>
+        </div>
+      {/if}
+
+      {#if settingsManager.validationWarnings && settingsManager.validationWarnings.length > 0}
+        <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          {#each settingsManager.validationWarnings as warning}
+            <p class="text-yellow-700 text-sm">{warning}</p>
+          {/each}
+        </div>
+      {/if}
+
       <!-- API Configuration -->
       <div class="bg-gray-50 p-4 rounded border border-gray-200">
         <h3 class="text-md font-medium mb-3 text-gray-700">API Configuration</h3>
@@ -296,7 +325,7 @@
       <div class="flex justify-end mt-6">
         <button 
           class="px-4 py-2 bg-gray-100 text-gray-900 rounded hover:bg-gray-200 transition-colors font-semibold flex items-center gap-2 justify-center border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          onclick={() => settingsManager.saveSettings()}
+          onclick={handleSave}
         >
           {#if settingsManager.isSaved}
             <span class="flex items-center">

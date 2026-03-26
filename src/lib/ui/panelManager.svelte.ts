@@ -533,7 +533,11 @@ export class PanelManager {
         if (cachedResponse?.success && cachedResponse?.data?.content) {
           console.log('⚡ Loaded cached data for tab switch');
           this.state.content = cachedResponse.data;
+          this.state.error = null;
+          this.state.isLoading = false;
           this.lastExtractedUrl = tab.url;
+          // Reset feature managers so they don't show stale state from previous tab
+          this.resetFeatureManagers();
           return;
         }
 
@@ -661,6 +665,14 @@ export class PanelManager {
     } finally {
       this.state.isLoading = false;
     }
+  }
+
+  private resetFeatureManagers() {
+    bookmarkManager.reset();
+    summaryManager.reset();
+    chatManager.reset();
+    threadgirlManager.reset();
+    contentStructureManager.reset();
   }
 
   // Clean up event listeners and timeouts
