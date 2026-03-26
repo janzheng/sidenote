@@ -56,7 +56,24 @@ export async function executeToolCall(
   
   try {
     console.log(`🔧 Calling ${toolName}.func with params:`, params);
-    const result = await tool.func(params, signal);
+
+    // Wrap tool execution with a timeout to prevent hanging
+    const TOOL_TIMEOUT_MS = 30000; // 30 second timeout
+    const result = await Promise.race([
+      tool.func(params, signal),
+      new Promise<never>((_, reject) => {
+        const timer = setTimeout(() => reject(new Error(`Tool "${toolName}" timed out after ${TOOL_TIMEOUT_MS / 1000}s`)), TOOL_TIMEOUT_MS);
+        // If signal is already aborted or gets aborted, reject immediately
+        if (signal?.aborted) {
+          clearTimeout(timer);
+          reject(new Error('Tool execution aborted'));
+        }
+        signal?.addEventListener('abort', () => {
+          clearTimeout(timer);
+          reject(new Error('Tool execution aborted'));
+        });
+      })
+    ]);
     const items = Array.isArray(result) ? result : [result];
     
     // Validate each item

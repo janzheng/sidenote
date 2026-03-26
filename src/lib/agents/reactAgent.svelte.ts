@@ -212,14 +212,33 @@ export class ReActAgent {
         this.state.conversationHistory.push(assistantMessage);
 
         // Parse and execute the response
-        const shouldContinue = await this.processAgentResponse(
-          response.content,
-          tools,
-          conversation
-        );
+        let shouldContinue: boolean;
+        try {
+          shouldContinue = await this.processAgentResponse(
+            response.content,
+            tools,
+            conversation
+          );
+        } catch (processError) {
+          console.error('❌ Error processing agent response:', processError);
+          this.push({
+            type: 'comment',
+            text: sanitize(`❌ Error processing response: ${processError instanceof Error ? processError.message : 'Unknown error'}`)
+          });
+          break;
+        }
 
         if (!shouldContinue) {
           break;
+        }
+
+        // Guard against unbounded local conversation growth (max 100 messages)
+        if (conversation.length > 100) {
+          const systemMsgs = conversation.filter(msg => msg.role === 'system');
+          const nonSystemMsgs = conversation.filter(msg => msg.role !== 'system');
+          const trimmed = nonSystemMsgs.slice(nonSystemMsgs.length - 80);
+          conversation.length = 0;
+          conversation.push(...systemMsgs, ...trimmed);
         }
       }
 

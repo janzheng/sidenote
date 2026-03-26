@@ -190,12 +190,11 @@ export const planMultiDestinationTripTool: AgentTool = {
       }
       
       // Navigate to the multi-destination URL
-      await chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0] && tabs[0].id) {
-          chrome.tabs.update(tabs[0].id, { url: directionsUrl });
-        }
-      });
-      
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs[0] && tabs[0].id) {
+        await chrome.tabs.update(tabs[0].id, { url: directionsUrl });
+      }
+
       // For display, use the actual destinations (without "My Location" duplicates for round trips)
       const displayDestinations = isRoundTrip ? actualDestinations : destinations;
       const tripList = displayDestinations.map((dest, i) => `${i + 1}. ${dest}`).join('\n');
@@ -354,12 +353,11 @@ export const updateMultiDestinationTripTool: AgentTool = {
           directionsUrl += '?optimize=true';
         }
         
-        await chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-          if (tabs[0] && tabs[0].id) {
-            chrome.tabs.update(tabs[0].id, { url: directionsUrl });
-          }
-        });
-        
+        const updateTabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (updateTabs[0] && updateTabs[0].id) {
+          await chrome.tabs.update(updateTabs[0].id, { url: directionsUrl });
+        }
+
         const tripList = newDestinations.map((dest, i) => `${i + 1}. ${dest}`).join('\n');
         const fromText = from ? ` from ${from}` : ' from your current location';
         
@@ -554,11 +552,10 @@ export const validateMultiDestinationRouteTool: AgentTool = {
         directionsUrl += `/${encodeURIComponent(finalDestination)}`;
         
         // Navigate to corrected URL
-        await chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-          if (tabs[0] && tabs[0].id) {
-            chrome.tabs.update(tabs[0].id, { url: directionsUrl });
-          }
-        });
+        const validateTabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (validateTabs[0] && validateTabs[0].id) {
+          await chrome.tabs.update(validateTabs[0].id, { url: directionsUrl });
+        }
         
         response += `✅ **Corrected Route Created!**\n\n${correctedTripList}\n\nThe route has been updated on Google Maps with more specific location names to prevent geographic confusion.`;
       } else {

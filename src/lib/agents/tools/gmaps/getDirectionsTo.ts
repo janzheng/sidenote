@@ -56,11 +56,10 @@ export const getDirectionsToTool: AgentTool = {
           const directionsUrl = `https://maps.google.com/maps/dir/${encodeURIComponent(origin)}/${waypointArray.map((w: string) => encodeURIComponent(w)).join('/')}/${encodeURIComponent(destination)}`;
           
           // Navigate to the multi-destination URL
-          await chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs[0] && tabs[0].id) {
-              chrome.tabs.update(tabs[0].id, { url: directionsUrl });
-            }
-          });
+          const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (tabs[0] && tabs[0].id) {
+            await chrome.tabs.update(tabs[0].id, { url: directionsUrl });
+          }
           
           const waypointsList = waypointArray.map((wp: string, i: number) => `${i + 1}. ${wp}`).join('\n');
           const fromText = from ? ` from ${from}` : ' from your current location';

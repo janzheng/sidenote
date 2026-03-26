@@ -383,17 +383,29 @@ export class ScrollCapture {
     let node;
     while (node = walker.nextNode()) {
       if (node.textContent?.includes(searchText)) {
-        return node.parentElement;
+        return node.parentElement ?? null;
       }
     }
     return null;
   }
 
   /**
-   * Wait for a specified amount of time
+   * Wait for a specified amount of time, but resolve early if capture is stopped
    */
   private wait(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise(resolve => {
+      const timer = setTimeout(resolve, ms);
+      // Poll for early cancellation so stop() takes effect promptly
+      const check = setInterval(() => {
+        if (!this.isActive) {
+          clearTimeout(timer);
+          clearInterval(check);
+          resolve();
+        }
+      }, 100);
+      // Clean up the interval when the timer fires normally
+      setTimeout(() => clearInterval(check), ms + 50);
+    });
   }
 
   /**

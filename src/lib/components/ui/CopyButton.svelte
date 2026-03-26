@@ -29,10 +29,11 @@
   }: Props = $props();
   
   let copySuccess = $state(false);
-  
+  let copyError = $state(false);
+
   async function handleCopy(event: MouseEvent) {
     event.stopPropagation(); // Prevent event bubbling to parent elements
-    
+
     try {
       if (copyFn) {
         await copyFn();
@@ -42,8 +43,9 @@
         console.warn('CopyButton: No content or copyFn provided');
         return;
       }
-      
+
       copySuccess = true;
+      copyError = false;
       onSuccess?.(true);
       setTimeout(() => {
         copySuccess = false;
@@ -51,6 +53,10 @@
       }, successDuration);
     } catch (err) {
       console.error('Failed to copy content: ', err);
+      copyError = true;
+      setTimeout(() => {
+        copyError = false;
+      }, successDuration);
     }
   }
 </script>
@@ -62,6 +68,8 @@
 >
   {#if copySuccess}
     <Icon icon={successIcon} class="{iconClass} text-green-600" />
+  {:else if copyError}
+    <Icon icon="mdi:alert-circle-outline" class="{iconClass} text-red-500" />
   {:else}
     <Icon icon={defaultIcon} class={iconClass} />
   {/if}

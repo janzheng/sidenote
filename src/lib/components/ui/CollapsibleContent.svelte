@@ -37,7 +37,7 @@
     metadataOnNewRow = false
   }: Props = $props();
   
-  const displayCount = $derived(typeof itemCount === 'number' ? itemCount : itemCount);
+  const displayCount = $derived(itemCount);
   const hasContent = $derived(content && content.length > 0);
 
   function handleToggle() {

@@ -21,8 +21,8 @@
 
   // Auto-populate from current panel content if available
   $effect(() => {
-    if (panelManager.content?.text && !inputContent) {
-      inputContent = panelManager.content.text;
+    if (panelManager.contentText && !inputContent) {
+      inputContent = panelManager.contentText;
     }
   });
 
