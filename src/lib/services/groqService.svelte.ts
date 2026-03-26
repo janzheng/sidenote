@@ -117,9 +117,12 @@ export class GroqService {
         };
       }
 
+      // Strip non-standard fields from messages (e.g. timestamp) — APIs reject unknown properties
+      const cleanMessages = messages.map(({ role, content }) => ({ role, content }));
+
       const requestBody = {
         model: options.model || this.DEFAULT_MODEL,
-        messages: messages,
+        messages: cleanMessages,
         temperature: options.temperature ?? 0.1,
         max_tokens: options.maxTokens || 4000,
         top_p: options.topP ?? 0.9,
@@ -224,9 +227,18 @@ export class GroqService {
         };
       }
 
+      // Strip non-standard fields from messages
+      const cleanMessages = messages.map(({ role, content, ...rest }: any) => {
+        const msg: any = { role, content };
+        if (rest.tool_calls) msg.tool_calls = rest.tool_calls;
+        if (rest.tool_call_id) msg.tool_call_id = rest.tool_call_id;
+        if (rest.name) msg.name = rest.name;
+        return msg;
+      });
+
       const requestBody = {
         model: options.model || this.DEFAULT_MODEL,
-        messages: messages,
+        messages: cleanMessages,
         tools: tools,
         tool_choice: 'auto',
         temperature: options.temperature ?? 0.1,
