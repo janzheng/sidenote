@@ -217,7 +217,9 @@
 >
 
   <!-- API Configuration -->
-  <ApiSettings />
+  {#if !settingsManager.hasApiKey}
+    <ApiSettings />
+  {/if}
 
   <!-- About Section -->
   <div class="py-2">

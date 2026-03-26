@@ -7,6 +7,7 @@
   import CopyButton from './ui/CopyButton.svelte';
   import CollapsibleContent from './ui/CollapsibleContent.svelte';
   import ApiSettings from './ui/ApiSettings.svelte';
+  import { settingsManager } from '../ui/settings.svelte';
   import type { MapsData } from '../../types/mapsData';
   import type { ChatMessage } from '../../types/chatMessage';
   import type { AgentContent } from '../agents/registry.svelte';
@@ -739,7 +740,9 @@
 >
   {#snippet children()}
     <!-- API Configuration -->
-    <ApiSettings />
+    {#if !settingsManager.hasApiKey}
+      <ApiSettings />
+    {/if}
 
     <!-- About Section -->
     <div class="py-2 text-sm text-gray-600">

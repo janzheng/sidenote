@@ -4,6 +4,7 @@
   import { textToSpeechManager } from '../ui/textToSpeechManager.svelte';
   import ToggleDrawer from './ui/ToggleDrawer.svelte';
   import ApiSettings from './ui/ApiSettings.svelte';
+  import { settingsManager } from '../ui/settings.svelte';
   import CopyButton from './ui/CopyButton.svelte';
   import type { TextToSpeech } from '../../types/textToSpeech';
 
@@ -355,7 +356,9 @@ The goal is to create speech-ready text that sounds like the original author giv
 >
   {#snippet children()}
     <!-- API Configuration -->
-    <ApiSettings />
+    {#if !settingsManager.hasApiKey}
+      <ApiSettings />
+    {/if}
 
     <!-- Custom System Prompt Editor -->
     <div class="mb-4">

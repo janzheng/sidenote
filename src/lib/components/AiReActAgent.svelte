@@ -5,6 +5,7 @@
   import ToggleDrawer from './ui/ToggleDrawer.svelte';
   import CopyButton from './ui/CopyButton.svelte';
   import ApiSettings from './ui/ApiSettings.svelte';
+  import { settingsManager } from '../ui/settings.svelte';
   import type { AgentContent } from '../agents/registry.svelte';
   
   // Import agent components
@@ -497,7 +498,9 @@
 >
   {#snippet children()}
     <!-- API Configuration -->
-    <ApiSettings />
+    {#if !settingsManager.hasApiKey}
+      <ApiSettings />
+    {/if}
 
     <!-- About Section -->
     <div class="py-2 text-sm text-gray-600">

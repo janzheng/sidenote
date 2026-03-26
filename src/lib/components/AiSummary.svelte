@@ -4,6 +4,7 @@
   import { summaryManager } from '../ui/summaryManager.svelte';
   import ToggleDrawer from './ui/ToggleDrawer.svelte';
   import ApiSettings from './ui/ApiSettings.svelte';
+  import { settingsManager } from '../ui/settings.svelte';
 
   interface Props {
     url: string | null;
@@ -92,8 +93,10 @@
   bind:isExpanded
 >
   {#snippet children()}
-    <!-- API Configuration -->
-    <ApiSettings />
+    <!-- API Configuration — only show when no API key is set -->
+    {#if !settingsManager.hasApiKey}
+      <ApiSettings />
+    {/if}
 
     <!-- About Section -->
     <div class="py-2">

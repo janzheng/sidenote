@@ -6,6 +6,7 @@
   import CopyButton from './ui/CopyButton.svelte';
   import type { ChatMessage } from '../../types/chatMessage';
   import ApiSettings from './ui/ApiSettings.svelte';
+  import { settingsManager } from '../ui/settings.svelte';
 
   interface Props {
     url: string | null;
@@ -210,7 +211,9 @@
   >
   {#snippet children()}
     <!-- API Configuration -->
-    <ApiSettings compact={true} />
+    {#if !settingsManager.hasApiKey}
+      <ApiSettings compact={true} />
+    {/if}
 
     <!-- Clear and Copy All Buttons -->
     {#if hasMessages}

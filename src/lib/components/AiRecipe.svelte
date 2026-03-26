@@ -6,6 +6,7 @@
   import { RecipeService } from '../services/recipeService.svelte';
   import type { Recipe, RecipeIngredient, RecipeInstruction } from '../../types/recipe';
   import ApiSettings from './ui/ApiSettings.svelte';
+  import { settingsManager } from '../ui/settings.svelte';
 
   interface Props {
     url: string | null;
@@ -132,7 +133,9 @@
 >
   {#snippet children()}
     <!-- API Configuration -->
-    <ApiSettings />
+    {#if !settingsManager.hasApiKey}
+      <ApiSettings />
+    {/if}
 
     <!-- About Section -->
     <div class="py-2">

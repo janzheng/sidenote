@@ -7,6 +7,7 @@
   import CopyButton from './ui/CopyButton.svelte';
   import CollapsibleContent from './ui/CollapsibleContent.svelte';
   import ApiSettings from './ui/ApiSettings.svelte';
+  import { settingsManager } from '../ui/settings.svelte';
   import type { ChatMessage } from '../../types/chatMessage';
 
   interface Props {
@@ -89,14 +90,8 @@
     wasGenerating = isCurrentlyGenerating;
   });
 
-  // Auto-generate summary when drawer opens
+  // Handle drawer toggle — no auto-summarize, user clicks button instead
   async function handleToggle(expanded: boolean) {
-    if (expanded && !hasSummary && !hasSummaryGenerated && canGenerate) {
-      hasSummaryGenerated = true;
-      isSummaryExpanded = true; // Auto-expand summary when generating
-      await handleGenerateSummary();
-    }
-    
     if (expanded && inputElement) {
       // Focus the input when drawer opens
       requestAnimationFrame(() => {
@@ -270,13 +265,25 @@
   onToggle={handleToggle}
 >
   {#snippet children()}
-    <!-- API Configuration -->
-    <ApiSettings />
+    <!-- API Configuration — only show when no API key is set -->
+    {#if !settingsManager.hasApiKey}
+      <ApiSettings />
+    {/if}
 
-    <!-- About Section -->
-    <div class="py-2">
-      Get an AI summary and chat about the page content. The summary is automatically generated when you open this panel and provides context for the chat.
+    <!-- About Section + Generate Button -->
+    <div class="py-2 text-sm text-gray-600">
+      Get an AI summary and chat about the page content.
     </div>
+
+    {#if !hasSummary && !summaryManager.isGenerating && canGenerate && settingsManager.hasApiKey}
+      <button
+        onclick={handleGenerateSummary}
+        class="w-full mb-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+      >
+        <Icon icon="mdi:text-box-outline" class="w-4 h-4" />
+        Generate Summary
+      </button>
+    {/if}
 
     <!-- Summary Section -->
     {#if summaryManager.summaryError}
