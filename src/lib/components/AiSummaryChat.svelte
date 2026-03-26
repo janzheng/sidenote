@@ -270,6 +270,17 @@
       <ApiSettings />
     {/if}
 
+    <!-- Generate Summary button — smaller, optional feel -->
+    {#if !hasSummary && !summaryManager.isGenerating && canGenerate && settingsManager.hasApiKey}
+      <button
+        onclick={handleGenerateSummary}
+        class="mb-3 px-3 py-1.5 text-sm text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors font-medium flex items-center gap-1.5"
+      >
+        <Icon icon="mdi:text-box-outline" class="w-4 h-4" />
+        Generate Summary
+      </button>
+    {/if}
+
     <!-- Summary Section -->
     {#if summaryManager.summaryError}
       <div class="mb-6">
@@ -311,7 +322,7 @@
         showRefresh={true}
         showCopy={!!hasSummary && !summaryManager.isGenerating}
         isLoading={summaryManager.isGenerating}
-        emptyMessage="Click ↻ to generate a summary (optional — chat works without it)"
+        emptyMessage="No summary yet — chat works without it"
         renderAsMarkdown={true}
         showPreview={true}
         previewLines={4}
