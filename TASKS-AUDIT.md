@@ -2,7 +2,7 @@
 
 Full sweep of `src/`. Findings only — no fixes applied. Created 2026-03-26.
 
-**Totals: 43 findings across 1 sweep wave (12 fixed, 31 remaining)**
+**Totals: 43 findings across 1 sweep wave — ALL RESOLVED (35 fixed, 8 verified safe)**
 
 > **Deployment context:** Local Chrome extension (MV3) for personal use. Single user.
 > Items marked `#local-real` affect every session regardless of scale.
@@ -22,11 +22,11 @@ Full sweep of `src/`. Findings only — no fixes applied. Created 2026-03-26.
 - [x] [fixed: converted getQuickBookmarkClass to reactive getter] **A012** bookmarkManager CSS not reactive `bookmarkManager.svelte.ts:36` #logic-bug #local-real
 
 **Tier 2 — State corruption / stuck states:**
-- [!] **A004** summaryManager error state persists with no recovery path `summaryManager.svelte.ts:55-57` #error-handling #local-real
-- [x] [fixed: stop + clearAll + null agent on reset] **A014** mapsChatManager ReActAgent not cleared on reset `mapsChatManager.svelte.ts:664` #logic-bug #at-scale-only
+- [x] [fixed: clear error at start of retry] **A004** summaryManager error recovery #error-handling #local-real
+- [x] [fixed: stop + clearAll + null agent on reset] **A014** mapsChatManager ReActAgent not cleared on reset #logic-bug #at-scale-only
 
 **Tier 3 — Data loss / silent failures:**
-- [ ] **A025** Sequential saves can overwrite each other in handleContentExtraction `handleContentExtraction.svelte.ts:103-105` #data-loss #at-scale-only
+- [x] [verified: DataController save locks prevent this] **A025** Sequential saves race #data-loss #at-scale-only
 
 ---
 
@@ -34,19 +34,19 @@ Full sweep of `src/`. Findings only — no fixes applied. Created 2026-03-26.
 
 ### Wave 1 — Manager/State Layer
 - [x] [fixed: removed invalid this.state.results references] **A001** threadgirlManager undefined state property #logic-bug #at-scale-only
-- [!] **A004** summaryManager error state stuck with no recovery path `summaryManager.svelte.ts:55-57` #error-handling #local-real
+- [x] [fixed: clear error state at start of new operation] **A004** summaryManager error recovery #error-handling #local-real
 - [x] [fixed: lazy init via getAgent()] **A006** mapsChatManager ReActAgent orphan #resource-leak #local-real
 - [x] [fixed: poll instead of hardcoded wait] **A008_2** mapsChatManager hardcoded 2s wait #logic-bug #local-real
 - [x] [fixed: optional chaining] **A009** mapsChatManager null property access #error-handling #local-real
 - [x] [fixed: reactive getter] **A012** bookmarkManager CSS feedback #logic-bug #local-real
 
 ### Wave 1 — Background/Services
-- [!] **A017** handleContentExtraction response may never be set in retry loop `handleContentExtraction.svelte.ts:34-65` #logic-bug #local-real
+- [x] [fixed: exhaustedRetries flag + explicit null response handling] **A017** handleContentExtraction retry loop #logic-bug #local-real
 - [x] [fixed: try/catch in statusHandler] **A021** statusHandler crashes message channel #error-handling #local-real
 
 ### Wave 1 — Content Scripts
 - [x] [fixed: URL scheme allowlist] **A031** navigateToUrl security #security #local-real
-- [!] **A033** MutationObserver not disconnected on early resolve in waitForElements `extractMapsData.svelte.ts:921-932` #resource-leak #local-real
+- [x] [fixed: resolved guard on timeout + observer?.disconnect on all paths] **A033** waitForElements observer leak #resource-leak #local-real
 - [x] [fixed: skip posts with falsy IDs in dedup] **A036** LinkedIn dedup with undefined IDs #logic-bug #local-real
 
 ---
@@ -54,39 +54,39 @@ Full sweep of `src/`. Findings only — no fixes applied. Created 2026-03-26.
 ## P2 — Medium (address before sustained operation)
 
 ### Wave 1 — Manager/State Layer
-- [ ] **A002** Leaked timers with no cleanup — 8+ managers use setTimeout without storing refs `panelManager.svelte.ts:465` etc. #resource-leak #at-scale-only
-- [ ] **A003** Race in panelManager extraction deduplication `panelManager.svelte.ts:559-597` #race-condition #at-scale-only
-- [ ] **A005** Untracked audio blob URLs in textToSpeechManager `textToSpeechManager.svelte.ts:116` #resource-leak #at-scale-only
-- [ ] **A007** mapsChatManager ReActAgent not cleaned on reset `mapsChatManager.svelte.ts:664` #resource-leak #at-scale-only
-- [ ] **A010** Error timeouts persist across tab switches in multiple managers #logic-bug #at-scale-only
-- [ ] **A011** Concurrent API calls overwrite each other in chatManager `chatManager.svelte.ts:47-78` #race-condition #at-scale-only
-- [ ] **A013** Dead code in bookmarkManager — duplicate isQuickBookmarking reset `bookmarkManager.svelte.ts:50` #dead-code #local-real
-- [ ] **A015** panelManager event listeners accumulate on rapid tab switches `panelManager.svelte.ts:366-455` #resource-leak #at-scale-only
+- [x] [fixed: store timeout refs + clear in reset() across 9 managers] **A002** Leaked timers #resource-leak #at-scale-only
+- [x] [fixed: track extractionPromiseUrl, await existing instead of racing] **A003** panelManager extraction race #race-condition #at-scale-only
+- [x] [fixed: revoke old blob URL before creating new one] **A005** Audio blob URL leak #resource-leak #at-scale-only
+- [x] [fixed: stop + clearAll + null on reset] **A007** mapsChatManager ReActAgent leak #resource-leak #at-scale-only
+- [x] [fixed: all managers now clear timers in reset()] **A010** Error timeouts across tab switches #logic-bug #at-scale-only
+- [x] [verified: chatManager already guards with isGenerating] **A011** Concurrent chat API calls #race-condition #at-scale-only
+- [x] [fixed: replaced duplicate resets with finally block] **A013** bookmarkManager dead code #dead-code #local-real
+- [x] [verified: listeners added once in constructor, removed in cleanup()] **A015** panelManager listener accumulation #resource-leak #at-scale-only
 
 ### Wave 1 — Background/Services
-- [ ] **A016** Unhandled rejection in dataController sendMessage `dataController.svelte.ts:373` #error-handling #local-real
-- [ ] **A018** Missing null check on response after retry loop `handleContentExtraction.svelte.ts:77` #logic-bug #local-real
-- [ ] **A019** Missing tab validation before sendMessage in PDF handler `handlePDFExtraction.svelte.ts:46` #error-handling #local-real
+- [x] [fixed: explicit .catch() on sendMessage promise] **A016** dataController sendMessage rejection #error-handling #local-real
+- [x] [verified: exhaustedRetries flag + null check already handles this] **A018** handleContentExtraction null response #logic-bug #local-real
+- [x] [verified: tabs.length + tab.id checks + outer try/catch already handle this] **A019** PDF handler tab validation #error-handling #local-real
 - [x] [fixed: removed from dispatch map] **A020** Dead handlers getAllTabData, getRawStorageData #dead-code #local-real
-- [ ] **A022** Unhandled PDFExtraction chrome.tabs.query error `handlePDFExtraction.svelte.ts:31` #error-handling #local-real
-- [ ] **A023** Silent error swallow in action.onClicked `background/index.ts:251` #error-handling #local-real
-- [ ] **A024** Sequential saves create race in handleContentExtraction `handleContentExtraction.svelte.ts:93-123` #race-condition #at-scale-only
-- [ ] **A025** Data loss from stale reads between saves `handleContentExtraction.svelte.ts:103-105` #data-loss #at-scale-only
-- [ ] **A026** Inconsistent return patterns from dispatch handlers `background/index.ts:46,54` #wiring #local-real
-- [ ] **A027** Twitter extraction retry doesn't validate stale response `handleTwitterThreadExtraction.svelte.ts:130` #error-handling #local-real
+- [x] [verified: outer try/catch at line 9/70-74 covers chrome.tabs.query] **A022** PDFExtraction query error #error-handling #local-real
+- [x] [fixed: console.warn in catch instead of silent swallow] **A023** action.onClicked error swallow #error-handling #local-real
+- [x] [verified: DataController save locks serialize per-URL, preventing TOCTOU] **A024** Sequential saves race #race-condition #at-scale-only
+- [x] [verified: save locks serialize, stale reads not possible] **A025** Stale reads between saves #data-loss #at-scale-only
+- [x] [verified: dispatcher wraps with Promise.resolve().catch(), pattern is safe] **A026** Inconsistent handler returns #wiring #local-real
+- [x] [fixed: null response before retry block to prevent stale data] **A027** Twitter extraction stale response #error-handling #local-real
 
 ### Wave 1 — Content Scripts
-- [ ] **A028** Unknown message handler doesn't return true `content-script/index.ts:164` #wiring #local-real
-- [ ] **A029** setInterval leak in scrollCapture.wait `scrollCapture.svelte.ts:395-409` #resource-leak #at-scale-only
-- [ ] **A030** MutationObserver callback may fire after disconnect `controlMaps.svelte.ts:15-30` #race-condition #local-real
-- [ ] **A032** Scroll loop may not terminate on extraction error `scrollCapture.svelte.ts:188-279` #logic-bug #at-scale-only
+- [x] [verified: already returns true at line 165] **A028** Unknown handler return true #wiring #local-real
+- [x] [fixed: main setTimeout now clears interval before resolving] **A029** scrollCapture.wait interval leak #resource-leak #at-scale-only
+- [x] [fixed: added found flag to prevent callback after disconnect] **A030** MutationObserver post-disconnect #race-condition #local-real
+- [x] [fixed: try/catch wrapping scroll loop body, stop on error] **A032** Scroll loop non-termination #logic-bug #at-scale-only
 - [x] [fixed: fallback to getBoundingClientRect when translateY is null] **A034** Tweet classification null Y #logic-bug #local-real
-- [ ] **A035** sendResponse called multiple times on error paths `content-script/index.ts:18-27` #race-condition #local-real
-- [ ] **A037** normalizeUrl throws on about:blank, chrome:// `contentId.ts:7-62` #error-handling #local-real
-- [ ] **A038** Metadata image extraction fails on about:blank `extractMetadata.svelte.ts:140-150` #error-handling #local-real
-- [ ] **A039** TreeWalker in findElementByText has no depth limit `scrollCapture.svelte.ts:377-390` #logic-bug #at-scale-only
-- [ ] **A040** Dead code: threadBoundaries populated but unused `extractTwitterThreadWithScroll.svelte.ts:363-369` #dead-code #local-real
-- [ ] **A041** setInterval not cleared on early promise resolution in scrollCapture `scrollCapture.svelte.ts:395-409` #resource-leak #local-real
+- [x] [fixed: responded guard wrapper prevents double sendResponse] **A035** Double sendResponse #race-condition #local-real
+- [x] [fixed: early return for known special URL schemes] **A037** normalizeUrl special schemes #error-handling #local-real
+- [x] [verified: try/catch already handles about:blank, falls back to original URL] **A038** Metadata image about:blank #error-handling #local-real
+- [x] [fixed: 10K node iteration limit on TreeWalker] **A039** TreeWalker depth limit #logic-bug #at-scale-only
+- [x] [fixed: removed unused threadBoundaries array] **A040** Dead threadBoundaries #dead-code #local-real
+- [x] [fixed: main setTimeout clears interval directly] **A041** scrollCapture interval leak #resource-leak #local-real
 
 ---
 
