@@ -13,7 +13,8 @@ declare const Defuddle: any;
 export async function extractWithDefuddle(): Promise<ContentExtractionResult | null> {
   try {
     if (typeof Defuddle === 'undefined') {
-      console.warn('🧹 Defuddle not available (global not loaded)');
+      // Defuddle loads as a separate content script; some sites (YouTube, etc.)
+      // may block it via CSP. Silently fall back to Turndown.
       return null;
     }
 

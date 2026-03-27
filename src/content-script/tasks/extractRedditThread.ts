@@ -36,7 +36,7 @@ export async function extractRedditThread(): Promise<RedditExtractionResult> {
     }
 
     if (typeof Defuddle === 'undefined') {
-      return { success: false, error: 'Defuddle not available' };
+      return { success: false, error: 'Defuddle not loaded (CSP may block it on this site)' };
     }
 
     const currentUrl = window.location.href;
