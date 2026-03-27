@@ -34,6 +34,7 @@ export class PanelManager {
   // Deduplication and throttling
   private lastExtractedUrl: string | null = null;
   private extractionPromise: Promise<void> | null = null;
+  private extractionPromiseUrl: string | null = null; // URL being extracted by the in-flight promise
   private refreshTimeout: number | null = null;
 
   // Event listener references for cleanup
@@ -562,20 +563,24 @@ export class PanelManager {
       return;
     }
 
-    // If extraction is in progress, wait for it then re-check if we still need to extract
-    if (this.extractionPromise) {
-      console.log('🔄 Extraction already in progress, waiting...');
+    const normalizedCurrentUrl = normalizeUrl(this.state.url);
+
+    // If extraction is already in progress for the same URL, just wait for it
+    if (this.extractionPromise && this.extractionPromiseUrl) {
+      const normalizedInFlight = normalizeUrl(this.extractionPromiseUrl);
+      if (normalizedInFlight === normalizedCurrentUrl) {
+        console.log('🔄 Extraction already in progress for this URL, waiting...');
+        await this.extractionPromise;
+        return;
+      }
+      // Different URL — wait for the old one to finish, then proceed
+      console.log('🔄 Extraction in progress for different URL, waiting before starting new...');
       await this.extractionPromise;
-      // After waiting, re-check — URL may have changed or extraction may now be done
+      // Re-read state after waiting — URL may have changed again
       if (!this.state.url) return;
-      const normalizedCurrent = normalizeUrl(this.state.url);
-      const normalizedLast = this.lastExtractedUrl ? normalizeUrl(this.lastExtractedUrl) : null;
-      if (normalizedCurrent === normalizedLast && this.state.content) return;
-      // URL changed or still needs extraction — fall through to extract
     }
 
     // Check if we already extracted this URL
-    const normalizedCurrentUrl = normalizeUrl(this.state.url);
     const normalizedLastExtracted = this.lastExtractedUrl ? normalizeUrl(this.lastExtractedUrl) : null;
 
     if (normalizedCurrentUrl === normalizedLastExtracted && this.state.content) {
@@ -587,12 +592,17 @@ export class PanelManager {
     const extractionUrl = this.state.url;
     const extractionTabId = this.state.tabId;
 
+    this.extractionPromiseUrl = extractionUrl;
     this.extractionPromise = this.performExtraction(extractionUrl, extractionTabId);
 
     try {
       await this.extractionPromise;
     } finally {
-      this.extractionPromise = null;
+      // Only clear if this is still the current extraction
+      if (this.extractionPromiseUrl === extractionUrl) {
+        this.extractionPromise = null;
+        this.extractionPromiseUrl = null;
+      }
     }
   }
 

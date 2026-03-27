@@ -7,6 +7,7 @@ interface BookmarkState {
 }
 
 class BookmarkManager {
+  private statusTimeout: ReturnType<typeof setTimeout> | null = null;
   private state = $state<BookmarkState>({
     isQuickBookmarking: false,
     quickBookmarkStatus: 'idle',
@@ -55,8 +56,10 @@ class BookmarkManager {
         }
 
         // Reset status after 3 seconds
-        setTimeout(() => {
+        if (this.statusTimeout) { clearTimeout(this.statusTimeout); }
+        this.statusTimeout = setTimeout(() => {
           this.state.quickBookmarkStatus = 'idle';
+          this.statusTimeout = null;
         }, 3000);
       } else {
         console.error('❌ Quick bookmark failed:', response.error);
@@ -64,9 +67,11 @@ class BookmarkManager {
         this.state.quickBookmarkError = response.error;
 
         // Reset status after 5 seconds
-        setTimeout(() => {
+        if (this.statusTimeout) { clearTimeout(this.statusTimeout); }
+        this.statusTimeout = setTimeout(() => {
           this.state.quickBookmarkStatus = 'idle';
           this.state.quickBookmarkError = null;
+          this.statusTimeout = null;
         }, 5000);
       }
     } catch (error) {
@@ -75,9 +80,11 @@ class BookmarkManager {
       this.state.quickBookmarkError = error instanceof Error ? error.message : 'Unknown error';
 
       // Reset status after 5 seconds
-      setTimeout(() => {
+      if (this.statusTimeout) { clearTimeout(this.statusTimeout); }
+      this.statusTimeout = setTimeout(() => {
         this.state.quickBookmarkStatus = 'idle';
         this.state.quickBookmarkError = null;
+        this.statusTimeout = null;
       }, 5000);
     } finally {
       this.state.isQuickBookmarking = false;
@@ -96,6 +103,7 @@ class BookmarkManager {
 
   // Reset bookmark state
   reset() {
+    if (this.statusTimeout) { clearTimeout(this.statusTimeout); this.statusTimeout = null; }
     this.state.isQuickBookmarking = false;
     this.state.quickBookmarkStatus = 'idle';
     this.state.quickBookmarkError = null;

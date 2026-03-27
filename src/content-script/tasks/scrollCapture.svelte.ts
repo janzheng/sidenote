@@ -186,6 +186,7 @@ export class ScrollCapture {
     this.log(`📊 Starting scroll loop with ${previousContentCount} initial items at position ${lastScrollPosition}`);
     
     while (this.progress.scrollCount < this.config.maxScrolls && this.isActive) {
+     try {
       // Check stop conditions first
       if (this.checkStopConditions()) {
         this.progress.stoppedReason = 'stop_condition';
@@ -268,8 +269,13 @@ export class ScrollCapture {
           }
         }
       }
+     } catch (scrollError) {
+      this.log('❌ Error during scroll iteration, stopping:', scrollError);
+      this.stop();
+      break;
+     }
     }
-    
+
     if (this.progress.scrollCount >= this.config.maxScrolls) {
       this.progress.stoppedReason = 'max_scrolls';
       this.log('📊 Reached maximum scroll limit');
@@ -379,9 +385,15 @@ export class ScrollCapture {
       NodeFilter.SHOW_TEXT,
       null
     );
-    
+
+    const MAX_NODES = 10000;
+    let iterations = 0;
     let node;
     while (node = walker.nextNode()) {
+      if (++iterations > MAX_NODES) {
+        this.log('⚠️ findElementByText hit max iterations limit, aborting search');
+        return null;
+      }
       if (node.textContent?.includes(searchText)) {
         return node.parentElement ?? null;
       }
