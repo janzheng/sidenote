@@ -244,7 +244,6 @@ class ThreadgirlManager {
   async handleClearAllResults(url: string, onRefresh?: () => void) {
     try {
       await chrome.runtime.sendMessage({ action: 'clearThreadgirlResults', url });
-      this.state.results = [];
       onRefresh?.();
     } catch (error) {
       console.error('Failed to clear Threadgirl results:', error);
@@ -254,7 +253,6 @@ class ThreadgirlManager {
   async handleRemoveResult(url: string, resultId: string, onRefresh?: () => void) {
     try {
       await chrome.runtime.sendMessage({ action: 'removeThreadgirlResult', url, resultId });
-      this.state.results = this.state.results.filter(r => r.id !== resultId);
       onRefresh?.();
     } catch (error) {
       console.error('Failed to remove Threadgirl result:', error);

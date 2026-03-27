@@ -108,7 +108,7 @@ export async function handleTwitterThreadExtractionWithScroll(
     }
 
     // Send message to content script with auto-injection fallback
-    let response: any;
+    let response: any = null;
     try {
       response = await chrome.tabs.sendMessage(tab.id, {
         action: 'extractTwitterThreadWithScroll',
@@ -117,6 +117,7 @@ export async function handleTwitterThreadExtractionWithScroll(
     } catch {
       // Content script not injected — inject and retry
       console.warn('⚠️ Content script not found for Twitter extraction, injecting...');
+      response = null; // Reset so stale data from a prior attempt isn't used
       try {
         await chrome.scripting.executeScript({
           target: { tabId: tab.id },

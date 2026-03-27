@@ -33,6 +33,7 @@ export async function handleContentExtraction(tabId: number, sendResponse: (resp
     // Send message to content script with retry + auto-injection
     let response: any = null;
     let injected = false;
+    let exhaustedRetries = false;
     for (let attempt = 1; attempt <= 4; attempt++) {
       try {
         response = await chrome.tabs.sendMessage(tabId, { action: 'extractContent' });
@@ -58,10 +59,14 @@ export async function handleContentExtraction(tabId: number, sendResponse: (resp
           await new Promise(r => setTimeout(r, attempt * 400));
         } else {
           console.error('❌ Content script communication failed after retries:', err);
-          sendResponse({ success: false, error: 'Failed to communicate with content script. Try refreshing the page.' });
-          return;
+          exhaustedRetries = true;
         }
       }
+    }
+
+    if (exhaustedRetries || response === null) {
+      sendResponse({ success: false, error: 'Failed to communicate with content script. Try refreshing the page.' });
+      return;
     }
 
     if (!response?.success) {

@@ -71,7 +71,7 @@
           onclick={() => bookmarkManager.handleQuickBookmark(panelManager.url, () => panelManager.refreshDataOnly())}
           class="{panelManager.isBookmarked ? 
             'px-6 py-1 rounded text-md text-white bg-green-600 border border-green-600 hover:bg-green-700 flex items-center gap-1' :
-            bookmarkManager.getQuickBookmarkClass()}"
+            bookmarkManager.quickBookmarkClass}"
           disabled={panelManager.isLoading || bookmarkManager.isQuickBookmarking || !panelManager.content}
           title={panelManager.isBookmarked ? "Already bookmarked" : (bookmarkManager.quickBookmarkError || "Quick Bookmark to External API")}
         >

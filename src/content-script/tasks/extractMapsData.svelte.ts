@@ -929,6 +929,8 @@ function waitForElements(selectors: string[], timeout: number = 3000): Promise<E
 
     // Timeout fallback
     timeoutId = setTimeout(() => {
+      if (resolved) return;
+      resolved = true;
       observer?.disconnect();
       resolve(elements);
     }, timeout);

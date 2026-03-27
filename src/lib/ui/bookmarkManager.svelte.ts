@@ -47,7 +47,6 @@ class BookmarkManager {
 
       if (response.success) {
         console.log('✅ Quick bookmark successful');
-        this.state.isQuickBookmarking = false;
         this.state.quickBookmarkStatus = 'success';
         this.state.quickBookmarkError = null;
 
@@ -61,10 +60,9 @@ class BookmarkManager {
         }, 3000);
       } else {
         console.error('❌ Quick bookmark failed:', response.error);
-        this.state.isQuickBookmarking = false;
         this.state.quickBookmarkStatus = 'error';
         this.state.quickBookmarkError = response.error;
-        
+
         // Reset status after 5 seconds
         setTimeout(() => {
           this.state.quickBookmarkStatus = 'idle';
@@ -73,7 +71,6 @@ class BookmarkManager {
       }
     } catch (error) {
       console.error('❌ Quick bookmark error:', error);
-      this.state.isQuickBookmarking = false;
       this.state.quickBookmarkStatus = 'error';
       this.state.quickBookmarkError = error instanceof Error ? error.message : 'Unknown error';
 
@@ -82,11 +79,13 @@ class BookmarkManager {
         this.state.quickBookmarkStatus = 'idle';
         this.state.quickBookmarkError = null;
       }, 5000);
+    } finally {
+      this.state.isQuickBookmarking = false;
     }
   }
 
   // Get CSS classes for quick bookmark button based on status
-  getQuickBookmarkClass() {
+  get quickBookmarkClass() {
     if (this.state.quickBookmarkStatus === 'success') {
       return 'px-6 py-1 rounded text-md text-white bg-green-600 border border-green-600 hover:bg-green-700 flex items-center gap-1';
     } else if (this.state.quickBookmarkStatus === 'error') {

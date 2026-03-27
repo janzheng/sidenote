@@ -7,6 +7,8 @@ interface RecipeState {
 }
 
 class RecipeManager {
+  private statusTimeout: ReturnType<typeof setTimeout> | null = null;
+
   private state = $state<RecipeState>({
     isExtracting: false,
     recipeStatus: 'idle',
@@ -57,8 +59,10 @@ class RecipeManager {
         }
         
         // Reset status after 3 seconds
-        setTimeout(() => {
+        if (this.statusTimeout) { clearTimeout(this.statusTimeout); }
+        this.statusTimeout = setTimeout(() => {
           this.state.recipeStatus = 'idle';
+          this.statusTimeout = null;
         }, 3000);
       } else {
         console.error('❌ Recipe extraction failed:', response.error);
@@ -89,6 +93,7 @@ class RecipeManager {
 
   // Reset recipe state
   reset() {
+    if (this.statusTimeout) { clearTimeout(this.statusTimeout); this.statusTimeout = null; }
     this.state.isExtracting = false;
     this.state.recipeStatus = 'idle';
     this.state.recipeError = null;

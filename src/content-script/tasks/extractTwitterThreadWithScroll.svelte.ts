@@ -322,7 +322,6 @@ function analyzePageStructure(): {
   discoverMoreBoundary: Element | null;
   discoverMoreCell: Element | null;
   discoverMoreY: number | null;
-  threadBoundaries: Element[];
   recommendationSections: Element[];
 } {
   console.log('🔍 Analyzing Twitter page structure');
@@ -358,16 +357,7 @@ function analyzePageStructure(): {
   }
   
   console.log('🛑 Discover more boundary:', discoverMoreBoundary?.tagName, discoverMoreBoundary?.textContent?.substring(0, 50));
-  
-  // Find thread boundaries
-  const threadBoundaries: Element[] = [];
-  const conversationThreads = mainThreadContainer.querySelectorAll('[aria-labelledby*="accessible-list"], [role="region"]');
-  conversationThreads.forEach(thread => {
-    if (!discoverMoreBoundary || !discoverMoreBoundary.contains(thread)) {
-      threadBoundaries.push(thread);
-    }
-  });
-  
+
   // Find recommendation sections to exclude
   const recommendationSections: Element[] = [];
   const sidebarContent = document.querySelectorAll(TWITTER_SELECTORS.SIDEBAR_CONTENT);
@@ -383,7 +373,6 @@ function analyzePageStructure(): {
     mainThreadContainer: !!mainThreadContainer,
     discoverMoreBoundary: !!discoverMoreBoundary,
     discoverMoreY,
-    threadBoundaries: threadBoundaries.length,
     recommendationSections: recommendationSections.length
   });
   
@@ -392,7 +381,6 @@ function analyzePageStructure(): {
     discoverMoreBoundary,
     discoverMoreCell,
     discoverMoreY,
-    threadBoundaries,
     recommendationSections
   };
 }
@@ -451,7 +439,9 @@ function classifyTweetSection(
   // Discover more boundary within main column using virtual list translateY
   if (structureAnalysis.discoverMoreY !== null || structureAnalysis.discoverMoreBoundary) {
     const tweetCell = tweetElement.closest('[data-testid="cellInnerDiv"]') as HTMLElement | null;
-    const tweetY = tweetCell ? (getTranslateY(tweetCell) ?? getElementVirtualYFromParents(tweetCell)) : getElementVirtualYFromParents(tweetElement) ?? tweetElement.getBoundingClientRect().top;
+    // A034: Ensure tweetY always resolves to a number; fall back to getBoundingClientRect().top if virtual Y lookups return null
+    const rawY = tweetCell ? (getTranslateY(tweetCell) ?? getElementVirtualYFromParents(tweetCell)) : getElementVirtualYFromParents(tweetElement);
+    const tweetY = rawY ?? tweetElement.getBoundingClientRect().top;
     const boundaryY = structureAnalysis.discoverMoreY ?? structureAnalysis.discoverMoreBoundary?.getBoundingClientRect().bottom ?? null;
     if (boundaryY !== null && tweetY !== null && tweetY >= boundaryY) {
       try {

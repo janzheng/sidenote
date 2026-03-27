@@ -283,11 +283,18 @@ function deduplicatePosts(posts: ExtractedPostData[]): ExtractedPostData[] {
     // Create a content signature for this post
     const contentSignature = createContentSignature(post);
     
+    // A036: Skip ID-based dedup when post ID is falsy to prevent undefined collisions
+    const postId = post.post.id;
+    const hasValidId = postId !== undefined && postId !== null && postId !== '';
+    const idAlreadySeen = hasValidId && seenIds.has(postId);
+
     // Check if we've seen this exact content before
-    if (!seenContent.has(contentSignature) && !seenIds.has(post.post.id)) {
+    if (!seenContent.has(contentSignature) && !idAlreadySeen) {
       uniquePosts.push(post);
       seenContent.add(contentSignature);
-      seenIds.add(post.post.id);
+      if (hasValidId) {
+        seenIds.add(postId);
+      }
     } else {
       console.log(`🔗 Removing duplicate post: ${post.post.id} (signature: ${contentSignature.substring(0, 20)}...)`);
     }

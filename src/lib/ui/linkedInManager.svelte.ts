@@ -16,6 +16,8 @@ interface LinkedInState {
 }
 
 class LinkedInManager {
+  private statusTimeout: ReturnType<typeof setTimeout> | null = null;
+
   private state = $state<LinkedInState>({
     isExtracting: false,
     extractionStatus: 'idle',
@@ -119,33 +121,39 @@ class LinkedInManager {
         }
         
         // Reset status after 3 seconds
-        setTimeout(() => {
+        if (this.statusTimeout) { clearTimeout(this.statusTimeout); }
+        this.statusTimeout = setTimeout(() => {
           this.state.extractionStatus = 'idle';
           this.state.extractionProgress = null;
+          this.statusTimeout = null;
         }, 3000);
       } else {
         const errorMsg = response?.error || 'No response from background script';
         console.error('❌ LinkedIn full thread extraction failed:', errorMsg);
         this.state.extractionStatus = 'error';
         this.state.extractionError = errorMsg;
-        
+
         // Reset status after 5 seconds
-        setTimeout(() => {
+        if (this.statusTimeout) { clearTimeout(this.statusTimeout); }
+        this.statusTimeout = setTimeout(() => {
           this.state.extractionStatus = 'idle';
           this.state.extractionError = null;
           this.state.extractionProgress = null;
+          this.statusTimeout = null;
         }, 5000);
       }
     } catch (error) {
       console.error('❌ LinkedIn full thread extraction error:', error);
       this.state.extractionStatus = 'error';
       this.state.extractionError = error instanceof Error ? error.message : 'Unknown error';
-      
+
       // Reset status after 5 seconds
-      setTimeout(() => {
+      if (this.statusTimeout) { clearTimeout(this.statusTimeout); }
+      this.statusTimeout = setTimeout(() => {
         this.state.extractionStatus = 'idle';
         this.state.extractionError = null;
         this.state.extractionProgress = null;
+        this.statusTimeout = null;
       }, 5000);
     } finally {
       this.state.isExtracting = false;
@@ -154,6 +162,7 @@ class LinkedInManager {
 
   // Reset all state
   reset() {
+    if (this.statusTimeout) { clearTimeout(this.statusTimeout); this.statusTimeout = null; }
     this.state.isExtracting = false;
     this.state.extractionStatus = 'idle';
     this.state.extractionError = null;

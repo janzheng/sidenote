@@ -5,6 +5,11 @@ export function generateContentId(url: string): string {
 }
 
 export function normalizeUrl(url: string): string {
+  // Return special-scheme URLs as-is without attempting to parse/strip params
+  if (/^(about:|chrome:|chrome-extension:|moz-extension:|edge:|brave:|data:|blob:|javascript:)/i.test(url)) {
+    return url;
+  }
+
   try {
     const urlObj = new URL(url);
 

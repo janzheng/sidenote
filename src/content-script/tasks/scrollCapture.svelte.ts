@@ -394,7 +394,6 @@ export class ScrollCapture {
    */
   private wait(ms: number): Promise<void> {
     return new Promise(resolve => {
-      const timer = setTimeout(resolve, ms);
       // Poll for early cancellation so stop() takes effect promptly
       const check = setInterval(() => {
         if (!this.isActive) {
@@ -403,8 +402,10 @@ export class ScrollCapture {
           resolve();
         }
       }, 100);
-      // Clean up the interval when the timer fires normally
-      setTimeout(() => clearInterval(check), ms + 50);
+      const timer = setTimeout(() => {
+        clearInterval(check);
+        resolve();
+      }, ms);
     });
   }
 

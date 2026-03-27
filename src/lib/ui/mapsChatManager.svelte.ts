@@ -8,27 +8,36 @@ class MapsChatManager {
     isGenerating: false,
     chatError: null as string | null,
     // Use standard ReAct agent with Maps-specific configuration
-    reactAgent: new ReActAgent(),
+    // Initialized lazily on first access to avoid orphaning instances (A006)
+    reactAgent: null as ReActAgent | null,
     // Store Maps context separately
     mapsContext: ''
   });
 
+  // Lazy getter for the ReAct agent — creates on first use (A006)
+  private getAgent(): ReActAgent {
+    if (!this.state.reactAgent) {
+      this.state.reactAgent = new ReActAgent();
+    }
+    return this.state.reactAgent;
+  }
+
   // Getters for reactive state
   get isGenerating() {
-    return this.state.isGenerating || this.state.reactAgent.isRunning;
+    return this.state.isGenerating || (this.state.reactAgent?.isRunning ?? false);
   }
 
   get chatError() {
-    return this.state.chatError || this.state.reactAgent.error;
+    return this.state.chatError || (this.state.reactAgent?.error ?? null);
   }
 
   get content() {
-    return this.state.reactAgent.content;
+    return this.getAgent().content;
   }
 
   get messages() {
     // Convert AgentContent to ChatMessage format for backward compatibility
-    return this.convertContentToMessages(this.state.reactAgent.content);
+    return this.convertContentToMessages(this.getAgent().content);
   }
 
   // Convert AgentContent to ChatMessage format for backward compatibility
@@ -109,14 +118,28 @@ class MapsChatManager {
       if (currentMapsContext.includes('No current Google Maps data available')) {
         console.log('🔄 No Maps data available, extracting first...');
         
-        // Extract Maps data before proceeding
-        await chrome.runtime.sendMessage({
+        // Extract Maps data before proceeding and wait for the response (A008_2)
+        const extractionResult = await chrome.runtime.sendMessage({
           action: 'extractMapsData',
           url: url
         });
-        
-        // Wait for extraction to complete
-        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // If the extraction message didn't resolve synchronously with data,
+        // poll getMapsDataStatus until extraction is no longer in progress
+        if (!extractionResult?.success) {
+          const MAX_POLLS = 15;
+          const POLL_INTERVAL = 400; // ms
+          for (let i = 0; i < MAX_POLLS; i++) {
+            await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+            const status = await chrome.runtime.sendMessage({
+              action: 'getMapsDataStatus',
+              url: url
+            });
+            if (status?.success && status?.status?.mapsData) {
+              break; // extraction data is available
+            }
+          }
+        }
       }
 
       // Get Maps data for context (refresh after potential extraction)
@@ -138,7 +161,7 @@ class MapsChatManager {
       )];
       
       // Run the ReAct agent with Maps context, tools, and system prompt
-      await this.state.reactAgent.runAgent(
+      await this.getAgent().runAgent(
         message,
         undefined, // pageContent
         25, // maxIterations - increased for complex searches
@@ -518,24 +541,27 @@ Remember: Think step by step, answer directly when possible, use tools only when
         url: url
       });
 
-      if (response.success && response.status && response.status.mapsData) {
+      if (response?.success && response?.status?.mapsData) {
         const data = response.status.mapsData;
+        if (!data) {
+          return 'MAPS CONTEXT: No current Google Maps data available. User may need to extract Maps data first.';
+        }
         console.log('🗺️ Processing Maps data:', data);
         let context = 'CURRENT GOOGLE MAPS CONTEXT:\n';
-        
-        // Add location context if available
-        if (data.currentLocation) {
+
+        // Add location context if available (A009 - null-safe access)
+        if (data?.currentLocation) {
           const lat = data.currentLocation.lat;
           const lng = data.currentLocation.lng;
-          
+
           context += `📍 Current Location: ${lat.toFixed(4)}, ${lng.toFixed(4)}\n`;
         }
-        
-        if (data.searchQuery) {
+
+        if (data?.searchQuery) {
           context += `🔍 Current Search: "${data.searchQuery}"\n`;
         }
-        
-        if (data.searchResults?.length > 0) {
+
+        if (data?.searchResults?.length > 0) {
           context += `📋 Search Results (${data.searchResults.length} places found):\n`;
           data.searchResults.forEach((result: any, index: number) => {
             context += `  ${index + 1}. **${result.name}**`;
@@ -549,9 +575,9 @@ Remember: Think step by step, answer directly when possible, use tools only when
           });
         }
         
-        if (data.currentRoute) {
-          context += `🚗 Active Route: ${data.currentRoute.origin.address} → ${data.currentRoute.destination.address}\n`;
-          context += `   Distance: ${data.currentRoute.distance}, Duration: ${data.currentRoute.duration}\n`;
+        if (data?.currentRoute) {
+          context += `🚗 Active Route: ${data.currentRoute?.origin?.address ?? 'Unknown'} → ${data.currentRoute?.destination?.address ?? 'Unknown'}\n`;
+          context += `   Distance: ${data.currentRoute?.distance ?? 'N/A'}, Duration: ${data.currentRoute?.duration ?? 'N/A'}\n`;
           
           if (data.currentRoute.selectedTravelMode) {
             context += `   Travel Mode: ${data.currentRoute.selectedTravelMode}\n`;
@@ -582,15 +608,17 @@ Remember: Think step by step, answer directly when possible, use tools only when
           }
         }
         
-        if (data.mapType) {
+        if (data?.mapType) {
           context += `🗺️ Map View: ${data.mapType}\n`;
         }
-        
-        if (data.zoomLevel) {
+
+        if (data?.zoomLevel) {
           context += `🔍 Zoom Level: ${data.zoomLevel}\n`;
         }
-        
-        context += `\n⏰ Data extracted at: ${new Date(data.extractedAt).toLocaleString()}\n`;
+
+        if (data?.extractedAt) {
+          context += `\n⏰ Data extracted at: ${new Date(data.extractedAt).toLocaleString()}\n`;
+        }
         
         return context;
       }
@@ -612,7 +640,7 @@ Remember: Think step by step, answer directly when possible, use tools only when
       console.log('🗺️ Clearing Maps ReAct agent for:', url);
       
       // Clear the ReAct store content but preserve conversation history
-      this.state.reactAgent.clear();
+      this.getAgent().clear();
       this.state.chatError = null;
       
       // Call success callback
@@ -636,8 +664,11 @@ Remember: Think step by step, answer directly when possible, use tools only when
     try {
       console.log('🗺️ Clearing all Maps ReAct agent data for:', url);
       
-      // Clear everything including conversation history
-      this.state.reactAgent.clearAll();
+      // Clear everything including conversation history (A014 - stop + reset agent)
+      if (this.state.reactAgent) {
+        this.state.reactAgent.stop();
+        this.state.reactAgent.clearAll();
+      }
       this.state.chatError = null;
       
       // Call success callback
@@ -654,19 +685,23 @@ Remember: Think step by step, answer directly when possible, use tools only when
 
   // Stop the current agent run
   handleStopAgent() {
-    this.state.reactAgent.stop();
+    this.state.reactAgent?.stop();
   }
 
-  // Reset Maps chat manager state
+  // Reset Maps chat manager state (A014 - properly stop and dispose the agent)
   reset() {
     this.state.isGenerating = false;
     this.state.chatError = null;
-    this.state.reactAgent.clearAll();
+    if (this.state.reactAgent) {
+      this.state.reactAgent.stop();
+      this.state.reactAgent.clearAll();
+      this.state.reactAgent = null; // dispose old instance; getAgent() will create a fresh one
+    }
   }
 
   // Get conversation summary for context
   getConversationSummary(): string {
-    const content = this.state.reactAgent.content;
+    const content = this.getAgent().content;
     if (content.length === 0) {
       return 'No Maps conversation yet';
     }
@@ -681,7 +716,7 @@ Remember: Think step by step, answer directly when possible, use tools only when
 
   // Get the last user message
   getLastUserMessage(): string | null {
-    const content = this.state.reactAgent.content;
+    const content = this.getAgent().content;
     const userMessages = content.filter((item: AgentContent) => 
       item.type === 'text' && 'content' in item && item.content.startsWith('**User:**')
     );

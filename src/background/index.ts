@@ -33,8 +33,13 @@ type Handler = (msg: any, send: SendResponse) => void | Promise<void>;
 
 function statusHandler(getter: (url: string) => Promise<any>): Handler {
   return async (msg, send) => {
-    const status = await getter(msg.url);
-    send({ success: true, status });
+    try {
+      const status = await getter(msg.url);
+      send({ success: true, status });
+    } catch (err) {
+      console.error('statusHandler getter error:', err);
+      send({ success: false, error: err instanceof Error ? err.message : 'Status fetch failed' });
+    }
   };
 }
 
@@ -158,39 +163,6 @@ const handlers: Record<string, Handler> = {
     send({ success: true, data });
   },
 
-  // Bulk data export
-  getAllTabData: async (_msg, send) => {
-    const allStorageData = await chrome.storage.local.get(null);
-    const tabData: Record<string, any> = {};
-    const settingsData: Record<string, any> = {};
-
-    for (const [key, value] of Object.entries(allStorageData)) {
-      if (key.startsWith('tabdata_')) {
-        tabData[key.replace('tabdata_', '')] = value;
-      } else {
-        settingsData[key] = value;
-      }
-    }
-
-    send({
-      success: true,
-      data: {
-        tabData,
-        settingsData,
-        totalTabs: Object.keys(tabData).length,
-        totalSettings: Object.keys(settingsData).length
-      }
-    });
-  },
-
-  getRawStorageData: async (_msg, send) => {
-    const allStorageData = await chrome.storage.local.get(null);
-    send({
-      success: true,
-      data: allStorageData,
-      totalItems: Object.keys(allStorageData).length
-    });
-  },
 };
 
 // ---------------------------------------------------------------------------
@@ -248,6 +220,8 @@ chrome.action.onClicked.addListener((tab) => {
   console.log('🔧 Extension icon clicked for tab:', tab.id);
   if (tab.id) {
     chrome.sidePanel.open({ tabId: tab.id });
-    chrome.tabs.sendMessage(tab.id, { action: 'sidebarOpened' }).catch(() => {});
+    chrome.tabs.sendMessage(tab.id, { action: 'sidebarOpened' }).catch((err) => {
+      console.warn('Failed to send sidebarOpened message to tab:', tab.id, err);
+    });
   }
 });

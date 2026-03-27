@@ -3,6 +3,8 @@ import type { TtsState } from '../../types/ttsState';
 import { TextToSpeechService } from '../services/textToSpeechService.svelte';
 
 class TextToSpeechManager {
+  private statusTimeout: ReturnType<typeof setTimeout> | null = null;
+
   private state = $state<TtsState>({
     isGenerating: false,
     ttsStatus: 'idle',
@@ -113,6 +115,11 @@ class TextToSpeechManager {
             uint8Array[i] = binaryString.charCodeAt(i);
           }
           const blob = new Blob([uint8Array], { type: audioType });
+          // Revoke old blob URL if it still exists before creating a new one
+          if (this.audioState.audioUrl) {
+            URL.revokeObjectURL(this.audioState.audioUrl);
+            this.audioState.audioUrl = null;
+          }
           const audioUrl = URL.createObjectURL(blob);
           this.audioState.audioUrl = audioUrl;
           this.setupAudioElement(audioUrl);
@@ -126,29 +133,35 @@ class TextToSpeechManager {
         }
         
         // Reset status after 3 seconds
-        setTimeout(() => {
+        if (this.statusTimeout) { clearTimeout(this.statusTimeout); }
+        this.statusTimeout = setTimeout(() => {
           this.state.ttsStatus = 'idle';
+          this.statusTimeout = null;
         }, 3000);
       } else {
         console.error('❌ TTS generation failed:', response.error);
         this.state.ttsStatus = 'error';
         this.state.ttsError = response.error;
-        
+
         // Reset status after 5 seconds
-        setTimeout(() => {
+        if (this.statusTimeout) { clearTimeout(this.statusTimeout); }
+        this.statusTimeout = setTimeout(() => {
           this.state.ttsStatus = 'idle';
           this.state.ttsError = null;
+          this.statusTimeout = null;
         }, 5000);
       }
     } catch (error) {
       console.error('❌ TTS generation error:', error);
       this.state.ttsStatus = 'error';
       this.state.ttsError = error instanceof Error ? error.message : 'Unknown error';
-      
+
       // Reset status after 5 seconds
-      setTimeout(() => {
+      if (this.statusTimeout) { clearTimeout(this.statusTimeout); }
+      this.statusTimeout = setTimeout(() => {
         this.state.ttsStatus = 'idle';
         this.state.ttsError = null;
+        this.statusTimeout = null;
       }, 5000);
     } finally {
       this.state.isGenerating = false;
@@ -269,6 +282,7 @@ class TextToSpeechManager {
 
   // Reset TTS state
   reset() {
+    if (this.statusTimeout) { clearTimeout(this.statusTimeout); this.statusTimeout = null; }
     this.cleanupAudio();
     this.state.isGenerating = false;
     this.state.ttsStatus = 'idle';

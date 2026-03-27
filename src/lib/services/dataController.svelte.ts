@@ -370,7 +370,10 @@ export class DataController {
     if (this.context === 'content' && typeof chrome !== 'undefined' && chrome.runtime) {
       try {
         const message: DataMessage = { action: action as any, url, data, timestamp: Date.now() };
-        const response = await chrome.runtime.sendMessage(message);
+        const response = await chrome.runtime.sendMessage(message).catch((err: unknown) => {
+          console.warn('sendMessage promise rejected (receiving end may have disconnected):', err);
+          return null;
+        });
         return response;
       } catch (error) {
         console.error('Failed to send message to background:', error);

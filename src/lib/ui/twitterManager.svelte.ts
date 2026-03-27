@@ -16,6 +16,8 @@ interface TwitterState {
 }
 
 class TwitterManager {
+  private statusTimeout: ReturnType<typeof setTimeout> | null = null;
+
   private state = $state<TwitterState>({
     isExtracting: false,
     extractionStatus: 'idle',
@@ -118,32 +120,38 @@ class TwitterManager {
         }
         
         // Reset status after 3 seconds
-        setTimeout(() => {
+        if (this.statusTimeout) { clearTimeout(this.statusTimeout); }
+        this.statusTimeout = setTimeout(() => {
           this.state.extractionStatus = 'idle';
           this.state.extractionProgress = null;
+          this.statusTimeout = null;
         }, 3000);
       } else {
         console.error('❌ Twitter full thread extraction failed:', response.error);
         this.state.extractionStatus = 'error';
         this.state.extractionError = response.error;
-        
+
         // Reset status after 5 seconds
-        setTimeout(() => {
+        if (this.statusTimeout) { clearTimeout(this.statusTimeout); }
+        this.statusTimeout = setTimeout(() => {
           this.state.extractionStatus = 'idle';
           this.state.extractionError = null;
           this.state.extractionProgress = null;
+          this.statusTimeout = null;
         }, 5000);
       }
     } catch (error) {
       console.error('❌ Twitter full thread extraction error:', error);
       this.state.extractionStatus = 'error';
       this.state.extractionError = error instanceof Error ? error.message : 'Unknown error';
-      
+
       // Reset status after 5 seconds
-      setTimeout(() => {
+      if (this.statusTimeout) { clearTimeout(this.statusTimeout); }
+      this.statusTimeout = setTimeout(() => {
         this.state.extractionStatus = 'idle';
         this.state.extractionError = null;
         this.state.extractionProgress = null;
+        this.statusTimeout = null;
       }, 5000);
     } finally {
       this.state.isExtracting = false;
@@ -152,6 +160,7 @@ class TwitterManager {
 
   // Reset all state
   reset() {
+    if (this.statusTimeout) { clearTimeout(this.statusTimeout); this.statusTimeout = null; }
     this.state.isExtracting = false;
     this.state.extractionStatus = 'idle';
     this.state.extractionError = null;
@@ -161,7 +170,7 @@ class TwitterManager {
   // Check if extraction is available for the given URL
   canExtract(url: string | null): boolean {
     if (!url) return false;
-    
+
     try {
       const urlObj = new URL(url);
       const hostname = urlObj.hostname.toLowerCase();

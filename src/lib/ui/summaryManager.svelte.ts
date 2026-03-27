@@ -2,6 +2,8 @@ import type { SummaryStatus } from '../../types/summaryStatus';
 import type { SummaryState } from '../../types/summaryState';
 
 class SummaryManager {
+  private statusTimeout: ReturnType<typeof setTimeout> | null = null;
+
   private state = $state<SummaryState>({
     isGenerating: false,
     summaryStatus: 'idle',
@@ -27,9 +29,12 @@ class SummaryManager {
       return;
     }
 
+    // Reset any previous error state so a retry starts clean
+    this.state.summaryError = null;
+    this.state.summaryStatus = 'idle';
+
     this.state.isGenerating = true;
     this.state.summaryStatus = 'generating';
-    this.state.summaryError = null;
 
     try {
       console.log('🤖 Starting summary generation for:', url);
@@ -52,8 +57,10 @@ class SummaryManager {
         }
         
         // Reset status after 3 seconds
-        setTimeout(() => {
+        if (this.statusTimeout) { clearTimeout(this.statusTimeout); }
+        this.statusTimeout = setTimeout(() => {
           this.state.summaryStatus = 'idle';
+          this.statusTimeout = null;
         }, 3000);
       } else {
         console.error('❌ Summary generation failed:', response.error);
@@ -84,6 +91,7 @@ class SummaryManager {
 
   // Reset summary state
   reset() {
+    if (this.statusTimeout) { clearTimeout(this.statusTimeout); this.statusTimeout = null; }
     this.state.isGenerating = false;
     this.state.summaryStatus = 'idle';
     this.state.summaryError = null;

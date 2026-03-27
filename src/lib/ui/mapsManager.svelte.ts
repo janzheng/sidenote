@@ -1,6 +1,9 @@
 import type { MapsData, MapsControlCommand } from '../../types/mapsData';
 
 class MapsManager {
+  private extractionErrorTimeout: ReturnType<typeof setTimeout> | null = null;
+  private controlErrorTimeout: ReturnType<typeof setTimeout> | null = null;
+
   private state = $state({
     isExtracting: false,
     isControlling: false,
@@ -57,17 +60,21 @@ class MapsManager {
         this.state.extractionError = response.error;
         
         // Reset error after 5 seconds
-        setTimeout(() => {
+        if (this.extractionErrorTimeout) { clearTimeout(this.extractionErrorTimeout); }
+        this.extractionErrorTimeout = setTimeout(() => {
           this.state.extractionError = null;
+          this.extractionErrorTimeout = null;
         }, 5000);
       }
     } catch (error) {
       console.error('❌ Maps data extraction error:', error);
       this.state.extractionError = error instanceof Error ? error.message : 'Unknown error';
-      
+
       // Reset error after 5 seconds
-      setTimeout(() => {
+      if (this.extractionErrorTimeout) { clearTimeout(this.extractionErrorTimeout); }
+      this.extractionErrorTimeout = setTimeout(() => {
         this.state.extractionError = null;
+        this.extractionErrorTimeout = null;
       }, 5000);
     } finally {
       this.state.isExtracting = false;
@@ -107,17 +114,21 @@ class MapsManager {
         this.state.controlError = response.error;
         
         // Reset error after 5 seconds
-        setTimeout(() => {
+        if (this.controlErrorTimeout) { clearTimeout(this.controlErrorTimeout); }
+        this.controlErrorTimeout = setTimeout(() => {
           this.state.controlError = null;
+          this.controlErrorTimeout = null;
         }, 5000);
       }
     } catch (error) {
       console.error('❌ Maps control error:', error);
       this.state.controlError = error instanceof Error ? error.message : 'Unknown error';
-      
+
       // Reset error after 5 seconds
-      setTimeout(() => {
+      if (this.controlErrorTimeout) { clearTimeout(this.controlErrorTimeout); }
+      this.controlErrorTimeout = setTimeout(() => {
         this.state.controlError = null;
+        this.controlErrorTimeout = null;
       }, 5000);
     } finally {
       this.state.isControlling = false;
@@ -169,6 +180,8 @@ class MapsManager {
 
   // Reset Maps manager state
   reset() {
+    if (this.extractionErrorTimeout) { clearTimeout(this.extractionErrorTimeout); this.extractionErrorTimeout = null; }
+    if (this.controlErrorTimeout) { clearTimeout(this.controlErrorTimeout); this.controlErrorTimeout = null; }
     this.state.isExtracting = false;
     this.state.isControlling = false;
     this.state.extractionError = null;

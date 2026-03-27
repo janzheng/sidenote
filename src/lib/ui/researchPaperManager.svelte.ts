@@ -8,6 +8,8 @@ interface ResearchPaperState {
 }
 
 class ResearchPaperManager {
+  private statusTimeout: ReturnType<typeof setTimeout> | null = null;
+
   private state = $state<ResearchPaperState>({
     isExtracting: false,
     extractionStatus: 'idle',
@@ -66,9 +68,11 @@ class ResearchPaperManager {
         }
         
         // Reset status after 3 seconds
-        setTimeout(() => {
+        if (this.statusTimeout) { clearTimeout(this.statusTimeout); }
+        this.statusTimeout = setTimeout(() => {
           this.state.extractionStatus = 'idle';
           this.state.progress = '';
+          this.statusTimeout = null;
         }, 3000);
       } else {
         console.error('❌ Research paper extraction failed:', response.error);
@@ -120,9 +124,11 @@ class ResearchPaperManager {
         }
         
         // Reset status after 3 seconds
-        setTimeout(() => {
+        if (this.statusTimeout) { clearTimeout(this.statusTimeout); }
+        this.statusTimeout = setTimeout(() => {
           this.state.extractionStatus = 'idle';
           this.state.progress = '';
+          this.statusTimeout = null;
         }, 3000);
       } else {
         console.error('❌ Quick research paper extraction failed:', response.error);
@@ -194,6 +200,7 @@ class ResearchPaperManager {
 
   // Reset research paper state
   reset() {
+    if (this.statusTimeout) { clearTimeout(this.statusTimeout); this.statusTimeout = null; }
     this.state.isExtracting = false;
     this.state.extractionStatus = 'idle';
     this.state.extractionError = null;

@@ -12,9 +12,13 @@ function waitForElement(selector: string, timeout = 5000): Promise<Element | nul
       return;
     }
 
+    let found = false;
+
     const observer = new MutationObserver((mutations, obs) => {
+      if (found) return;
       const element = document.querySelector(selector);
       if (element) {
+        found = true;
         obs.disconnect();
         resolve(element);
       }
@@ -27,6 +31,8 @@ function waitForElement(selector: string, timeout = 5000): Promise<Element | nul
 
     // Timeout fallback
     setTimeout(() => {
+      if (found) return;
+      found = true;
       observer.disconnect();
       resolve(null);
     }, timeout);
